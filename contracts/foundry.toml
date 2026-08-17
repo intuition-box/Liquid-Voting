@@ -22,3 +22,8 @@ remappings = [
 # via INTUITION_TESTNET_RPC; scripts can pass --rpc-url intuition_testnet.
 [rpc_endpoints]
 intuition_testnet = "https://testnet.rpc.intuition.systems/http"
+
+# The enforcer's expiry check is inherently timestamp-based (same as the framework's
+# TimestampEnforcer); sub-minute validator drift is immaterial for governance expiry.
+[lint]
+exclude_lints = ["block-timestamp"]

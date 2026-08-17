@@ -118,29 +118,29 @@ contract GraphDomainCaveatEnforcerTest is Test {
         );
     }
 
-    function _hook(bytes memory terms, bytes32[] memory path, bytes memory execData) internal {
+    function _hook(bytes memory terms, bytes32[] memory path, bytes memory execData) internal view {
         enforcer.beforeHook(terms, abi.encode(path), singleMode, execData, bytes32(0), delegator, redeemer);
     }
 
     ////////////////////////////// Happy paths //////////////////////////////
 
     /// §6 test 1 — exact match: zero hops, passes trivially.
-    function test_ExactMatch_ZeroHops_Passes() public {
+    function test_ExactMatch_ZeroHops_Passes() public view {
         _hook(_defaultTerms(design), _path(design), _propose(design));
     }
 
     /// §6 test 1 boundary — maxDepth 0 still allows the zero-hop exact match.
-    function test_ExactMatch_WithMaxDepthZero_Passes() public {
+    function test_ExactMatch_WithMaxDepthZero_Passes() public view {
         _hook(_terms(design, 0, 0, address(0)), _path(design), _propose(design));
     }
 
     /// §6 test 2 — 1-hop: branding → design.
-    function test_OneHop_BrandingUnderDesign_Passes() public {
+    function test_OneHop_BrandingUnderDesign_Passes() public view {
         _hook(_defaultTerms(design), _path(branding, design), _propose(branding));
     }
 
     /// §6 test 3 — 2-hop: logo → branding → design.
-    function test_TwoHop_LogoUnderDesign_Passes() public {
+    function test_TwoHop_LogoUnderDesign_Passes() public view {
         _hook(_defaultTerms(design), _path(logo, branding, design), _propose(logo));
     }
 
@@ -342,7 +342,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
 
     /// Every suffix of the seeded chain logo → branding → design is a valid witness
     /// for its own head domain.
-    function testFuzz_ValidSuffixPathsPass(uint8 startSeed) public {
+    function testFuzz_ValidSuffixPathsPass(uint8 startSeed) public view {
         bytes32[3] memory chain = [logo, branding, design];
         uint256 start = bound(startSeed, 0, 2);
 
