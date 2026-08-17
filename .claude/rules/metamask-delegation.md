@@ -25,7 +25,7 @@ contract side.
 A 3-level delegation chain (`voter → delegate → executor`) where each delegation carries
 a **custom caveat**: the `GraphDomainCaveatEnforcer`, which scopes the delegation to a
 governance *domain* and resolves domain membership by verifying a redeemer-supplied path
-witness against the Intuition MultiVault (see ADRs 0003–0007 for the decided
+witness against the Intuition MultiVault (see ADRs 0003–0007 and 0009 for the decided
 architecture — do not relitigate them, but flag loudly if implementation proves one
 wrong).
 
