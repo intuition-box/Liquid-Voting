@@ -17,7 +17,7 @@ The graph is the authority; stake is the trust signal.
 | Phase | State |
 |---|---|
 | 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | ✅ done — [gate report](docs/phase0/gate-report.md) |
-| 1 — Enforcer (implement, gas table, review, deploy + verify) | 🟡 built & reviewed — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean; deployment awaits the funded deployer key |
+| 1 — Enforcer (implement, gas table, review, deploy + verify) | ✅ done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
 | 2 — Graph seed (attestor deposits + term_id manifest) | pending |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | pending |
 | 4 — Frontend (5 panels, incl. live graph extension) | pending |
