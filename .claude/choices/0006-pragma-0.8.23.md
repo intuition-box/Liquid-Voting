@@ -15,8 +15,15 @@ caret range — in `ICaveatEnforcer.sol` and `Types.sol`, which the enforcer mus
 
 `GraphDomainCaveatEnforcer` (and any contract importing framework types) is
 `pragma solidity 0.8.23`. The rule file carries the exception with a pointer to this
-ADR. Contracts that do *not* import framework code (`MockGovernor`, `MockMultiVault`)
-follow the standard `^0.8.24` rule.
+ADR.
+
+**Implementation note (2026-08-17, from the Phase 1 security review, finding I-2):**
+contracts that do not import framework code (`MockGovernor`, `IMultiVault`,
+`MockMultiVault`, the test files, `Deploy.s.sol`) use `pragma solidity >=0.8.23 <0.9.0`
+rather than `^0.8.24`. They share compilation units with the exact-pinned enforcer
+(tests and scripts import both), and solc must find one version satisfying every
+pragma in a unit — `^0.8.24` would make that impossible. The range keeps them
+compilable standalone on newer compilers while co-compiling at 0.8.23 here.
 
 ## Alternatives considered
 

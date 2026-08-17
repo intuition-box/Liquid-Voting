@@ -7,7 +7,9 @@ Load with every task that touches `contracts/`. Compose with the global `ethskil
 - Pragma: `^0.8.24` exactly. Newer compiler versions need an ADR before bumping.
   **Exception (ADR 0006):** the `GraphDomainCaveatEnforcer` and anything importing the
   Delegation Framework's `ICaveatEnforcer` / `Types.sol` are pinned `0.8.23` — the
-  framework pins that version and `^0.8.24` cannot satisfy it.
+  framework pins that version and `^0.8.24` cannot satisfy it. Contracts that share a
+  compilation unit with the enforcer (mocks, tests, scripts) use `>=0.8.23 <0.9.0`
+  (see the implementation note in ADR 0006).
 - Foundry only. No Hardhat, no Truffle.
 - `foundry.toml` must enable: `optimizer = true`, `optimizer_runs = 200` (default), `via_ir = false` (unless gas requires it — record the decision as an ADR).
 
