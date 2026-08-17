@@ -50,9 +50,22 @@
     }
   },
   "attestation": {
-    "note": "Phase 2 fills this: org-attestor deposits on every triple (ADR 0004).",
-    "orgAttestor": null,
-    "curveId": null,
-    "stakes": {}
+    "note": "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
+    "orgAttestor": "0x8e1e5782425C7F06933C7b50ebF89a29f6621735",
+    "curveId": "1",
+    "stakes": {
+      "branding->design": {
+        "shares": "9900000000000000",
+        "txHash": "0x8e971a56446c7b0ac32b5770ccc49f955d6020dcd7c40c31246ff183416917ee"
+      },
+      "UX->design": {
+        "shares": "9900000000000000",
+        "txHash": "0x7d4184b6897b5e322154d4389ac9d3345e1be2de23cf626803c00a2ca5ec72c8"
+      },
+      "logo->branding": {
+        "shares": "9900000000000000",
+        "txHash": "0x88d153422b560b7c18c60678fd8d86d16baf94486b46f778d95eddc2811f37b2"
+      }
+    }
   }
 }
