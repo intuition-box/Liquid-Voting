@@ -46,15 +46,15 @@ the same script seeds a clean chain (mainnet) from scratch.
 
 | ADR | Decision |
 |---|---|
-| [0001](../../.claude/choices/0001-rules-adapted-from-hourglass.md) | Rules copied from Hourglass, adapted for a custom-enforcer repo |
-| [0002](../../.claude/choices/0002-delegation-framework-v130-on-13579.md) | Framework v1.3.0 pinned at canonical addresses (0.a evidence) |
-| [0003](../../.claude/choices/0003-path-witness-in-args.md) | ADR-A — path witness in `_args`, verified hop-by-hop on-chain |
-| [0004](../../.claude/choices/0004-attestation-is-position.md) | ADR-B — attestation is stake position (`> 0`), attestor as governance dial |
-| [0005](../../.claude/choices/0005-getvaulttype-not-istriple.md) | ADR-C — `getVaultType == 1`, never `isTriple` |
-| [0006](../../.claude/choices/0006-pragma-0.8.23.md) | ADR-D — enforcer pinned at pragma 0.8.23 |
-| [0007](../../.claude/choices/0007-narrowing-is-emergent.md) | ADR-E — narrowing is emergent, proven by test, not implemented |
-| [0008](../../.claude/choices/0008-vocabulary-reuse.md) | Vocabulary: create-if-absent, raw-string atoms (Proposed — one item is the team's call) |
-| [0009](../../.claude/choices/0009-expiry-in-terms-not-timestamp-enforcer.md) | Expiry in our terms; TimestampEnforcer composition noted for Mission 11 |
+| [0001](../adr/0001-rules-adapted-from-hourglass.md) | Rules copied from Hourglass, adapted for a custom-enforcer repo |
+| [0002](../adr/0002-delegation-framework-v130-on-13579.md) | Framework v1.3.0 pinned at canonical addresses (0.a evidence) |
+| [0003](../adr/0003-path-witness-in-args.md) | ADR-A — path witness in `_args`, verified hop-by-hop on-chain |
+| [0004](../adr/0004-attestation-is-position.md) | ADR-B — attestation is stake position (`> 0`), attestor as governance dial |
+| [0005](../adr/0005-getvaulttype-not-istriple.md) | ADR-C — `getVaultType == 1`, never `isTriple` |
+| [0006](../adr/0006-pragma-0.8.23.md) | ADR-D — enforcer pinned at pragma 0.8.23 |
+| [0007](../adr/0007-narrowing-is-emergent.md) | ADR-E — narrowing is emergent, proven by test, not implemented |
+| [0008](../adr/0008-vocabulary-reuse.md) | Vocabulary: create-if-absent, raw-string atoms (Proposed — one item is the team's call) |
+| [0009](../adr/0009-expiry-in-terms-not-timestamp-enforcer.md) | Expiry in our terms; TimestampEnforcer composition noted for Mission 11 |
 
 ## 0.d — Test suite state (red by design)
 

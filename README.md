@@ -21,18 +21,19 @@ The graph is the authority; stake is the trust signal.
 | 2 — Graph seed (attestor deposits + term_id manifest) | ✅ done — idempotent [seeder](scripts/seed.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | ✅ done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | ✅ done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
-| 5 — Writeup | pending |
+| 5 — Writeup | ✅ done — [WRITEUP.md](WRITEUP.md) |
 | 6 — Presentation (demo script, slides, rehearsal) | pending |
 
 ## Layout
 
 ```
-CLAUDE.md              mission, acceptance criteria, network pinning, routing table
-.claude/rules/         house rules (workflow, solidity, security, delegation, ui, code)
-.claude/choices/       ADRs 0001–0009 — every architectural decision
-.agents/skills/        Intuition skill — source of truth for graph reads/writes
+WRITEUP.md             design decisions, gas, limitations, Mission 11 notes
+docs/adr/              ADRs 0001–0011 — every architectural decision, with rejected alternatives
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
+docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
 contracts/             Foundry project: enforcer, mock governor, unit + fork suites
+scripts/               CLI: seed, account setup, delegation signing, acceptance runner, verify
+src/                   frontend — lib/ services, hooks/, components/ (five panels)
 ```
 
 ## Demo quickstart
