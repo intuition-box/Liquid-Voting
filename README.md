@@ -22,12 +22,13 @@ The graph is the authority; stake is the trust signal.
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | ✅ done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | ✅ done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
 | 5 — Writeup | ✅ done — [WRITEUP.md](WRITEUP.md) |
-| 6 — Presentation (demo script, slides, rehearsal) | pending |
+| 6 — Presentation (demo script, slides, rehearsal) | ✅ done — [DEMO.md](DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
 
 ## Layout
 
 ```
 WRITEUP.md             design decisions, gas, limitations, Mission 11 notes
+DEMO.md                ordered demo script with expected output and recovery moves
 docs/adr/              ADRs 0001–0011 — every architectural decision, with rejected alternatives
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow

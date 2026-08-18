@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "verify": "bun --env-file=contracts/.env scripts/verify-demo.ts"
+    "verify": "bun --env-file=contracts/.env scripts/verify-demo.ts",
+    "rehearse": "bun --env-file=contracts/.env scripts/rehearse-extend.ts"
   },
   "dependencies": {
     "@metamask/smart-accounts-kit": "0.3.0",
