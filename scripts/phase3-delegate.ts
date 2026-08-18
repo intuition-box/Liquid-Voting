@@ -14,7 +14,7 @@
  *
  * Run: bun run phase3:delegate
  */
-import { concatHex, createPublicClient, encodeAbiParameters, http, keccak256 } from "viem";
+import { concatHex, createPublicClient, encodeAbiParameters, http, keccak256, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY, type Delegation } from "@metamask/smart-accounts-kit";
 import { getDelegationHashOffchain } from "@metamask/smart-accounts-kit/utils";
@@ -131,6 +131,10 @@ async function main(): Promise<void> {
     return offchainHash;
   }
 
+  // Time-based salt: `disableDelegation` blacklists the delegation HASH forever, so a
+  // fresh salt on each signing run gives the demo a reset path after the revocation act.
+  const salt = toHex(BigInt(Date.now()));
+
   // Level 1: voter -> delegate, rooted at `design`.
   const rootDelegation: Delegation = {
     delegate: delegateSA.address,
@@ -143,7 +147,7 @@ async function main(): Promise<void> {
         args: "0x",
       },
     ],
-    salt: "0x0",
+    salt,
     signature: "0x",
   };
   rootDelegation.signature = await voterSA.signDelegation({ delegation: rootDelegation });
@@ -162,7 +166,7 @@ async function main(): Promise<void> {
         args: "0x",
       },
     ],
-    salt: "0x0",
+    salt,
     signature: "0x",
   };
   leafDelegation.signature = await delegateSA.signDelegation({ delegation: leafDelegation });

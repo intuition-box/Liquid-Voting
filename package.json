@@ -6,7 +6,8 @@
     "seed": "bun --env-file=contracts/.env scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "phase3:setup": "bun --env-file=contracts/.env scripts/phase3-setup.ts",
-    "phase3:delegate": "bun --env-file=contracts/.env scripts/phase3-delegate.ts"
+    "phase3:delegate": "bun --env-file=contracts/.env scripts/phase3-delegate.ts",
+    "phase3:run": "bun --env-file=contracts/.env scripts/phase3-run.ts"
   },
   "dependencies": {
     "@metamask/smart-accounts-kit": "0.3.0",
