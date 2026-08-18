@@ -7,14 +7,25 @@
     "typecheck": "tsc --noEmit",
     "phase3:setup": "bun --env-file=contracts/.env scripts/phase3-setup.ts",
     "phase3:delegate": "bun --env-file=contracts/.env scripts/phase3-delegate.ts",
-    "phase3:run": "bun --env-file=contracts/.env scripts/phase3-run.ts"
+    "phase3:run": "bun --env-file=contracts/.env scripts/phase3-run.ts",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "verify": "bun --env-file=contracts/.env scripts/verify-demo.ts",
+    "rehearse": "bun --env-file=contracts/.env scripts/rehearse-extend.ts"
   },
   "dependencies": {
     "@metamask/smart-accounts-kit": "0.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
-    "typescript": "^5.5.0"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^5.5.0",
+    "vite": "^8.2.1"
   }
 }

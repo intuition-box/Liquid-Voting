@@ -15,7 +15,7 @@ import { createPublicClient, createWalletClient, formatEther, http, parseEther, 
 import { privateKeyToAccount } from "viem/accounts";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
-import { multiVaultAbi } from "./lib/multivault";
+import { multiVaultAbi } from "../src/lib/abis";
 
 const STAKE_PER_TRIPLE = parseEther("0.01");
 

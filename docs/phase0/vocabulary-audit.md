@@ -1,8 +1,8 @@
 # Intuition Testnet Vocabulary Audit — sub-domain predicate + domain atoms
 
 **Endpoint:** `https://testnet.intuition.sh/v1/graphql` · **Date:** 2026-08-17 · **Mode:** read-only GraphQL (no writes, no chain tx)
-**Method:** per Hourglass `.claude/choices/0003-intuition-testnet-predicate-reuse.md` — resolve by `term_id`, never by label; prefer reusing established predicates over minting near-synonyms. Query shapes per `.agents/skills/intuition/reference/graphql-queries.md`.
-**Decision derived from this audit:** ADR `.claude/choices/0008-vocabulary-reuse.md`.
+**Method:** per the Hourglass project's ADR 0003 (predicate reuse) — resolve by `term_id`, never by label; prefer reusing established predicates over minting near-synonyms. Query shapes per the vendored Intuition skill reference.
+**Decision derived from this audit:** [ADR 0008](../adr/0008-vocabulary-reuse.md).
 
 **Headline finding:** An atom with the **exact label `is a sub-domain of` already exists** (`0x9c2e2f…`), and its 3 existing triples are **exactly** the intended child-domain → parent-domain semantics (`branding→design`, `UX→design`, `logo→branding`). Four of the five domain words already exist as atoms created in the same 2026-06-23 batch by the same wallet (`0x6d37Ee84c3A7D38f87b9C5DAC761951a4741fD03`) — this looks like a **prior run of this same project's vocabulary**. All five domain words exist as atoms in some form.
 

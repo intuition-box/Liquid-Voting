@@ -1,0 +1,195 @@
+/** Shared ABI fragments — the single source for both the CLI scripts and the frontend. */
+
+export const multiVaultAbi = [
+  { type: "function", name: "calculateAtomId", stateMutability: "pure", inputs: [{ name: "data", type: "bytes" }], outputs: [{ type: "bytes32" }] },
+  {
+    type: "function",
+    name: "calculateTripleId",
+    stateMutability: "pure",
+    inputs: [
+      { name: "subjectId", type: "bytes32" },
+      { name: "predicateId", type: "bytes32" },
+      { name: "objectId", type: "bytes32" },
+    ],
+    outputs: [{ type: "bytes32" }],
+  },
+  { type: "function", name: "getTriple", stateMutability: "view", inputs: [{ name: "tripleId", type: "bytes32" }], outputs: [{ type: "bytes32" }, { type: "bytes32" }, { type: "bytes32" }] },
+  { type: "function", name: "getCounterIdFromTripleId", stateMutability: "pure", inputs: [{ name: "tripleId", type: "bytes32" }], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "isTermCreated", stateMutability: "view", inputs: [{ name: "termId", type: "bytes32" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "isTriple", stateMutability: "view", inputs: [{ name: "termId", type: "bytes32" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "getVaultType", stateMutability: "view", inputs: [{ name: "termId", type: "bytes32" }], outputs: [{ type: "uint8" }] },
+  {
+    type: "function",
+    name: "getShares",
+    stateMutability: "view",
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "termId", type: "bytes32" },
+      { name: "curveId", type: "uint256" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  { type: "function", name: "getVault", stateMutability: "view", inputs: [{ name: "termId", type: "bytes32" }, { name: "curveId", type: "uint256" }], outputs: [{ type: "uint256" }, { type: "uint256" }] },
+  { type: "function", name: "getBondingCurveConfig", stateMutability: "view", inputs: [], outputs: [{ type: "address" }, { type: "uint256" }] },
+  { type: "function", name: "getAtomCost", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "getTripleCost", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  {
+    type: "function",
+    name: "deposit",
+    stateMutability: "payable",
+    inputs: [
+      { name: "receiver", type: "address" },
+      { name: "termId", type: "bytes32" },
+      { name: "curveId", type: "uint256" },
+      { name: "minShares", type: "uint256" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  { type: "function", name: "createAtoms", stateMutability: "payable", inputs: [{ name: "atomDatas", type: "bytes[]" }, { name: "assets", type: "uint256[]" }], outputs: [{ type: "bytes32[]" }] },
+  {
+    type: "function",
+    name: "createTriples",
+    stateMutability: "payable",
+    inputs: [
+      { name: "subjectIds", type: "bytes32[]" },
+      { name: "predicateIds", type: "bytes32[]" },
+      { name: "objectIds", type: "bytes32[]" },
+      { name: "assets", type: "uint256[]" },
+    ],
+    outputs: [{ type: "bytes32[]" }],
+  },
+] as const;
+
+const delegationTuple = {
+  type: "tuple",
+  components: [
+    { name: "delegate", type: "address" },
+    { name: "delegator", type: "address" },
+    { name: "authority", type: "bytes32" },
+    {
+      name: "caveats",
+      type: "tuple[]",
+      components: [
+        { name: "enforcer", type: "address" },
+        { name: "terms", type: "bytes" },
+        { name: "args", type: "bytes" },
+      ],
+    },
+    { name: "salt", type: "uint256" },
+    { name: "signature", type: "bytes" },
+  ],
+} as const;
+
+export const delegationManagerAbi = [
+  {
+    type: "function",
+    name: "redeemDelegations",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_permissionContexts", type: "bytes[]" },
+      { name: "_modes", type: "bytes32[]" },
+      { name: "_executionCallDatas", type: "bytes[]" },
+    ],
+    outputs: [],
+  },
+  { type: "function", name: "disableDelegation", stateMutability: "nonpayable", inputs: [{ ...delegationTuple, name: "_delegation" }], outputs: [] },
+  { type: "function", name: "getDelegationHash", stateMutability: "pure", inputs: [{ ...delegationTuple, name: "_input" }], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "getDomainHash", stateMutability: "view", inputs: [], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "disabledDelegations", stateMutability: "view", inputs: [{ name: "", type: "bytes32" }], outputs: [{ type: "bool" }] },
+] as const;
+
+export const governorAbi = [
+  { type: "function", name: "proposalCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  {
+    type: "function",
+    name: "propose",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "domainId", type: "bytes32" }, { name: "description", type: "string" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "getProposal",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "domainId", type: "bytes32" },
+          { name: "proposer", type: "address" },
+          { name: "description", type: "string" },
+        ],
+      },
+    ],
+  },
+] as const;
+
+/** Every custom error the enforcer and the framework can surface, for decoding reverts. */
+export const revertAbi = [
+  { type: "error", name: "NotATriple", inputs: [{ name: "tripleId", type: "bytes32" }] },
+  { type: "error", name: "NotAttested", inputs: [{ name: "tripleId", type: "bytes32" }, { name: "attestor", type: "address" }] },
+  { type: "error", name: "PathTooLong", inputs: [{ name: "hops", type: "uint256" }, { name: "maxDepth", type: "uint8" }] },
+  { type: "error", name: "PathStartMismatch", inputs: [{ name: "pathStart", type: "bytes32" }, { name: "proposalDomain", type: "bytes32" }] },
+  { type: "error", name: "PathEndMismatch", inputs: [{ name: "pathEnd", type: "bytes32" }, { name: "rootDomainId", type: "bytes32" }] },
+  { type: "error", name: "DelegationExpired", inputs: [{ name: "expiry", type: "uint64" }, { name: "currentTimestamp", type: "uint256" }] },
+  { type: "error", name: "EmptyPath", inputs: [] },
+  { type: "error", name: "InvalidTarget", inputs: [{ name: "actual", type: "address" }, { name: "expected", type: "address" }] },
+  { type: "error", name: "InvalidSelector", inputs: [{ name: "actual", type: "bytes4" }, { name: "expected", type: "bytes4" }] },
+  { type: "error", name: "NotSingleExecutionMode", inputs: [{ name: "mode", type: "bytes32" }] },
+  { type: "error", name: "CannotUseADisabledDelegation", inputs: [] },
+  { type: "error", name: "InvalidERC1271Signature", inputs: [] },
+  { type: "error", name: "InvalidEOASignature", inputs: [] },
+  { type: "error", name: "InvalidDelegate", inputs: [] },
+  { type: "error", name: "InvalidAuthority", inputs: [] },
+] as const;
+
+export const entryPointAbi = [
+  {
+    type: "function",
+    name: "handleOps",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "ops",
+        type: "tuple[]",
+        components: [
+          { name: "sender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "initCode", type: "bytes" },
+          { name: "callData", type: "bytes" },
+          { name: "accountGasLimits", type: "bytes32" },
+          { name: "preVerificationGas", type: "uint256" },
+          { name: "gasFees", type: "bytes32" },
+          { name: "paymasterAndData", type: "bytes" },
+          { name: "signature", type: "bytes" },
+        ],
+      },
+      { name: "beneficiary", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "event",
+    name: "UserOperationEvent",
+    inputs: [
+      { name: "userOpHash", type: "bytes32", indexed: true },
+      { name: "sender", type: "address", indexed: true },
+      { name: "paymaster", type: "address", indexed: true },
+      { name: "nonce", type: "uint256", indexed: false },
+      { name: "success", type: "bool", indexed: false },
+      { name: "actualGasCost", type: "uint256", indexed: false },
+      { name: "actualGasUsed", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "UserOperationRevertReason",
+    inputs: [
+      { name: "userOpHash", type: "bytes32", indexed: true },
+      { name: "sender", type: "address", indexed: true },
+      { name: "nonce", type: "uint256", indexed: false },
+      { name: "revertReason", type: "bytes", indexed: false },
+    ],
+  },
+] as const;

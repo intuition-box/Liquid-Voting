@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
-import { toHybridAccount } from "./lib/kit";
+import { toHybridAccount } from "../src/lib/smart-accounts";
 
 const SA_GAS_TARGET = parseEther("0.02");
 
