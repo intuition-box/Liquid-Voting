@@ -8,8 +8,22 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
-    "types": ["@types/bun"],
-    "resolveJsonModule": true
+    "types": [
+      "@types/bun",
+      "vite/client"
+    ],
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
-  "include": ["scripts/**/*.ts", "src/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts"
+  ]
 }

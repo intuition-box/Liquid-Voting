@@ -20,7 +20,7 @@ The graph is the authority; stake is the trust signal.
 | 1 — Enforcer (implement, gas table, review, deploy + verify) | ✅ done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
 | 2 — Graph seed (attestor deposits + term_id manifest) | ✅ done — idempotent [seeder](scripts/seed.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | ✅ done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
-| 4 — Frontend (5 panels, incl. live graph extension) | pending |
+| 4 — Frontend (5 panels, incl. live graph extension) | ✅ done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
 | 5 — Writeup | pending |
 | 6 — Presentation (demo script, slides, rehearsal) | pending |
 
@@ -34,6 +34,27 @@ CLAUDE.md              mission, acceptance criteria, network pinning, routing ta
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
 contracts/             Foundry project: enforcer, mock governor, unit + fork suites
 ```
+
+## Demo quickstart
+
+```bash
+bun install
+bun run verify   # read-only: asserts every panel's behaviour against live chain state
+bun run dev      # http://localhost:5173
+```
+
+The frontend reads the same artefacts the scripts write (`manifest/13579.json`,
+`data/accounts.json`, `data/delegations.json`). On a fresh clone, create them first:
+
+```bash
+bun run seed            # attestor stakes on every graph edge (Phase 2)
+bun run phase3:setup    # deploy + fund the three HybridDeleGator accounts
+bun run phase3:delegate # sign the two delegations (design → narrowed to UX)
+bun run phase3:run      # optional: the six acceptance flows, end to end
+```
+
+Both the app and the CLI runner go through `src/lib`, so what the demo shows on screen
+is the code the acceptance runner proved on chain.
 
 ## Contracts quickstart
 
