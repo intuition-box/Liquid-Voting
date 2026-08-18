@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
-import { toHybridAccount, ensureEnvironment } from "./lib/kit";
+import { toHybridAccount, ensureEnvironment } from "../src/lib/smart-accounts";
 
 const EIP1271_MAGIC = "0x1626ba7e";
 const MAX_DEPTH = 3;
