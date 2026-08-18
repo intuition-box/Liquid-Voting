@@ -18,15 +18,24 @@ ends in a live presentation where every second of fumbling costs attention.
 
 ## Decision
 
-The frontend reads the same local artefacts the CLI scripts write — `manifest/13579.json`,
-`data/accounts.json`, `data/delegations.json` — and signs with those keys directly. The
-funded submitter key is injected by `vite.config.ts` from `contracts/.env`, **only when
-`command === "serve"`**: a production build receives an empty string, `canWrite()`
-returns false, and every write button disables itself with "read-only build — no
-submitter key". Reads work either way, so a deployed build is still a useful artefact.
+The frontend reads the same local artefacts the CLI scripts write and signs with those
+keys directly. **Every secret enters through one door**: the `define` block in
+`vite.config.ts`, populated only when `command === "serve"`.
 
-Keys never enter git: `data/` and `contracts/.env` are gitignored, and the built bundle
-carries no key.
+- `__DEMO_SUBMITTER_KEY__` — the funded EOA, from `contracts/.env`.
+- `__DEMO_OWNER_KEYS__` — the three account owners, from `data/accounts.json`.
+
+A production build receives an empty string and an empty object; `canWrite()` requires
+all four and turns false, so every write button disables itself with "read-only build".
+Reads work either way, so a deployed build is still a useful artefact.
+
+**`data/accounts.json` must never be imported from application code.** An earlier
+revision globbed `/data/*.json`, which inlined the three owner private keys into
+`dist/` — caught in review before anything was deployed. The glob is now narrowed to
+`/data/delegations.json` (signatures, no keys) and `/manifest/*.json`, and
+`bun run build` is followed by a bundle scan in the release check.
+
+Keys never enter git either: `data/`, `dist/` and `contracts/.env` are gitignored.
 
 ## Alternatives considered
 

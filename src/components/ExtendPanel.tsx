@@ -1,23 +1,18 @@
 import { useState } from "react";
-import { parseEther, stringToHex, type PublicClient } from "viem";
-
-import { multiVaultAbi } from "../lib/abis";
+import { parseEther, type PublicClient } from "viem";
 
 import type { DemoConfig, SessionDomain } from "../lib/demo-config";
-import {
-  extendGraph,
-  planProposalForcingWitness,
-  preflightProposal,
-  type ExtendResult,
-} from "../lib/demo-actions";
-import { readEdgeStates, type EdgeState } from "../lib/graph";
+import { extendGraph, previewExtension, type ExtendResult } from "../lib/demo-actions";
 import { Button, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 const STAKE = parseEther("0.005");
 
-interface Outcome {
+interface Message {
   verdict: Verdict;
-  message: string;
+  text: string;
+}
+
+interface Outcome extends Message {
   result?: ExtendResult;
 }
 
@@ -40,40 +35,19 @@ export function ExtendPanel({
   const [label, setLabel] = useState("motion design");
   const [parent, setParent] = useState("design");
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [before, setBefore] = useState<string | null>(null);
+  const [before, setBefore] = useState<Message | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /**
-   * Prove the domain is unauthorized *before* touching the graph — the contrast is the
-   * point. The atom id is deterministic from the label, so we can name the exact term
-   * the enforcer will look for, and show that it does not exist yet.
-   */
+  /** Prove the domain is unauthorized *before* touching the graph — the contrast is the point. */
   async function checkBefore(): Promise<void> {
     setBusy(true);
     setBefore(null);
+    setOutcome(null);
     try {
-      const atomId = await client.readContract({
-        address: config.multiVault,
-        abi: multiVaultAbi,
-        functionName: "calculateAtomId",
-        args: [stringToHex(label)],
-      });
-      const exists = await client.readContract({
-        address: config.multiVault,
-        abi: multiVaultAbi,
-        functionName: "isTermCreated",
-        args: [atomId],
-      });
-      if (!exists) {
-        setBefore(`“${label}” (${atomId.slice(0, 14)}…) does not exist on chain yet — no path can reach it, so no delegation authorizes it.`);
-        return;
-      }
-      const edges: EdgeState[] = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
-      const plan = planProposalForcingWitness(config, edges, "root", label, "before extension");
-      const result = await preflightProposal(client, config, plan);
-      setBefore(result.ok ? "it already passes — pick a domain that is not yet linked" : `rejected today: ${result.revert?.formatted ?? result.raw}`);
+      const preview = await previewExtension(client, config, label);
+      setBefore({ verdict: preview.status === "authorized" ? "pass" : "fail", text: preview.message });
     } catch (error) {
-      setBefore(error instanceof Error ? error.message : String(error));
+      setBefore({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
       setBusy(false);
     }
@@ -81,24 +55,29 @@ export function ExtendPanel({
 
   async function extend(): Promise<void> {
     setBusy(true);
+    setBefore(null);
     setOutcome(null);
     try {
       const result = await extendGraph(client, config, label, parent, STAKE);
       onRegistered({ label, termId: result.atomId, parent, tripleId: result.tripleId });
       setOutcome({
         verdict: "pass",
-        message: `“${label}” is now a sub-domain of “${parent}”, attested with ${result.shares} shares — it is in the graph and the picker above, with no redeploy and no new signature`,
+        text: `“${label}” is now a sub-domain of “${parent}”, attested with ${result.shares} shares — it is in the graph and the picker above, with no redeploy and no new signature`,
         result,
       });
     } catch (error) {
-      setOutcome({ verdict: "fail", message: error instanceof Error ? error.message : String(error) });
+      setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Panel index="05" title="Extend the graph, live" subtitle="a delegation signed earlier authorizes a domain that did not exist at signing time">
+    <Panel
+      index="05"
+      title="Extend the graph, live"
+      subtitle="a delegation signed earlier authorizes a domain that did not exist at signing time"
+    >
       <div className="form-row">
         <Field label="new domain">
           <input value={label} onChange={(event) => setLabel(event.target.value)} />
@@ -127,22 +106,30 @@ export function ExtendPanel({
         </Button>
       </div>
 
-      {before ? <Status verdict={before.startsWith("rejected") || before.includes("not even") ? "fail" : "idle"}>{before}</Status> : null}
+      {before ? <Status verdict={before.verdict}>{before.text}</Status> : null}
 
       {outcome ? (
         <>
-          <Status verdict={outcome.verdict}>{outcome.message}</Status>
+          <Status verdict={outcome.verdict}>{outcome.text}</Status>
           {outcome.result ? (
             <dl className="kv">
               <dt>atom</dt>
               <dd>
                 <Mono dim>{outcome.result.atomId}</Mono>{" "}
-                {outcome.result.atomTx ? <TxLink hash={outcome.result.atomTx} label="created" /> : <span className="muted">already existed</span>}
+                {outcome.result.atomTx ? (
+                  <TxLink hash={outcome.result.atomTx} label="created" />
+                ) : (
+                  <span className="muted">already existed</span>
+                )}
               </dd>
               <dt>triple</dt>
               <dd>
                 <Mono dim>{outcome.result.tripleId}</Mono>{" "}
-                {outcome.result.tripleTx ? <TxLink hash={outcome.result.tripleTx} label="created" /> : <span className="muted">already existed</span>}
+                {outcome.result.tripleTx ? (
+                  <TxLink hash={outcome.result.tripleTx} label="created" />
+                ) : (
+                  <span className="muted">already existed</span>
+                )}
               </dd>
               <dt>stake</dt>
               <dd>

@@ -66,6 +66,7 @@ export function encodePathWitness(path: Hex[]): Hex {
 /** ERC-7579 single execution: abi.encodePacked(target, value, callData). */
 function encodeSingleExecution(target: `0x${string}`, value: bigint, callData: Hex): Hex {
   const valueHex = value.toString(16).padStart(64, "0");
+  // Safe: concatenating 0x-prefixed hex strings yields valid hex.
   return `0x${target.slice(2)}${valueHex}${callData.slice(2)}` as Hex;
 }
 
@@ -143,6 +144,7 @@ function extractRevertData(error: unknown): Hex | null {
   while (current && typeof current === "object") {
     const candidate = current as { data?: unknown; cause?: unknown };
     if (typeof candidate.data === "string" && candidate.data.startsWith("0x") && candidate.data.length > 2) {
+      // Safe: guarded by the 0x-prefix and length checks in the condition above.
       return candidate.data as Hex;
     }
     current = candidate.cause;

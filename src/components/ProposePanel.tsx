@@ -106,6 +106,7 @@ export function ProposePanel({
           </select>
         </Field>
         <Field label="redeem through">
+          {/* Safe: the only option values rendered below are the two ChainLevel members. */}
           <select value={level} onChange={(event) => setLevel(event.target.value as ChainLevel)}>
             <option value="full">full chain — executor (scoped UX, then design)</option>
             <option value="root">root only — delegate (scoped design)</option>

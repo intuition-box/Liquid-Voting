@@ -16,13 +16,13 @@ The graph is the authority; stake is the trust signal.
 
 | Phase | State |
 |---|---|
-| 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | ✅ done — [gate report](docs/phase0/gate-report.md) |
-| 1 — Enforcer (implement, gas table, review, deploy + verify) | ✅ done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
-| 2 — Graph seed (attestor deposits + term_id manifest) | ✅ done — idempotent [seeder](scripts/seed.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
-| 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | ✅ done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
-| 4 — Frontend (5 panels, incl. live graph extension) | ✅ done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
-| 5 — Writeup | ✅ done — [WRITEUP.md](WRITEUP.md) |
-| 6 — Presentation (demo script, slides, rehearsal) | ✅ done — [DEMO.md](DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
+| 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | done — [gate report](docs/phase0/gate-report.md) |
+| 1 — Enforcer (implement, gas table, review, deploy + verify) | done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
+| 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
+| 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
+| 4 — Frontend (5 panels, incl. live graph extension) | done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
+| 5 — Writeup | done — [WRITEUP.md](WRITEUP.md) |
+| 6 — Presentation (demo script, slides, rehearsal) | done — [DEMO.md](DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
 
 ## Layout
 
@@ -67,10 +67,12 @@ forge test --no-match-path "test/fork/**"   # unit suite (offline, MockMultiVaul
 forge test --match-path "test/fork/*"       # fork suite (live Intuition testnet RPC)
 ```
 
-Network: Intuition testnet, chain id **13579** — addresses and endpoints are pinned in
-[CLAUDE.md](CLAUDE.md). MetaMask Delegation Framework **v1.3.0** is deployed there at
-its canonical CREATE2 addresses (verified — see ADR 0002).
+46 tests, all green: 25 unit (offline, against a `MockMultiVault` that reproduces two
+probed live behaviours), 9 fork tests driving the real MultiVault and DelegationManager,
+9 gas benchmarks, 3 governor. **100 %** line, statement, branch and function coverage on
+the enforcer.
 
-The test suite is currently **red by design**: Phase 0 wrote all fourteen bounty test
-cases against a skeleton enforcer that reverts `NotImplemented`; Phase 1 implements
-`beforeHook` until the suite is green.
+Network: Intuition testnet, chain id **13579** — every address is in
+[`manifest/13579.json`](manifest/13579.json), the single source of truth for scripts,
+tests and frontend alike. MetaMask Delegation Framework **v1.3.0** is deployed there at
+its canonical CREATE2 addresses (verified — see [ADR 0002](docs/adr/0002-delegation-framework-v130-on-13579.md)).

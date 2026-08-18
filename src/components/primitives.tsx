@@ -37,11 +37,11 @@ export function TxLink({ hash, label }: { hash: string; label?: string }) {
   );
 }
 
-export type Verdict = "pass" | "fail" | "idle" | "pending";
+export type Verdict = "pass" | "fail";
 
 export function Status({ verdict, children }: { verdict: Verdict; children: ReactNode }) {
   return (
-    <p className={`status status-${verdict}`}>
+    <p className={`status status-${verdict}`} role="status" aria-live="polite">
       <span className="dot" aria-hidden="true" />
       {children}
     </p>

@@ -22,7 +22,18 @@ export function ChainPanel({
     <Panel index="02" title="Delegation chain" subtitle={`signed ${new Date(config.delegations.signedAt).toLocaleString()} · off-chain, EIP-712`}>
       <ol className="levels">
         {levels.map((level) => {
-          const terms = decodeTerms(level.delegation.caveats[0]?.terms ?? "0x");
+          const caveat = level.delegation.caveats[0];
+          if (!caveat) {
+            return (
+              <li key={level.name} className="level">
+                <div className="level-head">
+                  <h3>{level.name}</h3>
+                  <span className="tag tag-bad">malformed — no caveat</span>
+                </div>
+              </li>
+            );
+          }
+          const terms = decodeTerms(caveat.terms);
           const scope = labelOf.get(terms.rootDomainId.toLowerCase()) ?? terms.rootDomainId.slice(0, 12);
           return (
             <li key={level.name} className={level.disabled ? "level level-dead" : "level"}>

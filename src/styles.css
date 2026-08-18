@@ -8,7 +8,7 @@
   --border-strong: #33373c;
   --text: #e9eaec;
   --muted: #878c93;
-  --dim: #5d636a;
+  --dim: #7a8088;
   --ok: #57c98a;
   --bad: #e0736f;
   --accent: #d8b26a;
@@ -211,8 +211,11 @@ code {
   border-bottom: none;
 }
 
+/* Dead rows must stay readable — they are what acceptance criteria 3 and 4 show.
+   Mute the surround (border, a left rule), never the text. */
 .edge-dead {
-  opacity: 0.5;
+  border-left: 2px solid var(--bad);
+  padding-left: 12px;
 }
 
 .edge-relation {
@@ -260,7 +263,8 @@ code {
 }
 
 .level-dead {
-  opacity: 0.55;
+  border-left: 2px solid var(--bad);
+  padding-left: 14px;
 }
 
 .level-head {
@@ -294,16 +298,9 @@ code {
 
 /* ── Forms ────────────────────────────────────────────────────────────── */
 
-.form-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 16px;
-}
-
-@media (max-width: 620px) {
-  .form-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Single column, labels above inputs (ui.md). */
+.form-row > * + * {
+  margin-top: 16px;
 }
 
 .field {
@@ -370,7 +367,8 @@ select:focus-visible,
 }
 
 .button:disabled {
-  opacity: 0.4;
+  color: var(--dim);
+  border-color: var(--border);
   cursor: not-allowed;
 }
 

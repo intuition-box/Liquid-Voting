@@ -5,6 +5,7 @@ import { createChainClient } from "../lib/chain";
 import { isDelegationDisabled } from "../lib/delegation";
 import {
   canWrite,
+  clearSessionDomains,
   loadDemoConfig,
   readSessionDomains,
   saveSessionDomain,
@@ -30,6 +31,9 @@ export interface DemoState {
   refresh: () => void;
   /** Registers a domain minted this session so the graph and pickers pick it up at once. */
   registerDomain: (domain: SessionDomain) => void;
+  sessionDomainCount: number;
+  /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
+  resetSessionDomains: () => void;
 }
 
 /**
@@ -61,6 +65,10 @@ export function useDemo(): DemoState {
   const refresh = useCallback(() => setTick((value) => value + 1), []);
   const registerDomain = useCallback((domain: SessionDomain) => {
     setSessionDomains(saveSessionDomain(domain));
+  }, []);
+  const resetSessionDomains = useCallback(() => {
+    clearSessionDomains();
+    setSessionDomains([]);
   }, []);
 
   useEffect(() => {
@@ -110,5 +118,7 @@ export function useDemo(): DemoState {
     error,
     refresh,
     registerDomain,
+    sessionDomainCount: sessionDomains.length,
+    resetSessionDomains,
   };
 }

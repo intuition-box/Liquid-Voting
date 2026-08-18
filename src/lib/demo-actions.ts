@@ -9,9 +9,19 @@ import { governorAbi, multiVaultAbi } from "./abis";
 import { FRAMEWORK, intuitionTestnet } from "./chain";
 import { buildDisableCalldata, buildRedeemCalldata, preflightRedeem, type Delegation, type PreflightResult } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
-import { computePath, type EdgeState, type PathResult } from "./graph";
+import { computePath, readEdgeStates, type EdgeState, type PathResult } from "./graph";
 import { toHybridAccount } from "./smart-accounts";
 import { sendUserOp, type UserOpResult } from "./user-op";
+
+/**
+ * Narrows an owner key at the point of use. Lives here rather than in demo-config so this
+ * module stays importable from Node/bun scripts — demo-config is browser-only.
+ */
+function requireOwnerKey(config: DemoConfig, role: Role): `0x${string}` {
+  const key = config.ownerKeys[role];
+  if (!key) throw new Error(`no ${role} owner key — this is a read-only build (see ADR 0011)`);
+  return key;
+}
 
 /** Which level of the chain a proposal is submitted through. */
 export type ChainLevel = "full" | "root";
@@ -119,7 +129,7 @@ export async function submitProposal(
   plan: ProposalPlan,
 ): Promise<UserOpResult> {
   if (!plan.calldata) throw new Error(plan.blocked ?? "nothing to submit");
-  const account = await toHybridAccount(client, privateKeyToAccount(config.ownerKeys[plan.redeemer]));
+  const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, plan.redeemer)));
   return sendUserOp(client, submitterClient(config), account, [
     { to: FRAMEWORK.delegationManager, value: 0n, data: plan.calldata },
   ]);
@@ -127,7 +137,7 @@ export async function submitProposal(
 
 /** The voter disables its root delegation — framework-native, kills the whole chain. */
 export async function revokeRoot(client: PublicClient, config: DemoConfig): Promise<UserOpResult> {
-  const voter = await toHybridAccount(client, privateKeyToAccount(config.ownerKeys.voter));
+  const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "voter")));
   return sendUserOp(client, submitterClient(config), voter, [
     { to: FRAMEWORK.delegationManager, value: 0n, data: buildDisableCalldata(config.delegations.root) },
   ]);
@@ -155,6 +165,38 @@ export async function readProposals(client: PublicClient, config: DemoConfig, li
       return { id, domainId: proposal.domainId, proposer: proposal.proposer, description: proposal.description };
     }),
   );
+}
+
+export type ExtensionPreview =
+  | { status: "absent"; atomId: Hex; message: string }
+  | { status: "unauthorized"; atomId: Hex; message: string }
+  | { status: "authorized"; atomId: Hex; message: string };
+
+/**
+ * Answers "would this domain be authorized today?" before the graph is touched — the
+ * contrast that makes the live extension land. Reads live state; the panel only renders.
+ */
+export async function previewExtension(
+  client: PublicClient,
+  config: DemoConfig,
+  label: string,
+): Promise<ExtensionPreview> {
+  const vault = { address: config.multiVault, abi: multiVaultAbi } as const;
+  const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [stringToHex(label)] });
+  const exists = await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] });
+  if (!exists) {
+    return {
+      status: "absent",
+      atomId,
+      message: `“${label}” (${atomId.slice(0, 14)}…) does not exist on chain yet — no path can reach it, so no delegation authorizes it.`,
+    };
+  }
+  const edges = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
+  const plan = planProposalForcingWitness(config, edges, "root", label, "extension preview");
+  const result = await preflightProposal(client, config, plan);
+  return result.ok
+    ? { status: "authorized", atomId, message: `“${label}” already verifies — pick a domain that is not yet linked.` }
+    : { status: "unauthorized", atomId, message: `rejected today: ${result.revert?.formatted ?? result.raw}` };
 }
 
 export interface ExtendResult {

@@ -1,5 +1,6 @@
 import { useDemo } from "./hooks/useDemo";
 import { ChainPanel } from "./components/ChainPanel";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ExtendPanel } from "./components/ExtendPanel";
 import { GraphPanel } from "./components/GraphPanel";
 import { ProposePanel } from "./components/ProposePanel";
@@ -8,56 +9,66 @@ import { AddressLink } from "./components/primitives";
 
 export function App() {
   const demo = useDemo();
+  const { config, client } = demo;
 
-  if (!demo.configResult.ok) {
+  if (!demo.configResult.ok || !config || !client) {
+    const missing = demo.configResult.ok ? "chain client" : demo.configResult.missing;
+    const hint = demo.configResult.ok
+      ? "the RPC could not be initialised — check the network"
+      : demo.configResult.hint;
     return (
       <main className="shell">
-        <Header />
+        <Masthead />
         <section className="panel">
           <h2>Not set up yet</h2>
           <p>
-            Missing <code>{demo.configResult.missing}</code>.
+            Missing <code>{missing}</code>.
           </p>
-          <p className="muted">{demo.configResult.hint}</p>
+          <p className="muted">{hint}</p>
         </section>
       </main>
     );
   }
 
-  const { config, client } = demo;
-  if (!config || !client) return null;
-
   return (
     <main className="shell">
-      <Header />
+      <Masthead />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
 
-      <div className="grid">
-        <div className="column">
-          <GraphPanel config={config} edges={demo.edges} loading={demo.loading} />
-          <ChainPanel config={config} rootDisabled={demo.rootDisabled} leafDisabled={demo.leafDisabled} />
+      <ErrorBoundary>
+        <div className="grid">
+          <div className="column">
+            <GraphPanel
+              config={config}
+              edges={demo.edges}
+              loading={demo.loading}
+              sessionDomainCount={demo.sessionDomainCount}
+              onResetSession={demo.resetSessionDomains}
+            />
+            <ChainPanel config={config} rootDisabled={demo.rootDisabled} leafDisabled={demo.leafDisabled} />
+          </div>
+          <div className="column">
+            <ProposePanel
+              config={config}
+              client={client}
+              edges={demo.edges}
+              writable={demo.writable}
+              proposals={demo.proposals}
+              onSettled={demo.refresh}
+            />
+            <ExtendPanel config={config} client={client} writable={demo.writable} onRegistered={demo.registerDomain} />
+            <RevokePanel
+              config={config}
+              client={client}
+              edges={demo.edges}
+              writable={demo.writable}
+              rootDisabled={demo.rootDisabled}
+              onSettled={demo.refresh}
+            />
+          </div>
         </div>
-        <div className="column">
-          <ProposePanel
-            config={config}
-            client={client}
-            edges={demo.edges}
-            writable={demo.writable}
-            proposals={demo.proposals}
-            onSettled={demo.refresh}
-          />
-          <ExtendPanel config={config} client={client} writable={demo.writable} onRegistered={demo.registerDomain} />
-          <RevokePanel
-            config={config}
-            client={client}
-            edges={demo.edges}
-            writable={demo.writable}
-            rootDisabled={demo.rootDisabled}
-            onSettled={demo.refresh}
-          />
-        </div>
-      </div>
+      </ErrorBoundary>
 
       <footer className="footer">
         <span>Intuition testnet · chain 13579</span>
@@ -75,7 +86,7 @@ export function App() {
   );
 }
 
-function Header() {
+function Masthead() {
   return (
     <header className="masthead">
       <h1>Voting authority scoped by a knowledge graph</h1>
