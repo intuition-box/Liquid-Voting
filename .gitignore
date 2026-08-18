@@ -4,3 +4,4 @@ dist/
 .claude/
 .agents/
 CLAUDE.md
+data/

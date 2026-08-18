@@ -49,6 +49,8 @@ export interface Manifest {
     curveId: string | null;
     stakes: Record<string, { shares: string; txHash: `0x${string}` | null }>;
   };
+  /** Phase 3: the three HybridDeleGator accounts (owner EOA + smart account address). */
+  accounts?: Record<string, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
 }
 
 export function readManifest(): Manifest {

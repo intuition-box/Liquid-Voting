@@ -67,5 +67,19 @@
         "txHash": "0x88d153422b560b7c18c60678fd8d86d16baf94486b46f778d95eddc2811f37b2"
       }
     }
+  },
+  "accounts": {
+    "voter": {
+      "owner": "0xb6E84E61f184e39A4fbEfC03A229600E3Cf98BB2",
+      "smartAccount": "0x99FD1744a8962D93FBd2d0D30d842C18449597De"
+    },
+    "delegate": {
+      "owner": "0xb5Ea6d0290A700c52f7673857dbB37E0f435564f",
+      "smartAccount": "0x7DbF91541b9d44B3dbA5B90Cf8FD9966fE699Ffb"
+    },
+    "executor": {
+      "owner": "0x7ba3dFbc051b836d64010e2DdA1C0c63AEB0e896",
+      "smartAccount": "0xa3a3Aa9966fc64886d650a9E4894Fb6934E87601"
+    }
   }
 }

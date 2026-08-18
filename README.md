@@ -19,7 +19,7 @@ The graph is the authority; stake is the trust signal.
 | 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | ✅ done — [gate report](docs/phase0/gate-report.md) |
 | 1 — Enforcer (implement, gas table, review, deploy + verify) | ✅ done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
 | 2 — Graph seed (attestor deposits + term_id manifest) | ✅ done — idempotent [seeder](scripts/seed.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
-| 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | pending |
+| 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | ✅ done — all six acceptance flows verified live on 13579 (`bun run phase3:run`): chain redemption, narrowing, maxDepth, legal rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | pending |
 | 5 — Writeup | pending |
 | 6 — Presentation (demo script, slides, rehearsal) | pending |
