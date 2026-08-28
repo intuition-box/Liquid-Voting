@@ -6,21 +6,19 @@
   "explorer": "https://testnet.explorer.intuition.systems",
   "contracts": {
     "GraphDomainCaveatEnforcer": {
-      "address": "0x97874e29cE2b98afF21d1dCad03348ac8A16739b",
-      "deployTx": "0x037a267565cc033f07de675b9dcf545de26057601523fa4f62cd64195cefb3ae",
-      "deployedAt": "2026-08-17",
-      "verified": true,
+      "address": "0xA5EBf929B221D4c3549E85D1A9878Ab2753bB37A",
+      "deployedAt": "2026-08-28",
+      "verified": false,
       "constructorArgs": {
         "multiVault": "0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91",
-        "governor": "0xE9F0B082Ac97518b41E6aA5f0aEb75BD26d8484E",
-        "allowedSelector": "0x042e9a43"
+        "governor": "0x133D588B1D88855052205B3097a5Fee9EcF264c4",
+        "voteSelector": "castVoteFor(uint256,uint8,address,address[])"
       }
     },
     "MockGovernor": {
-      "address": "0xE9F0B082Ac97518b41E6aA5f0aEb75BD26d8484E",
-      "deployTx": "0x8bef98b58c2ed3441c0ee8e1eef1507c5f5c8e9c0e726b3780883ec0e6372d17",
-      "deployedAt": "2026-08-17",
-      "verified": true
+      "address": "0x133D588B1D88855052205B3097a5Fee9EcF264c4",
+      "deployedAt": "2026-08-28",
+      "verified": false
     }
   },
   "framework": {
@@ -41,45 +39,68 @@
       "branding": "0x8017cd335e3f8c0ab844d752a8212952e78b772257c59d65142a6be8ebbeee7f",
       "UX": "0xafd298baa9c88ca6dd45aee1e061b48f2e5d914fc0a6c02b0a73aa2b83859420",
       "legal": "0xc9bbf040865761d20ca7e63e5b00c61db924521e0e0c306a0c4f0e9cf52b2325",
-      "logo": "0x1d3f36760a218532b7ceca6364a490f1d2674ec3f3eb29739b9da7e1edaddf7a"
+      "logo": "0x1d3f36760a218532b7ceca6364a490f1d2674ec3f3eb29739b9da7e1edaddf7a",
+      "governance": "0x2170a6dc3d16526ebbaa965c84b01e9c54717348ad42696f7a218148da139a4a",
+      "contracts": "0xc684f9c9d693b73a28f79120b1695c0ef145f37c5e31f165ed86ecc70828ed8a",
+      "privacy": "0x268a0d4d500920e842456cc218d8dd62ab0ace277a2ee4110022ce90fd07a478"
     },
     "triples": {
       "branding->design": "0x176419b5177cfa99cba68cb6b0b884ea7bb593a84f0053ef6baf1e082f373784",
       "UX->design": "0xae3359f86f0ea89d3ff29f4d6e36d8d35d1610343da9442e9ca89f4a661ab7de",
-      "logo->branding": "0xdcec7ce37346e051b98f1e19bc7d088a4844cdbe55d2b3ce9a3e5a320d70e865"
+      "logo->branding": "0xdcec7ce37346e051b98f1e19bc7d088a4844cdbe55d2b3ce9a3e5a320d70e865",
+      "design->governance": "0xc0d2e602bdeb179e2ad2a610ab37ee55f28137ac20ea0d3ccd099b17ead1b66d",
+      "legal->governance": "0x87c79c548418ce01e37e872be4c060b66f6ded204dff11983bf6336adba3dd5a",
+      "contracts->legal": "0x6729f9b6d2b8d961c369166fd1d070d6fc76e5c236d94f4718a505ec65407101",
+      "privacy->legal": "0x27f44f077864033d77c38547f8f276ab4bcadf98ef829db34051e92db2902d8a"
     }
   },
   "attestation": {
     "note": "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
-    "orgAttestor": "0x8e1e5782425C7F06933C7b50ebF89a29f6621735",
+    "orgAttestor": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A",
     "curveId": "1",
     "stakes": {
       "branding->design": {
         "shares": "9900000000000000",
-        "txHash": "0x8e971a56446c7b0ac32b5770ccc49f955d6020dcd7c40c31246ff183416917ee"
+        "txHash": "0x64967dbb2f55ac0f141c683ca23251b4c17b0eb7c75eacc3ffa1ab1334854e4c"
       },
       "UX->design": {
         "shares": "9900000000000000",
-        "txHash": "0x7d4184b6897b5e322154d4389ac9d3345e1be2de23cf626803c00a2ca5ec72c8"
+        "txHash": "0xb8b4f5196747201a22bf6e04759b1219e846eceef4c7d1ad92de7e8c4b7d4ac9"
       },
       "logo->branding": {
         "shares": "9900000000000000",
-        "txHash": "0x88d153422b560b7c18c60678fd8d86d16baf94486b46f778d95eddc2811f37b2"
+        "txHash": "0xe2a61dab9f46f7c25a5e4342a0a9a32abe5ee032e82bbde8f7099805826e76b3"
+      },
+      "design->governance": {
+        "shares": "9900000000000000",
+        "txHash": "0x7f069420cf1b44cc2398110e633039a550fa82f93e2e554501b14b25f85619d2"
+      },
+      "legal->governance": {
+        "shares": "9900000000000000",
+        "txHash": "0x0d992d882db7d9ee1d89801fcc6503c3cbc5a8ceeb6a06ae0b3e4644354d8282"
+      },
+      "contracts->legal": {
+        "shares": "9900000000000000",
+        "txHash": "0x17b0987dc81fa8e37b19027a650bf1b8c0f2cbfe3dfd4f8627723ee74d29d7fe"
+      },
+      "privacy->legal": {
+        "shares": "9900000000000000",
+        "txHash": "0xb0b687cc59f5fc41f63cb6f1dbbabdff21238ce89edc4747f3dfeaeed7477999"
       }
     }
   },
   "accounts": {
     "voter": {
-      "owner": "0xb6E84E61f184e39A4fbEfC03A229600E3Cf98BB2",
-      "smartAccount": "0x99FD1744a8962D93FBd2d0D30d842C18449597De"
+      "owner": "0xA1e260B33788b89FfBfD79C3D6e3946cFF810D15",
+      "smartAccount": "0x446FF798aC90133543eec03AeF31807C3DD4417B"
     },
     "delegate": {
-      "owner": "0xb5Ea6d0290A700c52f7673857dbB37E0f435564f",
-      "smartAccount": "0x7DbF91541b9d44B3dbA5B90Cf8FD9966fE699Ffb"
+      "owner": "0xC6E43fD934442dA24906aDA2dC49E0e6967a1CBa",
+      "smartAccount": "0xd99c420dfB29ba0af8EE9b7c45CE7Aa657226fa4"
     },
     "executor": {
-      "owner": "0x7ba3dFbc051b836d64010e2DdA1C0c63AEB0e896",
-      "smartAccount": "0xa3a3Aa9966fc64886d650a9E4894Fb6934E87601"
+      "owner": "0xAc1175cC545Ec5b24eDB9826Da5251e16D98e3Ed",
+      "smartAccount": "0x91C69d593583010C20F83932c779cE966D15A5b2"
     }
   }
 }
