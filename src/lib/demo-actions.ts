@@ -2,7 +2,7 @@
  * Demo actions — the service layer behind the panels. No React, no DOM: every function
  * takes the config plus its inputs and returns data. Hooks own the lifecycle.
  */
-import { createWalletClient, http, stringToHex, toHex, type Hex, type PublicClient } from "viem";
+import { createWalletClient, encodeFunctionData, http, stringToHex, toHex, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY } from "@metamask/smart-accounts-kit";
 
@@ -330,6 +330,32 @@ export async function readProposals(client: PublicClient, config: DemoConfig, li
       };
     }),
   );
+}
+
+/**
+ * The weight each role would cast on a domain, read from the governor.
+ *
+ * The governor is the authority here: it holds the delegation register, so this is the
+ * same number the vote path enforces rather than a UI guess.
+ */
+export async function readWeights(
+  client: PublicClient,
+  config: DemoConfig,
+  domainId: Hex,
+): Promise<Record<Role, bigint>> {
+  const roles: Role[] = ["voter", "delegate", "executor"];
+  const all = roles.map((role) => config.accounts[role].smartAccount);
+  const weights = await Promise.all(
+    roles.map((role) =>
+      client.readContract({
+        address: config.governor,
+        abi: governorAbi,
+        functionName: "weightFor",
+        args: [config.accounts[role].smartAccount, domainId, all],
+      }),
+    ),
+  );
+  return { voter: weights[0] ?? 0n, delegate: weights[1] ?? 0n, executor: weights[2] ?? 0n };
 }
 
 /** Voting power per demo role, read live — the weights a delegated vote carries. */

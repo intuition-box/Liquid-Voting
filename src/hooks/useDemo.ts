@@ -17,7 +17,7 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/demo-config";
-import { readProposals, readVotingPower, type ProposalRecord } from "../lib/demo-actions";
+import { readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
 import { baseGrants, type Grant } from "../lib/grants";
 import { readEdgeStates, type EdgeState } from "../lib/graph";
 
@@ -42,6 +42,8 @@ export interface DemoState {
   registerDomain: (domain: SessionDomain) => void;
   /** Every delegation in force: the seeded pair plus anything signed this session. */
   grants: Grant[];
+  /** What each role would cast on a domain, keyed by domain term id — read from the governor. */
+  weights: Record<string, Record<Role, bigint>>;
   /** Records a delegation signed in the UI. */
   addGrant: (grant: Grant) => void;
   sessionDomainCount: number;
@@ -73,6 +75,7 @@ export function useDemo(): DemoState {
   const [edges, setEdges] = useState<EdgeState[]>([]);
   const [proposals, setProposals] = useState<ProposalRecord[]>([]);
   const [votingPower, setVotingPower] = useState<Record<Role, bigint>>({ voter: 0n, delegate: 0n, executor: 0n });
+  const [weights, setWeights] = useState<Record<string, Record<Role, bigint>>>({});
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -114,6 +117,12 @@ export function useDemo(): DemoState {
         setEdges(edgeStates);
         setProposals(records);
         setVotingPower(powers);
+
+        // One read per domain that has a proposal — the governor is the authority on weight.
+        const domainIds = [...new Set(records.map((record) => record.domainId))];
+        const perDomain = await Promise.all(domainIds.map((id) => readWeights(client, config, id)));
+        if (cancelled) return;
+        setWeights(Object.fromEntries(domainIds.map((id, index) => [id.toLowerCase(), perDomain[index]!])));
         setRootDisabled(root);
         setLeafDisabled(leaf);
       } catch (cause) {
@@ -158,6 +167,7 @@ export function useDemo(): DemoState {
     refresh,
     registerDomain,
     grants,
+    weights,
     addGrant,
     sessionDomainCount: sessionDomains.length,
     resetSessionDomains,
