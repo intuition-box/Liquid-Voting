@@ -3,15 +3,15 @@ import type { PublicClient } from "viem";
 
 import { signDelegation } from "../lib/demo-actions";
 import type { DemoConfig, Role } from "../lib/demo-config";
-import { candidatesFor, upstreamOf, ROLE_CLASS, ROLE_LABELS, type Grant } from "../lib/grants";
 import type { EdgeState } from "../lib/graph";
-import { AddressLink, Button, Field, Panel, Status, type Verdict } from "./primitives";
+import { candidatesFor, ROLE_CLASS, ROLE_LABELS, ROLES, upstreamOf, type Grant } from "../lib/grants";
+import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
- * Who delegated what to whom — and where a new delegation is signed.
+ * Delegating a vote: pick a domain in the tree, pick who gets it, sign.
  *
- * Signing sends nothing to the chain: a delegation is a signed object that only reaches
- * the DelegationManager when the delegate redeems it.
+ * The tree carries a badge on every domain already handed to someone, so the grants in
+ * force are visible where the choice is made rather than listed apart from it.
  */
 export function ChainPanel({
   config,
@@ -20,19 +20,21 @@ export function ChainPanel({
   role,
   edges,
   grants,
+  domain,
   onSigned,
 }: {
   config: DemoConfig;
   client: PublicClient;
   writable: boolean;
-  edges: EdgeState[];
   /** Who the viewer is acting as — they can only delegate their own vote. */
   role: Role;
+  edges: EdgeState[];
   /** Every delegation signed so far, revoked ones included. */
   grants: Grant[];
+  /** The domain picked in the rail — what this grant would cover. */
+  domain: string;
   onSigned: (grant: Grant) => void;
 }) {
-  const [domain, setDomain] = useState(config.nodes[0]?.label ?? "");
   const [to, setTo] = useState<Role | null>(null);
   const [outcome, setOutcome] = useState<{ verdict: Verdict; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +44,9 @@ export function ChainPanel({
   const candidates = candidatesFor(config, edges, grants, role, domain);
   const target = to && candidates.includes(to) ? to : (candidates[0] ?? null);
 
+  const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
+  const yours = grants.find((grant) => !grant.revoked && grant.from === role && grant.scope === domain);
+
   async function grant(): Promise<void> {
     if (!target) return;
     setBusy(true);
@@ -49,10 +54,7 @@ export function ChainPanel({
     try {
       const signed = await signDelegation(client, config, role, target, domain);
       onSigned({ from: role, to: target, scope: domain, revoked: false, delegation: signed });
-      setOutcome({
-        verdict: "pass",
-        text: `${ROLE_LABELS[role]} delegated “${domain}” to ${ROLE_LABELS[target]} — signed, nothing sent to the chain`,
-      });
+      setOutcome({ verdict: "pass", text: `${ROLE_LABELS[role]} handed “${domain}” to ${ROLE_LABELS[target]}` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -62,74 +64,52 @@ export function ChainPanel({
 
   return (
     <Panel>
-      <ol className="levels">
-        {grants.map((entry) => (
-          <li key={entry.delegation.hash} className={entry.revoked ? "level level-dead" : "level"}>
-            <div className="level-head">
-              <h3>
-                <span className={`role-badge ${ROLE_CLASS[entry.from]}`}>{ROLE_LABELS[entry.from]}</span>{" "}
-                <span className="muted">delegates to</span>{" "}
-                <span className={`role-badge ${ROLE_CLASS[entry.to]}`}>{ROLE_LABELS[entry.to]}</span>
-              </h3>
-              <span className={entry.revoked ? "tag tag-bad" : "tag tag-ok"}>
-                {entry.revoked ? "revoked" : "active"}
-              </span>
-            </div>
-            <p className="level-scope">
-              can vote on <strong>{entry.scope}</strong>
-            </p>
-            <p className="muted">
-              <AddressLink address={config.accounts[entry.from].smartAccount} /> →{" "}
-              <AddressLink address={config.accounts[entry.to].smartAccount} />
-            </p>
-          </li>
-        ))}
-      </ol>
+      <h4>hand “{domain}” to</h4>
+      <ul className="holders">
+        {ROLES.map((candidate) => {
+          const self = candidate === role;
+          const unavailable = self || blocked.has(candidate);
+          const chosen = candidate === target && !unavailable;
+          const note = self
+            ? "that is you"
+            : blocked.has(candidate)
+              ? "already gives you this domain"
+              : held === candidate
+                ? "holds it now"
+                : "can take it";
+          return (
+            <li key={candidate}>
+              <button
+                type="button"
+                disabled={unavailable}
+                aria-pressed={chosen}
+                className={["holder", ROLE_CLASS[candidate], chosen ? "holder-on" : "", unavailable ? "holder-off" : ""]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => setTo(candidate)}
+              >
+                <span className="holder-badge">{ROLE_LABELS[candidate]}</span>
+                <span className="holder-note">{note}</span>
+                {held === candidate ? <span className="holder-check">✓</span> : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
 
-      <h4 className="section-label">delegate your vote</h4>
-      {candidates.length === 0 ? (
-        <p className="note">
-          On “{domain}”, everyone else already delegates to you. Delegating back would send the weight in a circle —
-          pick another domain.
+      <div className="actions">
+        <Button onClick={() => void grant()} busy={busy} disabled={!writable || !target} variant="primary">
+          {target ? `hand it to ${ROLE_LABELS[target]}` : "no one available"}
+        </Button>
+      </div>
+
+      {yours ? (
+        <p className="muted">
+          You already gave “{domain}” to {ROLE_LABELS[yours.to]}. Signing again moves it.
         </p>
-      ) : (
-        <>
-          <div className="form-row">
-            <Field label="to">
-              {/* Safe: options are Role members, filtered by candidatesFor. */}
-              <select value={target ?? ""} onChange={(event) => setTo(event.target.value as Role)}>
-                {candidates.map((candidate) => (
-                  <option key={candidate} value={candidate}>
-                    {ROLE_LABELS[candidate]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="on">
-              <select value={domain} onChange={(event) => setDomain(event.target.value)}>
-                {config.nodes.map((node) => (
-                  <option key={node.termId} value={node.label}>
-                    {node.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          {blocked.size > 0 ? (
-            <p className="muted note-inline">
-              On “{domain}”, {[...blocked].map((entry) => ROLE_LABELS[entry]).join(" and ")} already delegate
-              {blocked.size > 1 ? "" : "s"} to you, so they are not offered.
-            </p>
-          ) : null}
-          <div className="actions">
-            <Button onClick={() => void grant()} busy={busy} disabled={!writable} variant="primary">
-              sign delegation
-            </Button>
-            {!writable ? <span className="muted">read-only build</span> : null}
-          </div>
-          {outcome ? <Status verdict={outcome.verdict}>{outcome.text}</Status> : null}
-        </>
-      )}
+      ) : null}
+      {!writable ? <p className="muted">read-only build</p> : null}
+      {outcome ? <Status verdict={outcome.verdict}>{outcome.text}</Status> : null}
     </Panel>
   );
 }

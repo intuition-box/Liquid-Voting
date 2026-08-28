@@ -4,7 +4,7 @@ import { useDemo } from "./hooks/useDemo";
 import type { Role } from "./lib/demo-config";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { GraphPanel } from "./components/GraphPanel";
+import { DomainNav } from "./components/DomainNav";
 import { ProposalsPanel } from "./components/ProposalsPanel";
 import { RevokePanel } from "./components/RevokePanel";
 import { AddressLink } from "./components/primitives";
@@ -26,9 +26,16 @@ const TABS: Array<{ id: TabId; label: string }> = [
 
 export function App() {
   const demo = useDemo();
-  const [tab, setTab] = useState<TabId>("domains");
+  const [tab, setTab] = useState<TabId>("proposals");
+  const [domain, setDomain] = useState("design");
   const [role, setRole] = useState<Role>("delegate");
   const { config, client } = demo;
+
+  // Who holds each domain, so the rail can badge them wherever it is shown.
+  const grantedTo = new Map<string, Role>();
+  for (const entry of demo.grants) {
+    if (!entry.revoked) grantedTo.set(entry.scope, entry.to);
+  }
 
   if (!demo.configResult.ok || !config || !client) {
     const missing = demo.configResult.ok ? "chain client" : demo.configResult.missing;
@@ -74,71 +81,76 @@ export function App() {
         depends on what you were delegated, and on what you delegated away
       </p>
 
-      <nav className="tabs" aria-label="sections">
-        {TABS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            className={tab === entry.id ? "tab tab-on" : "tab"}
-            onClick={() => setTab(entry.id)}
-            aria-current={tab === entry.id ? "page" : undefined}
-          >
-            {entry.label}
-          </button>
-        ))}
-      </nav>
+      <div className="workspace">
+        <DomainNav
+          config={config}
+          client={client}
+          edges={demo.edges}
+          loading={demo.loading}
+          writable={demo.writable}
+          selected={domain}
+          grantedTo={grantedTo}
+          sessionDomainCount={demo.sessionDomainCount}
+          onSelect={setDomain}
+          onRegistered={demo.registerDomain}
+          onResetSession={demo.resetSessionDomains}
+        />
 
-      <ErrorBoundary>
-        {tab === "domains" ? (
-          <GraphPanel
-            config={config}
-            client={client}
-            edges={demo.edges}
-            loading={demo.loading}
-            writable={demo.writable}
-            sessionDomainCount={demo.sessionDomainCount}
-            onRegistered={demo.registerDomain}
-            onResetSession={demo.resetSessionDomains}
-          />
-        ) : null}
+        <div className="workspace-main">
+          <nav className="tabs" aria-label="sections">
+            {TABS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className={tab === entry.id ? "tab tab-on" : "tab"}
+                onClick={() => setTab(entry.id)}
+                aria-current={tab === entry.id ? "page" : undefined}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </nav>
 
-        {tab === "delegations" ? (
-          <div className="stack">
-            <ChainPanel
-              config={config}
-              client={client}
-              writable={demo.writable}
-              role={role}
-              edges={demo.edges}
-              grants={demo.grants}
-              onSigned={demo.addGrant}
-            />
-            <RevokePanel
-              config={config}
-              client={client}
-              edges={demo.edges}
-              writable={demo.writable}
-              rootDisabled={demo.rootDisabled}
-              onSettled={demo.refresh}
-            />
-          </div>
-        ) : null}
+          <ErrorBoundary>
+            {tab === "proposals" ? (
+              <ProposalsPanel
+                config={config}
+                client={client}
+                edges={demo.edges}
+                proposals={demo.proposals}
+                weights={demo.weights}
+                domain={domain}
+                role={role}
+                writable={demo.writable}
+                onSettled={demo.refresh}
+              />
+            ) : null}
 
-        {tab === "proposals" ? (
-          <ProposalsPanel
-            config={config}
-            client={client}
-            edges={demo.edges}
-            proposals={demo.proposals}
-            votingPower={demo.votingPower}
-            grants={demo.grants}
-            role={role}
-            writable={demo.writable}
-            onSettled={demo.refresh}
-          />
-        ) : null}
-
-      </ErrorBoundary>
+            {tab === "delegations" ? (
+              <div className="stack">
+                <ChainPanel
+                  config={config}
+                  client={client}
+                  writable={demo.writable}
+                  role={role}
+                  edges={demo.edges}
+                  grants={demo.grants}
+                  domain={domain}
+                  onSigned={demo.addGrant}
+                />
+                <RevokePanel
+                  config={config}
+                  client={client}
+                  edges={demo.edges}
+                  writable={demo.writable}
+                  rootDisabled={demo.rootDisabled}
+                  onSettled={demo.refresh}
+                />
+              </div>
+            ) : null}
+          </ErrorBoundary>
+        </div>
+      </div>
 
       <footer className="footer">
         <span>Intuition testnet · chain 13579</span>

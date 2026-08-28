@@ -11,8 +11,7 @@ import {
   VOTE_FOR,
   type ProposalRecord,
 } from "../lib/demo-actions";
-import type { EdgeState } from "../lib/graph";
-import { ROLE_LABELS, weightOn, type Grant } from "../lib/grants";
+import { computePath, type EdgeState } from "../lib/graph";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Feedback {
@@ -33,13 +32,22 @@ const OPTIONS = [
  * B votes on all of them, but the weight differs: inside the delegated domain A's weight
  * comes along, outside it B votes alone. That contrast is the demo.
  */
+/** The weight a role casts on one domain, defaulting to nothing while reads are in flight. */
+function votingPowerOf(
+  weights: Record<string, Record<Role, bigint>>,
+  domainId: string,
+  role: Role,
+): bigint {
+  return weights[domainId.toLowerCase()]?.[role] ?? 0n;
+}
+
 export function ProposalsPanel({
   config,
   client,
   edges,
   proposals,
-  votingPower,
-  grants,
+  weights,
+  domain,
   role,
   writable,
   onSettled,
@@ -48,17 +56,16 @@ export function ProposalsPanel({
   client: PublicClient;
   edges: EdgeState[];
   proposals: ProposalRecord[];
-  votingPower: Record<Role, bigint>;
-  /** Every delegation in force. */
-  grants: Grant[];
+  /** What each role casts per domain, read from the governor. */
+  weights: Record<string, Record<Role, bigint>>;
+  /** The domain picked in the rail; its whole subtree is listed. */
+  domain: string;
   /** Who the viewer is acting as. */
   role: Role;
   writable: boolean;
   onSettled: () => void;
 }) {
-  const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [newDomain, setNewDomain] = useState("branding");
   const [title, setTitle] = useState("Fund the Q3 identity refresh");
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,11 +77,15 @@ export function ProposalsPanel({
 
   const rows = proposals.map((proposal) => {
     const domain = labelOf.get(proposal.domainId.toLowerCase()) ?? "unknown";
-    return { proposal, domain, weight: weightOn(config, edges, grants, votingPower, role, domain) };
+    const own = votingPowerOf(weights, proposal.domainId, role);
+    return { proposal, domain, weight: own };
   });
 
-  const domains = [...new Set(rows.map((row) => row.domain))];
-  const shown = filter ? rows.filter((row) => row.domain === filter) : rows;
+  // A domain covers everything beneath it, which is exactly what a delegation on it
+  // reaches — so the rail's selection lists the subtree, not one node.
+  const shown = rows.filter(
+    (row) => row.domain === domain || computePath(edges, config.nodes, row.domain, domain).found,
+  );
 
   async function vote(proposal: ProposalRecord, domain: string, support: number): Promise<void> {
     const key = proposal.id.toString();
@@ -108,10 +119,10 @@ export function ProposalsPanel({
   async function add(): Promise<void> {
     setBusy("new");
     try {
-      const created = await recordProposal(client, config, newDomain, title);
+      const created = await recordProposal(client, config, domain, title);
       setFeedback((current) => ({
         ...current,
-        new: { verdict: "pass", text: `#${created.proposalId} added to “${newDomain}”`, txHash: created.txHash },
+        new: { verdict: "pass", text: `#${created.proposalId} added to “${domain}”`, txHash: created.txHash },
       }));
       onSettled();
     } catch (error) {
@@ -126,22 +137,6 @@ export function ProposalsPanel({
 
   return (
     <Panel>
-      <div className="filters">
-        <button type="button" className={filter === "" ? "chip chip-on" : "chip"} onClick={() => setFilter("")}>
-          all
-        </button>
-        {domains.map((name) => (
-          <button
-            key={name}
-            type="button"
-            className={filter === name ? "chip chip-on" : "chip"}
-            onClick={() => setFilter(name)}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-
       {shown.length === 0 ? (
         <Empty>None yet.</Empty>
       ) : (
@@ -181,8 +176,8 @@ export function ProposalsPanel({
                     <Mono>{proposal.abstainVotes.toString()}</Mono>
                   </span>
                   <span className="stat-col">
-                    <span className={weight.carried.length > 0 ? "weight-badge weight-badge-full" : "weight-badge"}>
-                      <Mono>{weight.total.toString()}</Mono>
+                    <span className={weight > 1n ? "weight-badge weight-badge-full" : "weight-badge"}>
+                      <Mono>{weight.toString()}</Mono>
                     </span>
                   </span>
                 </button>
@@ -200,20 +195,14 @@ export function ProposalsPanel({
                       </dd>
                       <dt>your weight</dt>
                       <dd>
-                        {weight.passedTo ? (
-                          <span className="muted">
-                            0 — you delegated “{domain}” to {ROLE_LABELS[weight.passedTo]}
-                          </span>
-                        ) : (
-                          <>
-                            <Mono>{weight.total.toString()}</Mono>{" "}
-                            <span className="muted">
-                              {weight.carried.length === 0
-                                ? "— your own vote"
-                                : `— yours plus ${weight.carried.map((entry) => ROLE_LABELS[entry]).join(" and ")}`}
-                            </span>
-                          </>
-                        )}
+                        <Mono>{weight.toString()}</Mono>{" "}
+                        <span className="muted">
+                          {weight === 0n
+                            ? `— you delegated “${domain}” away`
+                            : weight === 1n
+                              ? "— your own vote"
+                              : "— yours plus what was delegated to you"}
+                        </span>
                       </dd>
                       <dt>votes</dt>
                       <dd>
@@ -229,7 +218,7 @@ export function ProposalsPanel({
                           key={option.label}
                           onClick={() => void vote(proposal, domain, option.support)}
                           busy={busy === key}
-                          disabled={!writable || proposal.state !== "active" || weight.total === 0n}
+                          disabled={!writable || proposal.state !== "active" || weight === 0n}
                           variant={option.support === VOTE_FOR ? "primary" : undefined}
                         >
                           {option.label}
@@ -260,15 +249,6 @@ export function ProposalsPanel({
       <h4 className="section-label">add a proposal</h4>
       <p className="muted note-inline">Anyone can propose. Only voting is delegated.</p>
       <div className="form-row">
-        <Field label="domain">
-          <select value={newDomain} onChange={(event) => setNewDomain(event.target.value)}>
-            {config.nodes.map((node) => (
-              <option key={node.termId} value={node.label}>
-                {node.label}
-              </option>
-            ))}
-          </select>
-        </Field>
         <Field label="title">
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </Field>
