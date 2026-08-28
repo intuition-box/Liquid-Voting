@@ -49,7 +49,10 @@ async function main(): Promise<void> {
   for (const [label, expectedId] of atomEntries) {
     const data = stringToHex(label);
     const computedId = await publicClient.readContract({ ...vault, functionName: "calculateAtomId", args: [data] });
-    if (computedId !== expectedId) {
+    // `0x` marks an entry added to the manifest without its id yet; anything else must match.
+    if (expectedId === "0x" && label in manifest.vocabulary.atoms) {
+      manifest.vocabulary.atoms[label] = computedId;
+    } else if (computedId !== expectedId) {
       throw new Error(`manifest drift: atom "${label}" computes ${computedId}, manifest says ${expectedId}`);
     }
     const exists = await publicClient.readContract({ ...vault, functionName: "isTermCreated", args: [computedId] });
@@ -83,7 +86,9 @@ async function main(): Promise<void> {
       functionName: "calculateTripleId",
       args: [subjectId, predicateId, objectId],
     });
-    if (computedId !== expectedId) {
+    if (expectedId === "0x") {
+      manifest.vocabulary.triples[key] = computedId;
+    } else if (computedId !== expectedId) {
       throw new Error(`manifest drift: triple "${key}" computes ${computedId}, manifest says ${expectedId}`);
     }
     const exists = await publicClient.readContract({ ...vault, functionName: "isTermCreated", args: [computedId] });
@@ -107,8 +112,10 @@ async function main(): Promise<void> {
   }
 
   // 3. Attestation deposits (ADR 0004): the org attestor stakes on every edge.
+  // Re-read from the manifest: ids resolved in step 2 are not in the earlier snapshot.
+  const stakeEntries = Object.entries(manifest.vocabulary.triples) as Array<[string, `0x${string}`]>;
   const stakes: Record<string, { shares: string; txHash: `0x${string}` | null }> = {};
-  for (const [key, tripleId] of tripleEntries) {
+  for (const [key, tripleId] of stakeEntries) {
     const held = await publicClient.readContract({
       ...vault,
       functionName: "getShares",
