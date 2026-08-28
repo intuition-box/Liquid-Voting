@@ -187,6 +187,48 @@ export function saveSessionDomain(domain: SessionDomain): SessionDomain[] {
  *  linger in the pickers at showtime. */
 export function clearSessionDomains(): void {
   window.localStorage.removeItem(SESSION_KEY);
+  window.localStorage.removeItem(GRANTS_KEY);
+}
+
+const GRANTS_KEY = "liquid-demo:session-grants";
+
+/** Structural check only — enough to reject a stale or hand-edited entry. */
+function isSessionGrant(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  const delegation = candidate["delegation"];
+  return (
+    typeof candidate["from"] === "string" &&
+    typeof candidate["to"] === "string" &&
+    typeof candidate["scope"] === "string" &&
+    typeof delegation === "object" &&
+    delegation !== null &&
+    typeof (delegation as Record<string, unknown>)["signature"] === "string" &&
+    typeof (delegation as Record<string, unknown>)["hash"] === "string"
+  );
+}
+
+/**
+ * Delegations signed in the UI, kept so a reload does not lose them. This is the local
+ * stand-in for on-chain discovery: production would publish each signed object and let
+ * the delegate find it, rather than parking it in one browser.
+ */
+export function readSessionGrants<T>(): T[] {
+  try {
+    const raw = window.localStorage.getItem(GRANTS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed.filter(isSessionGrant) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSessionGrant<T extends { delegation: { hash: string } }>(grant: T): T[] {
+  const existing = readSessionGrants<T>().filter((entry) => entry.delegation.hash !== grant.delegation.hash);
+  const next = [...existing, grant];
+  window.localStorage.setItem(GRANTS_KEY, JSON.stringify(next));
+  return next;
 }
 
 /** Manifest vocabulary + anything minted this session, as one graph. */

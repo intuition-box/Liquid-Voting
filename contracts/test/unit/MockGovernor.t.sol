@@ -27,6 +27,7 @@ contract MockGovernorTest is Test {
         uint256 indexed proposalId, address indexed principal, address indexed representative, uint256 weight
     );
     event ProposalExecuted(uint256 indexed proposalId);
+    event WeightDelegated(address indexed delegator, address indexed delegate, bytes32 indexed domainId);
 
     function setUp() public {
         governor = new MockGovernor();
@@ -233,6 +234,8 @@ contract MockGovernorTest is Test {
         address b = address(0xB);
         governor.setVotingPower(a, 1);
         governor.setVotingPower(b, 1);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -262,6 +265,10 @@ contract MockGovernorTest is Test {
         governor.setVotingPower(b, 2);
         governor.setVotingPower(principals[0], 3);
         governor.setVotingPower(principals[1], 4);
+        vm.prank(principals[0]);
+        governor.delegateWeight(b, DOMAIN);
+        vm.prank(principals[1]);
+        governor.delegateWeight(b, DOMAIN);
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -277,6 +284,9 @@ contract MockGovernorTest is Test {
 
         vm.prank(a);
         governor.castVote(0, uint8(MockGovernor.VoteType.For));
+        // Delegating after voting: the weight is already spent on this proposal.
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
 
         address[] memory principals = new address[](1);
         principals[0] = a;
@@ -289,6 +299,8 @@ contract MockGovernorTest is Test {
         address[] memory principals = new address[](2);
         principals[0] = address(0xA);
         principals[1] = address(0xA);
+        vm.prank(address(0xA));
+        governor.delegateWeight(address(0xB), DOMAIN);
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -299,6 +311,8 @@ contract MockGovernorTest is Test {
 
     function test_RevertWhen_RepresentativeAlreadyVoted() public {
         address b = address(0xB);
+        vm.prank(address(0xA));
+        governor.delegateWeight(b, DOMAIN);
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -321,6 +335,147 @@ contract MockGovernorTest is Test {
         vm.expectRevert(abi.encodeWithSelector(MockGovernor.NoVotingPower.selector, b));
         vm.prank(b);
         governor.castVote(0, uint8(MockGovernor.VoteType.For));
+    }
+
+    ////////////////////////////// weight transfer //////////////////////////////
+
+    bytes32 internal constant OTHER_DOMAIN = keccak256("other");
+
+    function test_DelegateWeight_RecordsAndEmits() public {
+        vm.expectEmit(true, true, true, true);
+        emit WeightDelegated(address(this), address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN);
+        assertEq(governor.delegatedTo(address(this), DOMAIN), address(0xB));
+    }
+
+    /// Delegating transfers weight: the delegator stops counting on that domain.
+    function test_RevertWhen_VotingAfterDelegatingTheDomain() public {
+        address a = address(0xA);
+        vm.prank(a);
+        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.propose(DOMAIN, "p");
+        _openVoting();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(MockGovernor.WeightDelegatedAway.selector, a, DOMAIN, address(0xB))
+        );
+        vm.prank(a);
+        governor.castVote(0, uint8(MockGovernor.VoteType.For));
+    }
+
+    /// Transfer is per domain: delegating one leaves the others untouched.
+    function test_DelegatingOneDomainLeavesOthers() public {
+        address a = address(0xA);
+        vm.prank(a);
+        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.propose(OTHER_DOMAIN, "p");
+        _openVoting();
+
+        vm.prank(a);
+        assertEq(governor.castVote(0, uint8(MockGovernor.VoteType.For)), 1, "A still votes elsewhere");
+    }
+
+    /// Weight is conserved: what A loses, B gains — the total never grows.
+    function test_WeightIsTransferredNotDuplicated() public {
+        address a = address(0xA);
+        address b = address(0xB);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
+        governor.propose(DOMAIN, "p");
+        _openVoting();
+
+        address[] memory principals = new address[](1);
+        principals[0] = a;
+        vm.prank(b);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals);
+
+        (, uint256 forVotes,) = governor.proposalVotes(0);
+        assertEq(forVotes, 2, "A's one plus B's one, no more");
+    }
+
+    /// Weight passed along a chain reaches the far end: A -> B -> C means C carries both.
+    function test_WeightRoutesAlongAChain() public {
+        address a = address(0xA);
+        address b = address(0xB);
+        address c = address(0xC);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
+        vm.prank(b);
+        governor.delegateWeight(c, DOMAIN);
+        governor.propose(DOMAIN, "p");
+        _openVoting();
+
+        address[] memory principals = new address[](2);
+        principals[0] = a;
+        principals[1] = b;
+        vm.prank(c);
+        assertEq(governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), c, principals), 3);
+    }
+
+    function test_RevertWhen_ClaimingWeightNobodyDelegated() public {
+        governor.propose(DOMAIN, "p");
+        _openVoting();
+
+        address[] memory principals = new address[](1);
+        principals[0] = address(0xA);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MockGovernor.NotDelegatedToVoter.selector, address(0xA), address(0xB), DOMAIN
+            )
+        );
+        vm.prank(address(0xB));
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), address(0xB), principals);
+    }
+
+    function test_RevertWhen_DelegatingToSelf() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MockGovernor.CircularDelegation.selector, address(this), address(this), DOMAIN
+            )
+        );
+        governor.delegateWeight(address(this), DOMAIN);
+    }
+
+    /// A -> B, then B -> A on the same domain would send the weight in a circle.
+    function test_RevertWhen_DelegationWouldCircle() public {
+        address a = address(0xA);
+        address b = address(0xB);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
+
+        vm.expectRevert(abi.encodeWithSelector(MockGovernor.CircularDelegation.selector, b, a, DOMAIN));
+        vm.prank(b);
+        governor.delegateWeight(a, DOMAIN);
+    }
+
+    /// The circle check is per domain: a disjoint domain is free to go the other way.
+    function test_ReverseDelegationOnAnotherDomainIsAllowed() public {
+        address a = address(0xA);
+        address b = address(0xB);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
+
+        vm.prank(b);
+        governor.delegateWeight(a, OTHER_DOMAIN);
+        assertEq(governor.delegatedTo(b, OTHER_DOMAIN), a);
+    }
+
+    function test_DelegateWeight_CanBeCleared() public {
+        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0), DOMAIN);
+        assertEq(governor.delegatedTo(address(this), DOMAIN), address(0));
+    }
+
+    function test_WeightFor_MatchesWhatAVoteWouldCount() public {
+        address a = address(0xA);
+        address b = address(0xB);
+        vm.prank(a);
+        governor.delegateWeight(b, DOMAIN);
+
+        address[] memory principals = new address[](1);
+        principals[0] = a;
+        assertEq(governor.weightFor(b, DOMAIN, principals), 2);
+        assertEq(governor.weightFor(a, DOMAIN, principals), 0, "A gave this domain away");
     }
 
     ////////////////////////////// domain resolver //////////////////////////////

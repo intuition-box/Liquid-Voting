@@ -13,6 +13,11 @@
   --bad: #e0736f;
   --accent: #d8b26a;
 
+  /* One colour per identity, so a role reads the same everywhere it appears. */
+  --role-a: #e08a4b;
+  --role-b: #5b9dd9;
+  --role-c: #57c98a;
+
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -81,6 +86,112 @@ body {
   .shell {
     padding: 40px 20px 64px;
   }
+}
+
+/* ── Identity switcher ───────────────────────────────────────────────── */
+
+.identity {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.identity-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.identity-option:hover {
+  color: var(--text);
+}
+
+.identity-on {
+  color: var(--text);
+  border-color: currentColor;
+}
+
+.identity-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.role-a { color: var(--role-a); }
+.role-b { color: var(--role-b); }
+.role-c { color: var(--role-c); }
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.role-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.identity-note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin: -10px 0 26px;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 15px;
+  padding: 11px 28px;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.picked {
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
 }
 
 /* ── Panel ────────────────────────────────────────────────────────────── */
@@ -246,6 +357,201 @@ code {
 .tag-bad {
   color: var(--bad);
   border-color: color-mix(in srgb, var(--bad) 40%, var(--border));
+}
+
+/* ── Collapsible proposal rows ───────────────────────────────────────── */
+
+/* Legend and rows share one grid so the numbers sit under their labels. */
+.proposal-legend,
+.proposal-summary {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 96px 56px 56px 56px 56px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+
+.proposal-legend {
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.proposal-legend .legend-spacer {
+  grid-column: span 3;
+}
+
+.legend-col {
+  text-align: center;
+}
+
+.proposal-summary {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stat-col {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.proposal-summary .proposal-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proposal-summary:hover .proposal-title {
+  color: var(--accent);
+}
+
+.proposal-caret {
+  font-size: 11px;
+  color: var(--dim);
+  width: 10px;
+}
+
+.proposal-open .proposal-title {
+  white-space: normal;
+}
+
+.proposal-detail {
+  margin-top: 12px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vote-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ── Filters + proposal rows ──────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.chip-on {
+  color: var(--bg);
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.proposal-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.proposal-pick:hover .proposal-title {
+  color: var(--accent);
+}
+
+.weight-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.weight-badge-full {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.proposal-reason {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ── Domain tree ──────────────────────────────────────────────────────── */
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-node .tree {
+  margin: 0;
+}
+
+.tree-label {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 15px;
+}
+
+.tree-tick {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.tree-label-dead {
+  color: var(--dim);
+}
+
+.tree-flag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: 2px;
+  padding: 0 5px;
+}
+
+.level-scope {
+  margin: 0 0 4px;
+  font-size: 14px;
 }
 
 /* ── Delegation levels ────────────────────────────────────────────────── */
@@ -454,24 +760,138 @@ select:focus-visible,
   padding: 0;
 }
 
-.proposals li {
-  display: grid;
-  grid-template-columns: 42px 110px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: baseline;
-  padding: 7px 0;
+.proposal {
+  padding: 12px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 13.5px;
 }
 
-.proposals li:last-child {
+.proposal:last-child {
   border-bottom: none;
 }
 
-.proposals .muted {
+.proposal.selected {
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin-left: -14px;
+}
+
+.proposal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.proposal-domain {
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.proposal-title {
+  margin: 0 0 9px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tally-bar {
+  display: flex;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--border);
+}
+
+.tally-for { background: var(--ok); }
+.tally-against { background: var(--bad); }
+.tally-abstain { background: var(--dim); }
+
+.tally-counts {
+  color: var(--text);
+}
+
+/* ── Vote weight + proposal state ─────────────────────────────────────── */
+
+.weights-label {
+  margin: 14px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.weights {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.weight-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.weight-plus {
+  color: var(--dim);
+  margin-right: 2px;
+}
+
+.weight-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.state {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
   white-space: nowrap;
+}
+
+.state-active {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.state-succeeded,
+.state-executed {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.state-defeated {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.note-inline {
+  margin: -4px 0 10px;
+  font-size: 12.5px;
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────── */

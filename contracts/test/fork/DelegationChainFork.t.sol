@@ -148,6 +148,11 @@ contract DelegationChainForkTest is Test {
     ///      proposal is recorded here and the vote is what the delegation authorizes.
     ///      `voter` must be the redeeming account — the enforcer binds the field.
     function _voteCalldata(bytes32 domainId, address voter_) internal returns (bytes memory) {
+        // The ERC-7710 delegation says the delegate MAY vote here; the governor's own
+        // register says whose weight it carries. Both are needed for a delegated vote.
+        vm.prank(voter);
+        governor.delegateWeight(voter_, domainId);
+
         uint256 proposalId = governor.propose(domainId, "fork proposal");
         // Voting opens VOTING_DELAY blocks later; the positive cases execute for real.
         vm.roll(block.number + governor.VOTING_DELAY());

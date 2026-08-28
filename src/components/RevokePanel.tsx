@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { PublicClient } from "viem";
 
 import type { DemoConfig } from "../lib/demo-config";
-import { planProposalForcingWitness, preflightProposal, revokeRoot } from "../lib/demo-actions";
+import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/demo-actions";
 import type { EdgeState } from "../lib/graph";
 import { Button, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
@@ -44,9 +44,11 @@ export function RevokePanel({
         setOutcome({ verdict: "fail", message: "the revocation user operation reverted", txHash: result.txHash });
         return;
       }
+      // The manager rejects a disabled delegation before any caveat runs, so the probe
+      // needs no real proposal — any id reaches the check that matters.
       const [viaChain, viaRoot] = await Promise.all([
-        preflightProposal(client, config, planProposalForcingWitness(config, edges, "full", "UX", "after revoke")),
-        preflightProposal(client, config, planProposalForcingWitness(config, edges, "root", "branding", "after revoke")),
+        preflightVote(client, config, planVoteForcingWitness(config, edges, "full", "UX", 0n, VOTE_FOR)),
+        preflightVote(client, config, planVoteForcingWitness(config, edges, "root", "branding", 0n, VOTE_FOR)),
       ]);
       const executorReason = viaChain.ok ? "still passes" : viaChain.revert?.name ?? "rejected";
       const delegateReason = viaRoot.ok ? "still passes" : viaRoot.revert?.name ?? "rejected";
@@ -67,7 +69,7 @@ export function RevokePanel({
   }
 
   return (
-    <Panel index="04" title="Revoke" subtitle="one call from the voter kills every level below">
+    <Panel title="Revoke">
       <p>
         The voter disables its root delegation at the DelegationManager. The delegate's authority derives from that hash,
         so both the delegate and the executor stop working in the same transaction.

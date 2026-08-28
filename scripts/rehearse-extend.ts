@@ -18,7 +18,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
-import { extendGraph, planProposalForcingWitness, preflightProposal } from "../src/lib/demo-actions";
+import {
+  extendGraph,
+  planVoteForcingWitness,
+  preflightVote,
+  recordProposal,
+  VOTE_FOR,
+} from "../src/lib/demo-actions";
 import type { DemoConfig } from "../src/lib/demo-config";
 import { readEdgeStates } from "../src/lib/graph";
 
@@ -84,7 +90,7 @@ async function main(): Promise<void> {
 
   // Step 5a — the domain must be unauthorized before we touch the graph.
   const edgesBefore = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
-  const planBefore = planProposalForcingWitness(config, edgesBefore, "root", label, "rehearsal before");
+  const planBefore = planVoteForcingWitness(config, edgesBefore, "root", label, 0n, VOTE_FOR);
   if (!planBefore.blocked) throw new Error(`“${label}” already resolves — pick an unused label`);
   console.log(`  5a  no witness exists yet — ${planBefore.blocked}`);
 
@@ -101,10 +107,11 @@ async function main(): Promise<void> {
     edges: [...config.edges, { child: label, parent: PARENT, tripleId: result.tripleId }],
   };
   const edgesAfter = await readEdgeStates(client, extended.multiVault, extended.edges, extended.attestor, extended.curveId);
-  const planAfter = planProposalForcingWitness(extended, edgesAfter, "root", label, "rehearsal after");
+  const { proposalId } = await recordProposal(client, extended, label, "rehearsal after");
+  const planAfter = planVoteForcingWitness(extended, edgesAfter, "root", label, proposalId, VOTE_FOR);
   if (planAfter.blocked) throw new Error(`5c witness still missing: ${planAfter.blocked}`);
   const witness = planAfter.paths.map((entry) => (entry.result.found ? entry.result.labels.join(" → ") : "none")).join(" ; ");
-  const preflight = await preflightProposal(client, extended, planAfter);
+  const preflight = await preflightVote(client, extended, planAfter);
   if (!preflight.ok) throw new Error(`5c should pass, got ${preflight.revert?.formatted ?? preflight.raw}`);
 
   const endBalance = await client.getBalance({ address: submitter.address });

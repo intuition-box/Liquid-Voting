@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
 import { isDelegationDisabled } from "../src/lib/delegation";
-import { planProposalForcingWitness, preflightProposal, readProposals, type ChainLevel } from "../src/lib/demo-actions";
+import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR, type ChainLevel } from "../src/lib/demo-actions";
 import type { DemoConfig } from "../src/lib/demo-config";
 import { readEdgeStates } from "../src/lib/graph";
 
@@ -98,14 +98,32 @@ async function main(): Promise<void> {
   if (rootDisabled || leafDisabled) fail(`delegation chain is revoked (root=${rootDisabled} leaf=${leafDisabled}) — re-sign with \`bun run phase3:delegate\``);
   else console.log(`ok    delegation chain active, signed ${new Date(config.delegations.signedAt).toLocaleString()}`);
 
-  // Panel 3 — each demo claim, simulated on live contracts.
+  // Panel 3 — each demo claim, simulated on live contracts against real proposals.
+  // Newest first, so a domain proposed more than once verifies against its latest.
+  const recent = await readProposals(client, config, 40);
   for (const expectation of EXPECTATIONS) {
-    const plan = planProposalForcingWitness(config, edges, expectation.level, expectation.domain, "pre-demo verification");
-    const result = await preflightProposal(client, config, plan);
+    // Each claim needs a proposal on its domain: the enforcer resolves the domain from
+    // the governor, so there is nothing to check without one. This script is read-only,
+    // so it reuses what the governor already holds.
+    // An already-voted proposal would fail with AlreadyVoted rather than the reason under
+    // test, so only unvoted, still-active ones are usable here.
+    const domainId = config.nodes.find((node) => node.label === expectation.domain)?.termId?.toLowerCase();
+    const existing = recent.find(
+      (proposal) =>
+        proposal.domainId.toLowerCase() === domainId &&
+        proposal.state === "active" &&
+        proposal.forVotes + proposal.againstVotes + proposal.abstainVotes === 0n,
+    );
+    if (!existing) {
+      fail(`no fresh active proposal on “${expectation.domain}” — record one in the app before presenting`);
+      continue;
+    }
+    const plan = planVoteForcingWitness(config, edges, expectation.level, expectation.domain, existing.id, VOTE_FOR);
+    const result = await preflightVote(client, config, plan);
     const witness = plan.paths
       .map((entry) => (entry.result.found ? entry.result.labels.join(" → ") : `none up to ${entry.rootLabel}`))
       .join(" ; ");
-    const label = `${expectation.domain} via ${expectation.level} chain [${witness}]`;
+    const label = `vote on ${expectation.domain} via ${expectation.level} chain [${witness}]`;
     if (expectation.expect === "pass") {
       if (result.ok) console.log(`ok    ${label} passes`);
       else fail(`${label} should pass but got ${result.revert?.formatted ?? result.raw}`);

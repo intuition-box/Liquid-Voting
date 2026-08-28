@@ -2,16 +2,14 @@ import type { ReactNode } from "react";
 
 import { addressUrl, shortHex, txUrl } from "../lib/chain";
 
-export function Panel({ index, title, subtitle, children }: { index: string; title: string; subtitle?: string; children: ReactNode }) {
+export function Panel({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <section className="panel">
-      <header className="panel-head">
-        <span className="panel-index">{index}</span>
-        <div>
+      {title ? (
+        <header className="panel-head">
           <h2>{title}</h2>
-          {subtitle ? <p className="muted">{subtitle}</p> : null}
-        </div>
-      </header>
+        </header>
+      ) : null}
       <div className="panel-body">{children}</div>
     </section>
   );

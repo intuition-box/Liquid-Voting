@@ -69,6 +69,12 @@ contract MockGovernor {
     error NoVotingPower(address account);
     /// @notice Voting power was assigned to the zero address.
     error ZeroAddress();
+    /// @notice The account delegated this domain away, so it cannot vote on it itself.
+    error WeightDelegatedAway(address account, bytes32 domainId, address delegate);
+    /// @notice The principal did not delegate this domain to the voter.
+    error NotDelegatedToVoter(address principal, address voter, bytes32 domainId);
+    /// @notice Delegating here would send the weight in a circle.
+    error CircularDelegation(address delegator, address delegate, bytes32 domainId);
 
     ////////////////////////////// Events //////////////////////////////
 
@@ -117,21 +123,36 @@ contract MockGovernor {
     /// @param votingPower The new voting power.
     event VotingPowerSet(address indexed account, uint256 votingPower);
 
+    /// @notice Emitted when an account hands its weight on a domain to someone else.
+    /// @param delegator The account giving its weight away.
+    /// @param delegate The account receiving it; zero clears the delegation.
+    /// @param domainId The domain the transfer applies to.
+    event WeightDelegated(address indexed delegator, address indexed delegate, bytes32 indexed domainId);
+
     ////////////////////////////// State //////////////////////////////
 
     /// @notice Blocks between a proposal's creation and the opening of its voting window.
     uint256 public constant VOTING_DELAY = 1;
-    /// @notice Length of the voting window, in blocks.
-    uint256 public constant VOTING_PERIOD = 50;
+    /// @notice Length of the voting window, in blocks. Chain 13579 produces roughly one
+    ///         block per second, so this is about eight hours — long enough that a
+    ///         proposal recorded before a session is still votable throughout it.
+    uint256 public constant VOTING_PERIOD = 30_000;
     /// @notice Total weight required for a proposal to be able to succeed.
     uint256 public constant QUORUM = 1;
     /// @notice Voting power every account holds before any explicit assignment.
     uint256 public constant DEFAULT_VOTING_POWER = 1;
 
+    /// @notice Longest delegation chain the circularity walk will follow.
+    /// @dev Bounds the loop in `_wouldCircle`; a chain deeper than this is refused rather
+    ///      than walked, so there is no unbounded traversal.
+    uint256 public constant MAX_DELEGATION_DEPTH = 8;
+
     Proposal[] private _proposals;
     mapping(uint256 proposalId => mapping(address account => bool)) private _hasVoted;
     mapping(address account => uint256 power) private _votingPower;
     mapping(address account => bool assigned) private _powerAssigned;
+    /// @dev Who an account handed its weight to, per domain. Zero means it kept it.
+    mapping(address delegator => mapping(bytes32 domainId => address delegate)) private _delegatedTo;
 
     ////////////////////////////// External functions //////////////////////////////
 
@@ -146,6 +167,25 @@ contract MockGovernor {
         _votingPower[account] = power;
         _powerAssigned[account] = true;
         emit VotingPowerSet(account, power);
+    }
+
+    /// @notice Hands the caller's weight on one domain to another account.
+    /// @dev Delegating **transfers** weight rather than copying it: the delegator stops
+    ///      counting on that domain and the delegate counts for both. It is per domain, so
+    ///      an account that delegated `design` still votes on everything else itself.
+    ///
+    ///      Whether the delegate may then use that weight on a given proposal is not this
+    ///      contract's question — the ERC-7710 caveat answers it by checking the proposal's
+    ///      domain against the Intuition graph before the vote reaches here.
+    /// @param delegate The account receiving the weight; zero clears the delegation.
+    /// @param domainId The domain the transfer applies to.
+    function delegateWeight(address delegate, bytes32 domainId) external {
+        if (delegate == msg.sender) revert CircularDelegation(msg.sender, delegate, domainId);
+        if (delegate != address(0) && _wouldCircle(msg.sender, delegate, domainId)) {
+            revert CircularDelegation(msg.sender, delegate, domainId);
+        }
+        _delegatedTo[msg.sender][domainId] = delegate;
+        emit WeightDelegated(msg.sender, delegate, domainId);
     }
 
     /// @notice Records a proposal scoped to a governance domain and opens its lifecycle.
@@ -281,6 +321,35 @@ contract MockGovernor {
         power_ = _powerAssigned[account] ? _votingPower[account] : DEFAULT_VOTING_POWER;
     }
 
+    /// @notice Who an account handed its weight to on a domain.
+    /// @param delegator The account to read.
+    /// @param domainId The domain in question.
+    /// @return delegate_ The delegate, or the zero address when the account kept its weight.
+    function delegatedTo(address delegator, bytes32 domainId) public view returns (address delegate_) {
+        delegate_ = _delegatedTo[delegator][domainId];
+    }
+
+    /// @notice The weight an account would cast on a domain, given who delegated to whom.
+    /// @dev Zero once the account has delegated the domain away. Otherwise its own power
+    ///      plus every principal whose weight routes to it. This is the number the UI
+    ///      displays, read from the same state the vote path enforces.
+    /// @param account The prospective voter.
+    /// @param domainId The domain in question.
+    /// @param principals The accounts the voter would name.
+    /// @return weight_ The total weight, zero when the account cannot vote on this domain.
+    function weightFor(address account, bytes32 domainId, address[] calldata principals)
+        public
+        view
+        returns (uint256 weight_)
+    {
+        if (_delegatedTo[account][domainId] != address(0)) return 0;
+        weight_ = votingPower(account);
+        uint256 count_ = principals.length;
+        for (uint256 i_; i_ < count_; ++i_) {
+            if (_routesTo(principals[i_], account, domainId)) weight_ += votingPower(principals[i_]);
+        }
+    }
+
     ////////////////////////////// Private functions //////////////////////////////
 
     /// @dev Shared vote path. Counts `voter`'s own power plus each principal's, marking
@@ -295,12 +364,23 @@ contract MockGovernor {
         if (support > uint8(VoteType.Abstain)) revert InvalidVoteType(support);
         if (_hasVoted[proposalId][voter]) revert AlreadyVoted(proposalId, voter);
 
+        // An account that handed this domain away no longer counts on it, not even for
+        // itself — delegating transfers weight rather than copying it.
+        bytes32 domainId_ = proposal_.domainId;
+        address voterDelegate_ = _delegatedTo[voter][domainId_];
+        if (voterDelegate_ != address(0)) revert WeightDelegatedAway(voter, domainId_, voterDelegate_);
+
         _hasVoted[proposalId][voter] = true;
         weight = votingPower(voter);
 
         uint256 count_ = principals.length;
         for (uint256 i_; i_ < count_; ++i_) {
             address principal_ = principals[i_];
+            // The claim must be real: only weight actually routed to this voter counts,
+            // whether granted directly or passed along a chain of delegations.
+            if (!_routesTo(principal_, voter, domainId_)) {
+                revert NotDelegatedToVoter(principal_, voter, domainId_);
+            }
             if (_hasVoted[proposalId][principal_]) revert AlreadyVoted(proposalId, principal_);
             _hasVoted[proposalId][principal_] = true;
             uint256 principalWeight_ = votingPower(principal_);
@@ -315,6 +395,31 @@ contract MockGovernor {
         else proposal_.abstainVotes += weight;
 
         emit VoteCast(proposalId, voter, support, weight, principals);
+    }
+
+    /// @dev Whether `principal`'s weight on `domainId` reaches `voter`, following the
+    ///      delegation chain. Bounded by `MAX_DELEGATION_DEPTH`.
+    function _routesTo(address principal, address voter, bytes32 domainId) private view returns (bool) {
+        address current_ = _delegatedTo[principal][domainId];
+        for (uint256 i_; i_ < MAX_DELEGATION_DEPTH; ++i_) {
+            if (current_ == address(0)) return false;
+            if (current_ == voter) return true;
+            current_ = _delegatedTo[current_][domainId];
+        }
+        return false;
+    }
+
+    /// @dev Whether delegating to `delegate` would route `delegator`'s weight back to
+    ///      itself. Bounded by `MAX_DELEGATION_DEPTH`; a longer chain is treated as
+    ///      circular rather than walked further.
+    function _wouldCircle(address delegator, address delegate, bytes32 domainId) private view returns (bool) {
+        address current_ = delegate;
+        for (uint256 i_; i_ < MAX_DELEGATION_DEPTH; ++i_) {
+            if (current_ == address(0)) return false;
+            if (current_ == delegator) return true;
+            current_ = _delegatedTo[current_][domainId];
+        }
+        return true;
     }
 
     /// @dev Storage handle to an existing proposal, reverting on an unknown id.
