@@ -6,17 +6,17 @@
   "explorer": "https://testnet.explorer.intuition.systems",
   "contracts": {
     "GraphDomainCaveatEnforcer": {
-      "address": "0x4Cde24B6e861DbC7B58A04c61149dE155ced19bA",
+      "address": "0x280B1fa8d5C6604E0e1DaD127Df5d76C550dD1b8",
       "deployedAt": "2026-08-28",
       "verified": false,
       "constructorArgs": {
         "multiVault": "0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91",
-        "governor": "0x0EaAc45929aDbD273C6478ed2C681A821eBc3a0C",
-        "voteSelector": "castVoteFor(uint256,uint8,address,address[])"
+        "governor": "0x8aadc40E0922350227F3994ccA9B991e66CEb98f",
+        "voteSelector": "castVoteFor(uint256,uint8,address,address[],bytes32[])"
       }
     },
     "MockGovernor": {
-      "address": "0x0EaAc45929aDbD273C6478ed2C681A821eBc3a0C",
+      "address": "0x8aadc40E0922350227F3994ccA9B991e66CEb98f",
       "deployedAt": "2026-08-28",
       "verified": false
     }
