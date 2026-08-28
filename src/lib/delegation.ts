@@ -140,6 +140,8 @@ export interface VoteParams {
   voter: `0x${string}`;
   /** Accounts whose voting power the voter carries — the delegators up the chain. */
   principals: `0x${string}`[];
+  /** Domain path from the proposal's domain up through its parents, verified on chain. */
+  domainPath: Hex[];
 }
 
 /**
@@ -159,6 +161,7 @@ export function buildVoteCalldata({
   support,
   voter,
   principals,
+  domainPath,
 }: VoteParams): Hex {
   return buildRedeem(
     chain,
@@ -167,7 +170,7 @@ export function buildVoteCalldata({
     encodeFunctionData({
       abi: governorAbi,
       functionName: "castVoteFor",
-      args: [proposalId, support, voter, principals],
+      args: [proposalId, support, voter, principals, domainPath],
     }),
   );
 }

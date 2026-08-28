@@ -136,6 +136,7 @@ async function main(): Promise<void> {
       // B is the voter — it redeemed A's delegation — and carries A's weight with it.
       voter: delegateSA.address,
       principals: [voterSA.address],
+      domainPath: [branding, design],
     });
     const pre = await preflightRedeem(publicClient, delegateSA.address, calldata);
     if (!pre.ok) throw new Error(`case 2 preflight failed: ${pre.revert?.formatted ?? pre.raw}`);
@@ -174,6 +175,7 @@ async function main(): Promise<void> {
       support: VOTE_FOR,
       voter: delegateSA.address,
       principals: [voterSA.address],
+      domainPath: [legal, design],
     });
     const pre = await preflightRedeem(publicClient, delegateSA.address, calldata);
     if (pre.ok || pre.revert?.name !== "NotATriple") {
@@ -221,6 +223,7 @@ async function main(): Promise<void> {
       support: VOTE_FOR,
       voter: executorSA.address,
       principals: [voterSA.address, delegateSA.address],
+      domainPath: [branding, design],
     });
     const pre = await preflightRedeem(publicClient, executorSA.address, calldata);
     if (pre.ok || pre.revert?.name !== "NotATriple") {

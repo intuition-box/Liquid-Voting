@@ -116,6 +116,9 @@ function encodeVote(
     support,
     voter: config.accounts[redeemer].smartAccount,
     principals: principals.map((role) => config.accounts[role].smartAccount),
+    // The governor needs the same path the caveat verifies: a grant on a parent domain
+    // covers this proposal, and the path is what proves the parent relation.
+    domainPath: witnesses[witnesses.length - 1] ?? [],
   });
 }
 
@@ -342,6 +345,7 @@ export async function readWeights(
   client: PublicClient,
   config: DemoConfig,
   domainId: Hex,
+  domainPath: Hex[] = [],
 ): Promise<Record<Role, bigint>> {
   const roles: Role[] = ["voter", "delegate", "executor"];
   const all = roles.map((role) => config.accounts[role].smartAccount);
@@ -351,7 +355,7 @@ export async function readWeights(
         address: config.governor,
         abi: governorAbi,
         functionName: "weightFor",
-        args: [config.accounts[role].smartAccount, domainId, all],
+        args: [config.accounts[role].smartAccount, domainId, all, domainPath],
       }),
     ),
   );
