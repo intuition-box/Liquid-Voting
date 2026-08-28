@@ -114,15 +114,76 @@ export interface RedeemParams {
  * verifies it hop by hop against live chain state rather than trusting it (ADR 0003).
  */
 export function buildRedeemCalldata({ chain, witnesses, governor, domainId, description }: RedeemParams): Hex {
+  return buildRedeem(
+    chain,
+    witnesses,
+    governor,
+    encodeFunctionData({ abi: governorAbi, functionName: "propose", args: [domainId, description] }),
+  );
+}
+
+/** Vote options, matching the governor's `VoteType` and OpenZeppelin's counting module. */
+export const VOTE_AGAINST = 0;
+export const VOTE_FOR = 1;
+export const VOTE_ABSTAIN = 2;
+
+export interface VoteParams {
+  /** Delegation chain, leaf → root. */
+  chain: Delegation[];
+  /** Path witness per chain entry, same order. */
+  witnesses: Hex[][];
+  governor: `0x${string}`;
+  proposalId: bigint;
+  /** `VOTE_AGAINST` | `VOTE_FOR` | `VOTE_ABSTAIN`. */
+  support: number;
+  /** The account the vote is recorded for — must be the redeemer, the enforcer binds it. */
+  voter: `0x${string}`;
+  /** Accounts whose voting power the voter carries — the delegators up the chain. */
+  principals: `0x${string}`[];
+}
+
+/**
+ * Builds the `redeemDelegations` calldata for a delegated vote.
+ *
+ * Two things differ from a proposal. The execution carries no domain — `castVoteFor` takes
+ * a proposal id — so the enforcer resolves it by calling `proposalDomain(id)` on the
+ * governor it was constructed with. And the framework executes from the root delegator's
+ * account, so the delegate names itself in `voter`; the enforcer binds that field to the
+ * redeemer, which is what makes the recorded vote the delegate's own.
+ */
+export function buildVoteCalldata({
+  chain,
+  witnesses,
+  governor,
+  proposalId,
+  support,
+  voter,
+  principals,
+}: VoteParams): Hex {
+  return buildRedeem(
+    chain,
+    witnesses,
+    governor,
+    encodeFunctionData({
+      abi: governorAbi,
+      functionName: "castVoteFor",
+      args: [proposalId, support, voter, principals],
+    }),
+  );
+}
+
+/** Shared assembly: attach each level's witness to its caveat, wrap one single execution. */
+function buildRedeem(
+  chain: Delegation[],
+  witnesses: Hex[][],
+  governor: `0x${string}`,
+  innerCalldata: Hex,
+): Hex {
   const withWitnesses = chain.map((delegation, index) => ({
     ...delegation,
     caveats: delegation.caveats.map((caveat) => ({ ...caveat, args: encodePathWitness(witnesses[index] ?? []) })),
   }));
-  const execution = encodeSingleExecution(
-    governor,
-    0n,
-    encodeFunctionData({ abi: governorAbi, functionName: "propose", args: [domainId, description] }),
-  );
+  const execution = encodeSingleExecution(governor, 0n, innerCalldata);
   return encodeFunctionData({
     abi: delegationManagerAbi,
     functionName: "redeemDelegations",
