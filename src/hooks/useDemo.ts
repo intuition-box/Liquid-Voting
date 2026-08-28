@@ -19,7 +19,7 @@ import {
 } from "../lib/demo-config";
 import { readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
 import { baseGrants, type Grant } from "../lib/grants";
-import { readEdgeStates, type EdgeState } from "../lib/graph";
+import { computePath, readEdgeStates, type EdgeState } from "../lib/graph";
 
 export interface DemoState {
   configResult: ConfigResult;
@@ -118,9 +118,18 @@ export function useDemo(): DemoState {
         setProposals(records);
         setVotingPower(powers);
 
-        // One read per domain that has a proposal — the governor is the authority on weight.
+        // One read per domain that has a proposal — the governor is the authority on
+        // weight. The path lets a grant on a parent domain count here; the governor
+        // verifies every hop of it against the graph.
         const domainIds = [...new Set(records.map((record) => record.domainId))];
-        const perDomain = await Promise.all(domainIds.map((id) => readWeights(client, config, id)));
+        const labelOf = new Map(config.nodes.map((node) => [node.termId.toLowerCase(), node.label]));
+        const perDomain = await Promise.all(
+          domainIds.map((id) => {
+            const label = labelOf.get(id.toLowerCase());
+            const toRoot = label ? computePath(edgeStates, config.nodes, label, "governance") : null;
+            return readWeights(client, config, id, toRoot?.found ? toRoot.path : []);
+          }),
+        );
         if (cancelled) return;
         setWeights(Object.fromEntries(domainIds.map((id, index) => [id.toLowerCase(), perDomain[index]!])));
         setRootDisabled(root);
