@@ -8,6 +8,7 @@
     "phase3:setup": "bun --env-file=contracts/.env scripts/phase3-setup.ts",
     "phase3:delegate": "bun --env-file=contracts/.env scripts/phase3-delegate.ts",
     "phase3:run": "bun --env-file=contracts/.env scripts/phase3-run.ts",
+    "vote:run": "bun --env-file=contracts/.env scripts/vote-run.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
