@@ -77,7 +77,7 @@ contract DelegationChainForkTest is Test {
         );
 
         governor = new MockGovernor();
-        enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.propose.selector);
+        enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.castVoteFor.selector);
 
         // ADR 0004: the existing triples carry no real positions — the delegator-as-
         // attestor (voter) deposits on the two edges its `design` delegation relies on.
@@ -143,9 +143,20 @@ contract DelegationChainForkTest is Test {
         delegation_.signature = abi.encodePacked(r, s, v);
     }
 
-    function _proposeCalldata(bytes32 domainId) internal view returns (bytes memory) {
+    /// @dev The delegated execution under test: a vote on a proposal scoped to `domainId`.
+    ///      Proposing is outside the caveat (anyone may propose in their own name), so the
+    ///      proposal is recorded here and the vote is what the delegation authorizes.
+    ///      `voter` must be the redeeming account — the enforcer binds the field.
+    function _voteCalldata(bytes32 domainId, address voter_) internal returns (bytes memory) {
+        uint256 proposalId = governor.propose(domainId, "fork proposal");
+        // Voting opens VOTING_DELAY blocks later; the positive cases execute for real.
+        vm.roll(block.number + governor.VOTING_DELAY());
+        address[] memory principals = new address[](1);
+        principals[0] = voter;   // the root delegator's weight rides along
         return abi.encodePacked(
-            address(governor), uint256(0), abi.encodeCall(MockGovernor.propose, (domainId, "fork proposal"))
+            address(governor),
+            uint256(0),
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter_, principals))
         );
     }
 
@@ -155,7 +166,6 @@ contract DelegationChainForkTest is Test {
     /// vm.expectRevert / vm.prank directly before manager.redeemDelegations.
     function _chainCall(bytes32 domainId, bytes32[] memory leafPath, bytes32[] memory rootPath)
         internal
-        view
         returns (bytes[] memory contexts, ModeCode[] memory modes, bytes[] memory execs)
     {
         Delegation[] memory chain = new Delegation[](2);
@@ -169,14 +179,13 @@ contract DelegationChainForkTest is Test {
         modes = new ModeCode[](1);
         modes[0] = ModeLib.encodeSimpleSingle();
         execs = new bytes[](1);
-        execs[0] = _proposeCalldata(domainId);
+        execs[0] = _voteCalldata(domainId, executorEoa);
     }
 
     /// Builds the redeemDelegations arguments for the root delegation alone
     /// (level-1 authority, redeemed by the delegate).
     function _rootOnlyCall(bytes32 domainId, bytes32[] memory rootPath)
         internal
-        view
         returns (bytes[] memory contexts, ModeCode[] memory modes, bytes[] memory execs)
     {
         Delegation[] memory chain = new Delegation[](1);
@@ -188,7 +197,7 @@ contract DelegationChainForkTest is Test {
         modes = new ModeCode[](1);
         modes[0] = ModeLib.encodeSimpleSingle();
         execs = new bytes[](1);
-        execs[0] = _proposeCalldata(domainId);
+        execs[0] = _voteCalldata(domainId, delegateEoa);
     }
 
     function _path(bytes32 a) internal pure returns (bytes32[] memory p) {
@@ -235,17 +244,21 @@ contract DelegationChainForkTest is Test {
 
     ////////////////////////////// End-to-end //////////////////////////////
 
-    /// Happy path through the full chain: a `UX` proposal satisfies the leaf's `UX`
-    /// scope (exact match) and the root's `design` scope (1 hop), executes from the
-    /// voter smart account, and lands in the governor.
+    /// Happy path through the full chain: a vote on a `UX` proposal satisfies the leaf's
+    /// `UX` scope (exact match) and the root's `design` scope (1 hop). The vote is
+    /// recorded for the executor — the account that redeemed — and carries the root
+    /// delegator's weight with it.
     function test_Fork_ChainRedeem_UXProposal_Passes() public {
         (bytes[] memory c, ModeCode[] memory m, bytes[] memory e) = _chainCall(UX, _path(UX), _path(UX, DESIGN));
         vm.prank(executorEoa);
         manager.redeemDelegations(c, m, e);
+
         assertEq(governor.proposalCount(), 1);
-        MockGovernor.Proposal memory p = governor.getProposal(0);
-        assertEq(p.domainId, UX);
-        assertEq(p.proposer, voter, "execution must originate from the root delegator");
+        assertEq(governor.getProposal(0).domainId, UX);
+        (, uint256 forVotes,) = governor.proposalVotes(0);
+        assertEq(forVotes, 2, "the executor's own weight plus the root delegator's");
+        assertTrue(governor.hasVoted(0, executorEoa), "the vote is recorded for the redeemer");
+        assertTrue(governor.hasVoted(0, voter), "the delegator's weight was exercised");
     }
 
     /// §6 test 14 — narrowing is emergent (ADR 0007): `branding` is valid under the
@@ -330,7 +343,7 @@ contract DelegationChainForkTest is Test {
         ModeCode[] memory modes = new ModeCode[](1);
         modes[0] = ModeLib.encodeSimpleSingle();
         bytes[] memory execs = new bytes[](1);
-        execs[0] = _proposeCalldata(BRANDING);
+        execs[0] = _voteCalldata(BRANDING, delegateEoa);
 
         vm.expectRevert(
             abi.encodeWithSelector(GraphDomainCaveatEnforcer.DelegationExpired.selector, expiry, block.timestamp)

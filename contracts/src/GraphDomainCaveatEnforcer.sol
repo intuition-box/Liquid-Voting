@@ -10,6 +10,16 @@ import { ModeLib, CallType, ExecType, CALLTYPE_SINGLE, EXECTYPE_DEFAULT } from "
 
 import { IMultiVault } from "./interfaces/IMultiVault.sol";
 
+/// @notice The governor-side domain resolver: maps a proposal to the governance domain it
+///         is scoped to. Vote entry points carry a proposal id rather than a domain, so
+///         the enforcer reads the domain back from the governor before traversing.
+interface IGovernorDomains {
+    /// @notice The governance domain a proposal is scoped to.
+    /// @param proposalId Sequential id of the proposal.
+    /// @return domainId_ Term id of the proposal's domain.
+    function proposalDomain(uint256 proposalId) external view returns (bytes32 domainId_);
+}
+
 /// @title GraphDomainCaveatEnforcer
 /// @notice ERC-7710 caveat enforcer scoping a delegation to a governance *domain*,
 ///         where domain membership is resolved by verifying a redeemer-supplied path
@@ -46,8 +56,14 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
     error DelegationExpired(uint64 expiry, uint256 currentTimestamp);
     /// @notice The execution target is not the allowed governor.
     error InvalidTarget(address actual, address expected);
-    /// @notice The execution selector is not the allowed propose selector.
+    /// @notice The execution selector is not the delegated-vote selector.
     error InvalidSelector(bytes4 actual, bytes4 expected);
+    /// @notice A vote execution did not carry a decodable proposal id and voter.
+    error MalformedVoteCalldata(uint256 length);
+    /// @notice The vote names a voter other than the account redeeming the delegation.
+    error VoterIsNotRedeemer(address declared, address redeemer);
+    /// @notice The governor could not resolve a domain for the proposal being voted on.
+    error UnresolvedProposalDomain(uint256 proposalId);
     /// @notice The path witness is empty.
     error EmptyPath();
     /// @notice The path witness exceeds the hop cap.
@@ -74,19 +90,21 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
     /// @notice The only execution target a scoped delegation may call.
     address public immutable GOVERNOR;
     /// @notice The only function selector a scoped delegation may invoke on the governor.
-    bytes4 public immutable ALLOWED_SELECTOR;
+    /// @dev Voting is the only delegated action. Proposing needs no delegation — anyone
+    ///      may propose in their own name — so it is deliberately outside this caveat.
+    bytes4 public immutable VOTE_SELECTOR;
 
     ////////////////////////////// Constructor //////////////////////////////
 
     /// @notice Deploys the enforcer bound to one MultiVault and one governor endpoint.
     /// @param _multiVault The Intuition MultiVault (graph authority).
-    /// @param _governor The governor contract proposals must target.
-    /// @param _allowedSelector The propose function selector on the governor.
-    constructor(IMultiVault _multiVault, address _governor, bytes4 _allowedSelector) {
+    /// @param _governor The governor contract votes must target.
+    /// @param _voteSelector The delegated-vote selector on the governor.
+    constructor(IMultiVault _multiVault, address _governor, bytes4 _voteSelector) {
         if (address(_multiVault) == address(0) || _governor == address(0)) revert ZeroAddress();
         MULTI_VAULT = _multiVault;
         GOVERNOR = _governor;
-        ALLOWED_SELECTOR = _allowedSelector;
+        VOTE_SELECTOR = _voteSelector;
     }
 
     ////////////////////////////// External functions //////////////////////////////
@@ -124,7 +142,7 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
         bytes calldata _executionCalldata,
         bytes32,
         address _delegator,
-        address
+        address _redeemer
     ) public view override {
         // 1. Reject anything that is not a single default execution.
         _validateMode(_mode);
@@ -136,7 +154,7 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
         }
 
         // 3. Execution shape: target, selector, proposal domain.
-        bytes32 domainId_ = _validateExecution(_executionCalldata);
+        bytes32 domainId_ = _validateExecution(_executionCalldata, _redeemer);
 
         // 4–5. Witness shape + endpoints.
         bytes32[] memory path_ = _validatePath(_args, terms_.maxDepth, domainId_, terms_.rootDomainId);
@@ -167,17 +185,47 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
         }
     }
 
-    /// @dev Step 3 — target and selector must match the bound governor endpoint; the
-    ///      proposal's domain id is the first argument word. The bytes4/bytes32
-    ///      conversions zero-pad short calldata instead of reverting, keeping every
-    ///      failure on a named error path.
-    function _validateExecution(bytes calldata _executionCalldata) private view returns (bytes32 domainId_) {
+    /// @dev Step 3 — the execution must be a delegated vote on the bound governor. The
+    ///      calldata carries a proposal id rather than a domain, so the domain is resolved
+    ///      from the governor (`proposalDomain`). This is the resolver pattern a production
+    ///      Governor requires for every entry point, since none of them carry a domain
+    ///      field. The governor is immutable and bound at construction, so the resolver
+    ///      cannot be swapped after a delegation is signed.
+    function _validateExecution(bytes calldata _executionCalldata, address _redeemer)
+        private
+        view
+        returns (bytes32 domainId_)
+    {
         (address target_,, bytes calldata callData_) = ExecutionLib.decodeSingle(_executionCalldata);
         if (target_ != GOVERNOR) revert InvalidTarget(target_, GOVERNOR);
         // forge-lint: disable-next-line(unsafe-typecast) — selector extraction truncates by design
         bytes4 selector_ = bytes4(callData_);
-        if (selector_ != ALLOWED_SELECTOR) revert InvalidSelector(selector_, ALLOWED_SELECTOR);
-        domainId_ = callData_.length > 4 ? bytes32(callData_[4:]) : bytes32(0);
+        if (selector_ != VOTE_SELECTOR) revert InvalidSelector(selector_, VOTE_SELECTOR);
+        domainId_ = _resolveVoteDomain(callData_, _redeemer);
+    }
+
+    /// @dev Vote path. Two things are established here.
+    ///
+    ///      **Who votes.** The framework executes from the root delegator's account, so
+    ///      `msg.sender` at the governor is the principal, not the delegate. The delegate
+    ///      names itself in the calldata's `voter` field, and this check binds that field
+    ///      to `_redeemer` — the account the DelegationManager verified as the redeeming
+    ///      delegate. The field cannot name anyone else, so a vote recorded for B is proof
+    ///      that B redeemed.
+    ///
+    ///      **Which domain.** Vote calldata carries a proposal id, not a domain, so the
+    ///      domain is read back from the governor. A proposal resolving to the zero domain
+    ///      is rejected rather than treated as a wildcard.
+    ///
+    ///      Layout: selector(4) | proposalId(32) | support(32) | voter(32) | …
+    function _resolveVoteDomain(bytes calldata _callData, address _redeemer) private view returns (bytes32 domainId_) {
+        if (_callData.length < 100) revert MalformedVoteCalldata(_callData.length);
+        address declaredVoter_ = address(uint160(uint256(bytes32(_callData[68:100]))));
+        if (declaredVoter_ != _redeemer) revert VoterIsNotRedeemer(declaredVoter_, _redeemer);
+
+        uint256 proposalId_ = uint256(bytes32(_callData[4:36]));
+        domainId_ = IGovernorDomains(GOVERNOR).proposalDomain(proposalId_);
+        if (domainId_ == bytes32(0)) revert UnresolvedProposalDomain(proposalId_);
     }
 
     /// @dev Steps 4–5 — witness shape (non-empty, hop count within the cap, which also

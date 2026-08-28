@@ -30,9 +30,8 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerKey);
         MockGovernor governor = new MockGovernor();
-        GraphDomainCaveatEnforcer enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(MULTIVAULT), address(governor), MockGovernor.propose.selector
-        );
+        GraphDomainCaveatEnforcer enforcer =
+            new GraphDomainCaveatEnforcer(IMultiVault(MULTIVAULT), address(governor), MockGovernor.castVoteFor.selector);
         vm.stopBroadcast();
 
         console2.log("MockGovernor:              ", address(governor));

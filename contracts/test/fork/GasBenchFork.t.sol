@@ -36,7 +36,7 @@ contract GasBenchForkTest is Test {
         vm.createSelectFork(vm.envOr("INTUITION_TESTNET_RPC", DEFAULT_RPC));
         vault = IMultiVault(MULTIVAULT);
         governor = new MockGovernor();
-        enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.propose.selector);
+        enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.castVoteFor.selector);
 
         (, uint256 curveId) = vault.getBondingCurveConfig();
         vm.deal(delegator, 1 ether);
@@ -48,7 +48,7 @@ contract GasBenchForkTest is Test {
         singleMode = ModeLib.encodeSimpleSingle();
     }
 
-    function _measure(bytes32 domainId, bytes32[] memory path) internal view returns (uint256 gasUsed) {
+    function _measure(bytes32 domainId, bytes32[] memory path) internal returns (uint256 gasUsed) {
         bytes memory terms = abi.encode(
             GraphDomainCaveatEnforcer.Terms({
                 rootDomainId: DESIGN,
@@ -58,8 +58,14 @@ contract GasBenchForkTest is Test {
                 attestor: address(0)
             })
         );
+        // Recorded before the measurement so the proposal write stays out of the number.
+        uint256 proposalId = governor.propose(domainId, "bench");
+        address[] memory principals = new address[](1);
+        principals[0] = delegator;
         bytes memory exec = abi.encodePacked(
-            address(governor), uint256(0), abi.encodeCall(MockGovernor.propose, (domainId, "bench"))
+            address(governor),
+            uint256(0),
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals))
         );
 
         uint256 before = gasleft();
@@ -67,20 +73,20 @@ contract GasBenchForkTest is Test {
         gasUsed = before - gasleft();
     }
 
-    function test_ForkGas_Depth0() public view {
+    function test_ForkGas_Depth0() public {
         bytes32[] memory path = new bytes32[](1);
         path[0] = DESIGN;
         console2.log("beforeHook fork gas at depth 0:", _measure(DESIGN, path));
     }
 
-    function test_ForkGas_Depth1() public view {
+    function test_ForkGas_Depth1() public {
         bytes32[] memory path = new bytes32[](2);
         path[0] = BRANDING;
         path[1] = DESIGN;
         console2.log("beforeHook fork gas at depth 1:", _measure(BRANDING, path));
     }
 
-    function test_ForkGas_Depth2() public view {
+    function test_ForkGas_Depth2() public {
         bytes32[] memory path = new bytes32[](3);
         path[0] = LOGO;
         path[1] = BRANDING;
