@@ -11,6 +11,7 @@ import {
   readSessionGrants,
   saveSessionDomain,
   saveSessionGrant,
+  saveSessionGrants,
   withSessionDomains,
   type ConfigResult,
   type DemoConfig,
@@ -46,6 +47,8 @@ export interface DemoState {
   weights: Record<string, Record<Role, bigint>>;
   /** Records a delegation signed in the UI. */
   addGrant: (grant: Grant) => void;
+  /** Marks a grant on a domain revoked, so it can be handed to someone else. */
+  revokeGrant: (domain: string) => void;
   sessionDomainCount: number;
   /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
   resetSessionDomains: () => void;
@@ -89,10 +92,21 @@ export function useDemo(): DemoState {
   const addGrant = useCallback((grant: Grant) => {
     setSessionGrants(saveSessionGrant(grant));
   }, []);
+  // The seeded pair lives in a file, so a revocation of one is remembered here instead.
+  const [revokedScopes, setRevokedScopes] = useState<string[]>([]);
+  const revokeGrant = useCallback((domain: string) => {
+    setSessionGrants((current) => {
+      const next = current.map((grant) => (grant.scope === domain ? { ...grant, revoked: true } : grant));
+      saveSessionGrants(next);
+      return next;
+    });
+    setRevokedScopes((current) => (current.includes(domain) ? current : [...current, domain]));
+  }, []);
   const resetSessionDomains = useCallback(() => {
     clearSessionDomains();
     setSessionDomains([]);
     setSessionGrants([]);
+    setRevokedScopes([]);
   }, []);
 
   useEffect(() => {
@@ -157,7 +171,11 @@ export function useDemo(): DemoState {
   const leafScope = scopeOf(config?.delegations.leaf);
 
   // The seeded pair carries its on-chain revoked state; session grants are always live.
-  const grants: Grant[] = config ? [...baseGrants(config, rootDisabled, leafDisabled), ...sessionGrants] : [];
+  const grants: Grant[] = config
+    ? [...baseGrants(config, rootDisabled, leafDisabled), ...sessionGrants].map((grant) =>
+        revokedScopes.includes(grant.scope) ? { ...grant, revoked: true } : grant,
+      )
+    : [];
 
   return {
     configResult,
@@ -178,6 +196,7 @@ export function useDemo(): DemoState {
     grants,
     weights,
     addGrant,
+    revokeGrant,
     sessionDomainCount: sessionDomains.length,
     resetSessionDomains,
   };

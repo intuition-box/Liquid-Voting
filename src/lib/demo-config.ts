@@ -224,6 +224,11 @@ export function readSessionGrants<T>(): T[] {
   }
 }
 
+/** Replaces the stored set outright — used when a grant is revoked rather than added. */
+export function saveSessionGrants<T>(grants: T[]): void {
+  window.localStorage.setItem(GRANTS_KEY, JSON.stringify(grants));
+}
+
 export function saveSessionGrant<T extends { delegation: { hash: string } }>(grant: T): T[] {
   const existing = readSessionGrants<T>().filter((entry) => entry.delegation.hash !== grant.delegation.hash);
   const next = [...existing, grant];

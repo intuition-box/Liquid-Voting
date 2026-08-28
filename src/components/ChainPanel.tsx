@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PublicClient } from "viem";
 
-import { signDelegation } from "../lib/demo-actions";
+import { revokeWeight, signDelegation } from "../lib/demo-actions";
 import type { DemoConfig, Role } from "../lib/demo-config";
 import type { EdgeState } from "../lib/graph";
 import { candidatesFor, ROLE_CLASS, ROLE_LABELS, ROLES, upstreamOf, type Grant } from "../lib/grants";
@@ -22,6 +22,7 @@ export function ChainPanel({
   grants,
   domain,
   onSigned,
+  onRevoked,
 }: {
   config: DemoConfig;
   client: PublicClient;
@@ -34,6 +35,7 @@ export function ChainPanel({
   /** The domain picked in the rail — what this grant would cover. */
   domain: string;
   onSigned: (grant: Grant) => void;
+  onRevoked: (domain: string) => void;
 }) {
   const [to, setTo] = useState<Role | null>(null);
   const [outcome, setOutcome] = useState<{ verdict: Verdict; text: string } | null>(null);
@@ -46,6 +48,23 @@ export function ChainPanel({
 
   const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
   const yours = grants.find((grant) => !grant.revoked && grant.from === role && grant.scope === domain);
+  // A domain has one holder at a time, so while yours stands the only move is to revoke.
+  const locked = yours !== undefined;
+
+  async function revoke(): Promise<void> {
+    setBusy(true);
+    setOutcome(null);
+    try {
+      const result = await revokeWeight(client, config, role, domain);
+      if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
+      onRevoked(domain);
+      setOutcome({ verdict: "pass", text: `you took “${domain}” back` });
+    } catch (error) {
+      setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function grant(): Promise<void> {
     if (!target) return;
@@ -70,7 +89,11 @@ export function ChainPanel({
           const self = candidate === role;
           const unavailable = self || blocked.has(candidate);
           const chosen = candidate === target && !unavailable;
-          const note = self
+          const note = locked
+            ? held === candidate
+              ? "holds it now"
+              : "take it back first"
+            : self
             ? "that is you"
             : blocked.has(candidate)
               ? "already gives you this domain"
@@ -81,7 +104,7 @@ export function ChainPanel({
             <li key={candidate}>
               <button
                 type="button"
-                disabled={unavailable}
+                disabled={unavailable || locked}
                 aria-pressed={chosen}
                 className={["holder", ROLE_CLASS[candidate], chosen ? "holder-on" : "", unavailable ? "holder-off" : ""]
                   .filter(Boolean)
@@ -98,14 +121,20 @@ export function ChainPanel({
       </ul>
 
       <div className="actions">
-        <Button onClick={() => void grant()} busy={busy} disabled={!writable || !target} variant="primary">
-          {target ? `hand it to ${ROLE_LABELS[target]}` : "no one available"}
-        </Button>
+        {locked ? (
+          <Button onClick={() => void revoke()} busy={busy} disabled={!writable} variant="danger">
+            take “{domain}” back
+          </Button>
+        ) : (
+          <Button onClick={() => void grant()} busy={busy} disabled={!writable || !target} variant="primary">
+            {target ? `hand it to ${ROLE_LABELS[target]}` : "no one available"}
+          </Button>
+        )}
       </div>
 
       {yours ? (
         <p className="muted">
-          You already gave “{domain}” to {ROLE_LABELS[yours.to]}. Signing again moves it.
+          “{domain}” is with {ROLE_LABELS[yours.to]}. Take it back before handing it to anyone else.
         </p>
       ) : null}
       {!writable ? <p className="muted">read-only build</p> : null}

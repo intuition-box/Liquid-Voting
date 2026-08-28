@@ -119,6 +119,7 @@ export function App() {
                   grants={demo.grants}
                   domain={domain}
                   onSigned={demo.addGrant}
+                  onRevoked={demo.revokeGrant}
                 />
                 <RevokePanel
                   config={config}

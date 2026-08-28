@@ -284,6 +284,35 @@ export async function signDelegation(
   return { ...delegation, hash };
 }
 
+/**
+ * Clears a weight delegation on one domain, so it can be granted elsewhere.
+ *
+ * A domain has one holder at a time: the governor refuses a second grant while the first
+ * stands, which is what stops weight being moved out from under a delegate silently.
+ * Revoking is the way back.
+ */
+export async function revokeWeight(
+  client: PublicClient,
+  config: DemoConfig,
+  from: Role,
+  domainLabel: string,
+): Promise<UserOpResult> {
+  const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
+  if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
+  const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
+  return sendUserOp(client, submitterClient(config), account, [
+    {
+      to: config.governor,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: governorAbi,
+        functionName: "delegateWeight",
+        args: ["0x0000000000000000000000000000000000000000", domainId],
+      }),
+    },
+  ]);
+}
+
 /** The voter disables its root delegation — framework-native, kills the whole chain. */
 export async function revokeRoot(client: PublicClient, config: DemoConfig): Promise<UserOpResult> {
   const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "voter")));

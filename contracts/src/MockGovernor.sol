@@ -77,6 +77,8 @@ contract MockGovernor {
     error NotDelegatedToVoter(address principal, address voter, bytes32 domainId);
     /// @notice Delegating here would send the weight in a circle.
     error CircularDelegation(address delegator, address delegate, bytes32 domainId);
+    /// @notice This domain is already delegated; revoke before granting it elsewhere.
+    error AlreadyDelegated(address delegator, bytes32 domainId, address delegate);
     /// @notice The domain path does not start at the proposal's own domain.
     error DomainPathMismatch(bytes32 pathStart, bytes32 domainId);
     /// @notice The domain path claims an edge the graph does not carry.
@@ -206,9 +208,16 @@ contract MockGovernor {
     ///      Whether the delegate may then use that weight on a given proposal is not this
     ///      contract's question — the ERC-7710 caveat answers it by checking the proposal's
     ///      domain against the Intuition graph before the vote reaches here.
+    ///      A domain has one holder at a time: granting one already given reverts, so the
+    ///      weight cannot be moved out from under a delegate silently. Passing the zero
+    ///      address revokes, which is the way back.
     /// @param delegate The account receiving the weight; zero clears the delegation.
     /// @param domainId The domain the transfer applies to.
     function delegateWeight(address delegate, bytes32 domainId) external {
+        address held_ = _delegatedTo[msg.sender][domainId];
+        if (delegate != address(0) && held_ != address(0)) {
+            revert AlreadyDelegated(msg.sender, domainId, held_);
+        }
         if (delegate == msg.sender) revert CircularDelegation(msg.sender, delegate, domainId);
         if (delegate != address(0) && _wouldCircle(msg.sender, delegate, domainId)) {
             revert CircularDelegation(msg.sender, delegate, domainId);

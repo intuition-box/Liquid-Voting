@@ -468,6 +468,31 @@ contract MockGovernorTest is Test {
         assertEq(governor.delegatedTo(b, OTHER_DOMAIN), a);
     }
 
+    /// One holder at a time: the weight cannot be moved out from under a delegate.
+    function test_RevertWhen_DelegatingADomainAlreadyGiven() public {
+        governor.delegateWeight(address(0xB), DOMAIN);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(MockGovernor.AlreadyDelegated.selector, address(this), DOMAIN, address(0xB))
+        );
+        governor.delegateWeight(address(0xC), DOMAIN);
+    }
+
+    /// Revoking first is the way to move it.
+    function test_RevokingThenDelegatingElsewhere() public {
+        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0), DOMAIN);
+        governor.delegateWeight(address(0xC), DOMAIN);
+        assertEq(governor.delegatedTo(address(this), DOMAIN), address(0xC));
+    }
+
+    /// The lock is per domain: another domain is still free to be granted.
+    function test_DelegatingAnotherDomainStaysOpen() public {
+        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xC), OTHER_DOMAIN);
+        assertEq(governor.delegatedTo(address(this), OTHER_DOMAIN), address(0xC));
+    }
+
     function test_DelegateWeight_CanBeCleared() public {
         governor.delegateWeight(address(0xB), DOMAIN);
         governor.delegateWeight(address(0), DOMAIN);
