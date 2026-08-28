@@ -8,26 +8,35 @@ interface Node {
   usable: boolean;
 }
 
+/** A delegation in force on one domain. */
+export interface Held {
+  from: Role;
+  to: Role;
+}
+
 /**
  * The domain graph as a tree. Selecting a branch lights it and everything under it,
  * because a delegation on a domain reaches every domain beneath it.
  *
- * A domain already handed to someone carries that identity's badge, so the existing
- * grants read off the tree instead of having to be looked up elsewhere.
+ * A domain already handed over carries the pair that moved it, written from the viewer's
+ * side: what they gave, what they were given, or a transfer between two other accounts.
  */
 export function DomainTree({
   config,
   edges,
   selected,
   grantedTo,
+  viewer,
   onSelect,
 }: {
   config: DemoConfig;
   edges: EdgeState[];
   /** The domain currently in scope; its whole subtree is highlighted. */
   selected: string;
-  /** Who holds each domain, by domain name — drawn as a badge on the row. */
-  grantedTo?: Map<string, Role>;
+  /** Who handed each domain to whom, by domain name. */
+  grantedTo?: Map<string, Held>;
+  /** Who the viewer is acting as. */
+  viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
   const childrenOf = new Map<string, EdgeState[]>();
@@ -59,6 +68,7 @@ export function DomainTree({
           selected={selected}
           inScope={false}
           grantedTo={grantedTo}
+          viewer={viewer}
           onSelect={onSelect}
         />
       ))}
@@ -72,6 +82,7 @@ function Branch({
   selected,
   inScope,
   grantedTo,
+  viewer,
   onSelect,
 }: {
   node: Node;
@@ -79,35 +90,40 @@ function Branch({
   selected: string;
   /** True once an ancestor is the selected domain — the whole subtree is in scope. */
   inScope: boolean;
-  grantedTo?: Map<string, Role>;
+  grantedTo?: Map<string, Held>;
+  viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
   const isSelected = node.label === selected;
   const covered = inScope || isSelected;
-  const holder = grantedTo?.get(node.label);
-  const className = [
-    "tree-label",
-    !node.usable ? "tree-label-dead" : "",
-    isSelected ? "tree-label-on" : "",
-    covered && !isSelected ? "tree-label-scope" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const grant = grantedTo?.get(node.label);
+  const side = grant ? (grant.from === viewer ? "gave" : grant.to === viewer ? "got" : "other") : null;
 
   return (
     <li className="tree-node">
       <button
         type="button"
-        className={className}
+        className={[
+          "tree-label",
+          !node.usable ? "tree-label-dead" : "",
+          isSelected ? "tree-label-on" : "",
+          covered && !isSelected ? "tree-label-scope" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={{ paddingLeft: depth * 20 + 8 }}
         onClick={onSelect ? () => onSelect(node.label) : undefined}
         disabled={!onSelect}
       >
         <span className="tree-name">{node.label}</span>
-        {holder ? (
-          <span className={`tree-holder ${ROLE_CLASS[holder]}`}>
-            <span className="tree-holder-dot" />
-            {ROLE_LABELS[holder]}
+        {grant ? (
+          <span
+            className={`tree-holder tree-holder-${side}`}
+            title={`${ROLE_LABELS[grant.from]} delegated this domain to ${ROLE_LABELS[grant.to]}`}
+          >
+            <span className={ROLE_CLASS[grant.from]}>{ROLE_LABELS[grant.from]}</span>
+            <span className="tree-holder-arrow">→</span>
+            <span className={ROLE_CLASS[grant.to]}>{ROLE_LABELS[grant.to]}</span>
           </span>
         ) : null}
         {node.usable ? null : <span className="tree-flag">unusable</span>}
@@ -122,6 +138,7 @@ function Branch({
               selected={selected}
               inScope={covered}
               grantedTo={grantedTo}
+              viewer={viewer}
               onSelect={onSelect}
             />
           ))}

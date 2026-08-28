@@ -30,6 +30,7 @@ export function DomainNav({
   writable,
   selected,
   grantedTo,
+  viewer,
   sessionDomainCount,
   onSelect,
   onRegistered,
@@ -42,8 +43,10 @@ export function DomainNav({
   writable: boolean;
   /** The domain scoping the centre; its whole subtree reads as covered. */
   selected: string;
-  /** Who holds each domain, drawn as a badge on the row. */
-  grantedTo?: Map<string, Role>;
+  /** Who handed each domain to whom, drawn as a badge on the row. */
+  grantedTo?: Map<string, { from: Role; to: Role }>;
+  /** Who the viewer is acting as; the badges are written from their side. */
+  viewer: Role;
   sessionDomainCount: number;
   onSelect: (domain: string) => void;
   onRegistered: (domain: SessionDomain) => void;
@@ -75,7 +78,14 @@ export function DomainNav({
       {loading && edges.length === 0 ? (
         <Empty>reading the graph…</Empty>
       ) : (
-        <DomainTree config={config} edges={edges} selected={selected} grantedTo={grantedTo} onSelect={onSelect} />
+        <DomainTree
+          config={config}
+          edges={edges}
+          selected={selected}
+          grantedTo={grantedTo}
+          viewer={viewer}
+          onSelect={onSelect}
+        />
       )}
 
       <div className="rail-foot">

@@ -81,26 +81,7 @@ body {
   font-size: 16px;
 }
 
-/* ── Layout ───────────────────────────────────────────────────────────── */
-
-.grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  min-width: 0;
-}
-
 @media (max-width: 1000px) {
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .shell {
     padding: 40px 20px 64px;
   }
@@ -356,11 +337,6 @@ body {
   gap: var(--s7);
 }
 
-.picked {
-  border-left: 2px solid var(--accent);
-  padding-left: 14px;
-}
-
 /* ── Panel ────────────────────────────────────────────────────────────── */
 
 .panel {
@@ -376,13 +352,6 @@ body {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
-}
-
-.panel-index {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--dim);
-  letter-spacing: 0.08em;
 }
 
 .panel h2 {
@@ -470,42 +439,6 @@ code {
   font-family: var(--mono);
   font-size: 12.5px;
   color: var(--accent);
-}
-
-/* ── Graph edges ──────────────────────────────────────────────────────── */
-
-.edges {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.edge {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.edge:last-child {
-  border-bottom: none;
-}
-
-/* Dead rows must stay readable — they are what acceptance criteria 3 and 4 show.
-   Mute the surround (border, a left rule), never the text. */
-.edge-dead {
-  border-left: 2px solid var(--bad);
-  padding-left: 12px;
-}
-
-.edge-relation {
-  font-size: 15px;
-}
-
-.edge-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin-top: 6px;
 }
 
 .tag {
@@ -639,18 +572,6 @@ code {
   border-color: var(--text);
 }
 
-.proposal-pick {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
 .proposal-pick:hover .proposal-title {
   color: var(--accent);
 }
@@ -668,12 +589,6 @@ code {
 .weight-badge-full {
   color: var(--accent);
   border-color: var(--accent);
-}
-
-.proposal-reason {
-  margin: 0 0 8px;
-  font-size: 12.5px;
-  color: var(--muted);
 }
 
 /* ── Domain tree ──────────────────────────────────────────────────────── */
@@ -740,24 +655,30 @@ code {
   flex: 1;
 }
 
-/* Who holds this domain, right where the domain is. */
+/* The pair that moved this domain, written from the viewer's side: what they gave reads
+   loudest, what they were given next, a transfer between others stays quiet. */
 .tree-holder {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--s1);
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
-  padding: 1px 7px;
-  border: 1px solid currentColor;
+  padding: 1px var(--s2);
+  border: 1px solid var(--border);
   border-radius: 10px;
+  opacity: 0.45;
 }
 
-.tree-holder-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+.tree-holder-gave,
+.tree-holder-got {
+  opacity: 1;
+  border-color: var(--border-strong);
+}
+
+.tree-holder-arrow {
+  color: var(--dim);
+  font-weight: 400;
 }
 
 .tree-flag {
@@ -900,42 +821,6 @@ select:focus-visible,
   cursor: not-allowed;
 }
 
-/* ── Witness ──────────────────────────────────────────────────────────── */
-
-.witness {
-  border: 1px solid var(--border);
-  padding: 16px;
-}
-
-.witness-level + .witness-level {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.witness-scope {
-  display: block;
-  font-size: 12px;
-  color: var(--dim);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.witness-path {
-  display: block;
-  font-family: var(--mono);
-  font-size: 14px;
-  color: var(--accent);
-  margin: 3px 0;
-}
-
-.witness-none {
-  display: block;
-  font-size: 13px;
-  color: var(--bad);
-  margin-top: 3px;
-}
-
 /* ── Status ───────────────────────────────────────────────────────────── */
 
 .status {
@@ -997,13 +882,6 @@ select:focus-visible,
   margin-left: -14px;
 }
 
-.proposal-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 5px;
-}
-
 .proposal-domain {
   font-size: 11px;
   letter-spacing: 0.07em;
@@ -1016,72 +894,6 @@ select:focus-visible,
   font-size: 14px;
   line-height: 1.4;
   color: var(--text);
-}
-
-.tally {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.tally-bar {
-  display: flex;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background: var(--border);
-}
-
-.tally-for { background: var(--ok); }
-.tally-against { background: var(--bad); }
-.tally-abstain { background: var(--dim); }
-
-.tally-counts {
-  color: var(--text);
-}
-
-/* ── Vote weight + proposal state ─────────────────────────────────────── */
-
-.weights-label {
-  margin: 14px 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.weights {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.weight-part {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.weight-plus {
-  color: var(--dim);
-  margin-right: 2px;
-}
-
-.weight-total {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-left: 10px;
-  border-left: 1px solid var(--border);
-  color: var(--accent);
-  font-weight: 600;
 }
 
 .state {

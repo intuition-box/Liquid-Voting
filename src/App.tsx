@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useDemo } from "./hooks/useDemo";
 import type { Role } from "./lib/demo-config";
+import { ROLES, ROLE_CLASS, ROLE_LABELS } from "./lib/grants";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
@@ -12,11 +13,11 @@ import { AddressLink } from "./components/primitives";
 type TabId = "proposals" | "delegations";
 
 /** The three demo identities. Each carries one colour, used everywhere the role appears. */
-const IDENTITIES: Array<{ role: Role; label: string; className: string }> = [
-  { role: "voter", label: "A", className: "role-a" },
-  { role: "delegate", label: "B", className: "role-b" },
-  { role: "executor", label: "C", className: "role-c" },
-];
+const IDENTITIES = ROLES.map((role) => ({
+  role,
+  label: ROLE_LABELS[role],
+  className: ROLE_CLASS[role],
+}));
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
@@ -30,10 +31,10 @@ export function App() {
   const [role, setRole] = useState<Role>("delegate");
   const { config, client } = demo;
 
-  // Who holds each domain, so the rail can badge them wherever it is shown.
-  const grantedTo = new Map<string, Role>();
+  // Who handed each domain to whom, so the rail can badge the grants in force.
+  const grantedTo = new Map<string, { from: Role; to: Role }>();
   for (const entry of demo.grants) {
-    if (!entry.revoked) grantedTo.set(entry.scope, entry.to);
+    if (!entry.revoked) grantedTo.set(entry.scope, { from: entry.from, to: entry.to });
   }
 
   if (!demo.configResult.ok || !config || !client) {
@@ -70,6 +71,7 @@ export function App() {
           writable={demo.writable}
           selected={domain}
           grantedTo={grantedTo}
+          viewer={role}
           sessionDomainCount={demo.sessionDomainCount}
           onSelect={setDomain}
           onRegistered={demo.registerDomain}
