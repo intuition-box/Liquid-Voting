@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.23 <0.9.0;
 
+import { IMultiVault } from "./interfaces/IMultiVault.sol";
+
 /// @title MockGovernor
 /// @notice Minimal governance recorder for the POC — the bounty explicitly allows a mock.
 ///         It reproduces the shape of an OpenZeppelin `Governor` (proposal lifecycle,
@@ -75,6 +77,12 @@ contract MockGovernor {
     error NotDelegatedToVoter(address principal, address voter, bytes32 domainId);
     /// @notice Delegating here would send the weight in a circle.
     error CircularDelegation(address delegator, address delegate, bytes32 domainId);
+    /// @notice The domain path does not start at the proposal's own domain.
+    error DomainPathMismatch(bytes32 pathStart, bytes32 domainId);
+    /// @notice The domain path claims an edge the graph does not carry.
+    error DomainPathBroken(bytes32 child, bytes32 parent);
+    /// @notice The domain path exceeds the hop cap.
+    error DomainPathTooLong(uint256 hops);
 
     ////////////////////////////// Events //////////////////////////////
 
@@ -142,6 +150,16 @@ contract MockGovernor {
     /// @notice Voting power every account holds before any explicit assignment.
     uint256 public constant DEFAULT_VOTING_POWER = 1;
 
+    /// @notice MultiVault term classifier for a positive triple, as the enforcer uses.
+    uint8 internal constant VAULT_TYPE_TRIPLE = 1;
+    /// @notice Longest domain path a voter may present.
+    uint256 public constant MAX_DOMAIN_PATH = 6;
+
+    /// @notice The graph this governor resolves sub-domain relations against.
+    IMultiVault public immutable MULTI_VAULT;
+    /// @notice Term id of the "is a sub-domain of" predicate.
+    bytes32 public immutable SUB_DOMAIN_PREDICATE;
+
     /// @notice Longest delegation chain the circularity walk will follow.
     /// @dev Bounds the loop in `_wouldCircle`; a chain deeper than this is refused rather
     ///      than walked, so there is no unbounded traversal.
@@ -153,6 +171,17 @@ contract MockGovernor {
     mapping(address account => bool assigned) private _powerAssigned;
     /// @dev Who an account handed its weight to, per domain. Zero means it kept it.
     mapping(address delegator => mapping(bytes32 domainId => address delegate)) private _delegatedTo;
+
+    ////////////////////////////// Constructor //////////////////////////////
+
+    /// @notice Binds the governor to the graph it reads sub-domain relations from.
+    /// @param _multiVault The Intuition MultiVault.
+    /// @param _subDomainPredicate Term id of the "is a sub-domain of" predicate.
+    constructor(IMultiVault _multiVault, bytes32 _subDomainPredicate) {
+        if (address(_multiVault) == address(0)) revert ZeroAddress();
+        MULTI_VAULT = _multiVault;
+        SUB_DOMAIN_PREDICATE = _subDomainPredicate;
+    }
 
     ////////////////////////////// External functions //////////////////////////////
 
@@ -218,7 +247,8 @@ contract MockGovernor {
     /// @return weight The voting weight applied.
     function castVote(uint256 proposalId, uint8 support) external returns (uint256 weight) {
         address[] memory none_ = new address[](0);
-        weight = _castVote(proposalId, support, msg.sender, none_);
+        bytes32[] memory noPath_ = new bytes32[](0);
+        weight = _castVote(proposalId, support, msg.sender, none_, noPath_);
     }
 
     /// @notice Casts one vote in `voter`'s name, carrying `voter`'s own power plus that of
@@ -238,12 +268,15 @@ contract MockGovernor {
     /// @param voter The account the vote is recorded for — the delegate.
     /// @param principals The accounts whose voting power `voter` carries.
     /// @return weight The total voting weight applied.
-    function castVoteFor(uint256 proposalId, uint8 support, address voter, address[] calldata principals)
-        external
-        returns (uint256 weight)
-    {
+    function castVoteFor(
+        uint256 proposalId,
+        uint8 support,
+        address voter,
+        address[] calldata principals,
+        bytes32[] calldata domainPath
+    ) external returns (uint256 weight) {
         if (voter == address(0)) revert ZeroAddress();
-        weight = _castVote(proposalId, support, voter, principals);
+        weight = _castVote(proposalId, support, voter, principals, domainPath);
     }
 
     /// @notice Marks a succeeded proposal as executed.
@@ -337,16 +370,19 @@ contract MockGovernor {
     /// @param domainId The domain in question.
     /// @param principals The accounts the voter would name.
     /// @return weight_ The total weight, zero when the account cannot vote on this domain.
-    function weightFor(address account, bytes32 domainId, address[] calldata principals)
-        public
-        view
-        returns (uint256 weight_)
-    {
-        if (_delegatedTo[account][domainId] != address(0)) return 0;
+    function weightFor(
+        address account,
+        bytes32 domainId,
+        address[] calldata principals,
+        bytes32[] calldata domainPath
+    ) public view returns (uint256 weight_) {
+        _verifyPath(domainId, domainPath);
+        bytes32[] memory domains_ = _domainsFor(domainId, domainPath);
+        if (_delegatedAny(account, domains_) != address(0)) return 0;
         weight_ = votingPower(account);
         uint256 count_ = principals.length;
         for (uint256 i_; i_ < count_; ++i_) {
-            if (_routesTo(principals[i_], account, domainId)) weight_ += votingPower(principals[i_]);
+            if (_routesTo(principals[i_], account, domains_)) weight_ += votingPower(principals[i_]);
         }
     }
 
@@ -354,21 +390,14 @@ contract MockGovernor {
 
     /// @dev Shared vote path. Counts `voter`'s own power plus each principal's, marking
     ///      every counted account so its power cannot be spent twice on this proposal.
-    function _castVote(uint256 proposalId, uint8 support, address voter, address[] memory principals)
-        private
-        returns (uint256 weight)
-    {
-        Proposal storage proposal_ = _requireProposal(proposalId);
-        ProposalState state_ = _state(proposal_);
-        if (state_ != ProposalState.Active) revert VotingNotActive(proposalId, state_);
-        if (support > uint8(VoteType.Abstain)) revert InvalidVoteType(support);
-        if (_hasVoted[proposalId][voter]) revert AlreadyVoted(proposalId, voter);
-
-        // An account that handed this domain away no longer counts on it, not even for
-        // itself — delegating transfers weight rather than copying it.
-        bytes32 domainId_ = proposal_.domainId;
-        address voterDelegate_ = _delegatedTo[voter][domainId_];
-        if (voterDelegate_ != address(0)) revert WeightDelegatedAway(voter, domainId_, voterDelegate_);
+    function _castVote(
+        uint256 proposalId,
+        uint8 support,
+        address voter,
+        address[] memory principals,
+        bytes32[] memory domainPath
+    ) private returns (uint256 weight) {
+        bytes32[] memory domains_ = _checkVotable(proposalId, support, voter, domainPath);
 
         _hasVoted[proposalId][voter] = true;
         weight = votingPower(voter);
@@ -378,8 +407,8 @@ contract MockGovernor {
             address principal_ = principals[i_];
             // The claim must be real: only weight actually routed to this voter counts,
             // whether granted directly or passed along a chain of delegations.
-            if (!_routesTo(principal_, voter, domainId_)) {
-                revert NotDelegatedToVoter(principal_, voter, domainId_);
+            if (!_routesTo(principal_, voter, domains_)) {
+                revert NotDelegatedToVoter(principal_, voter, domains_[0]);
             }
             if (_hasVoted[proposalId][principal_]) revert AlreadyVoted(proposalId, principal_);
             _hasVoted[proposalId][principal_] = true;
@@ -390,23 +419,96 @@ contract MockGovernor {
 
         if (weight == 0) revert NoVotingPower(voter);
 
-        if (support == uint8(VoteType.Against)) proposal_.againstVotes += weight;
-        else if (support == uint8(VoteType.For)) proposal_.forVotes += weight;
-        else proposal_.abstainVotes += weight;
+        Proposal storage tally_ = _proposals[proposalId];
+        if (support == uint8(VoteType.Against)) tally_.againstVotes += weight;
+        else if (support == uint8(VoteType.For)) tally_.forVotes += weight;
+        else tally_.abstainVotes += weight;
 
         emit VoteCast(proposalId, voter, support, weight, principals);
     }
 
-    /// @dev Whether `principal`'s weight on `domainId` reaches `voter`, following the
-    ///      delegation chain. Bounded by `MAX_DELEGATION_DEPTH`.
-    function _routesTo(address principal, address voter, bytes32 domainId) private view returns (bool) {
-        address current_ = _delegatedTo[principal][domainId];
+    /// @dev Everything that must hold before a vote is counted: the proposal is open, the
+    ///      option is real, nobody has already voted, the domain path is genuine, and the
+    ///      voter has not handed any of those domains away. Returns the domains a grant may
+    ///      have been made on — the proposal's own, plus every parent on the path.
+    function _checkVotable(uint256 proposalId, uint8 support, address voter, bytes32[] memory domainPath)
+        private
+        view
+        returns (bytes32[] memory domains_)
+    {
+        Proposal memory proposal_ = _requireProposalView(proposalId);
+        ProposalState state_ = _state(proposal_);
+        if (state_ != ProposalState.Active) revert VotingNotActive(proposalId, state_);
+        if (support > uint8(VoteType.Abstain)) revert InvalidVoteType(support);
+        if (_hasVoted[proposalId][voter]) revert AlreadyVoted(proposalId, voter);
+
+        _verifyPath(proposal_.domainId, domainPath);
+        domains_ = _domainsFor(proposal_.domainId, domainPath);
+
+        address voterDelegate_ = _delegatedAny(voter, domains_);
+        if (voterDelegate_ != address(0)) revert WeightDelegatedAway(voter, proposal_.domainId, voterDelegate_);
+    }
+
+    /// @dev Whether `principal`'s weight reaches `voter` on any domain in `domains`,
+    ///      following the delegation chain. Bounded by `MAX_DELEGATION_DEPTH` per domain.
+    ///
+    ///      A grant on `design` covers a proposal on `branding`, because `branding` sits
+    ///      under `design` in the graph. The governor does not walk the graph itself —
+    ///      the MultiVault has no reverse index — so the caller supplies the domain path
+    ///      and `_verifyPath` checks every hop of it before the weight is counted.
+    function _routesTo(address principal, address voter, bytes32[] memory domains) private view returns (bool) {
+        address current_ = principal;
         for (uint256 i_; i_ < MAX_DELEGATION_DEPTH; ++i_) {
-            if (current_ == address(0)) return false;
-            if (current_ == voter) return true;
-            current_ = _delegatedTo[current_][domainId];
+            // A hop may have been granted on any domain covering this proposal, and the
+            // next hop on a different one: A hands `design` to B, B hands `UX` to C, and a
+            // `UX` proposal carries all three. So each step tries every covering domain.
+            address next_ = _delegatedAny(current_, domains);
+            if (next_ == address(0)) return false;
+            if (next_ == voter) return true;
+            current_ = next_;
         }
         return false;
+    }
+
+    /// @dev The domain itself plus every parent on the verified path — a grant on any of
+    ///      them reaches this proposal.
+    function _domainsFor(bytes32 domainId, bytes32[] memory path) private pure returns (bytes32[] memory domains_) {
+        if (path.length == 0) {
+            domains_ = new bytes32[](1);
+            domains_[0] = domainId;
+            return domains_;
+        }
+        return path;
+    }
+
+    /// @dev Whether `account` handed any domain in `domains` away, and to whom.
+    function _delegatedAny(address account, bytes32[] memory domains) private view returns (address delegate_) {
+        uint256 count_ = domains.length;
+        for (uint256 d_; d_ < count_; ++d_) {
+            address to_ = _delegatedTo[account][domains[d_]];
+            if (to_ != address(0)) return to_;
+        }
+        return address(0);
+    }
+
+    /// @dev Confirms `path` is a real chain of sub-domain edges in the graph, starting at
+    ///      the proposal's domain. Each hop is checked against the MultiVault exactly as
+    ///      the caveat enforcer checks it: the triple must exist as a positive assertion.
+    ///      An unverified path would let a voter claim a grant on an unrelated domain.
+    function _verifyPath(bytes32 domainId, bytes32[] memory path) private view {
+        uint256 hops_ = path.length;
+        if (hops_ == 0) return;
+        if (hops_ > MAX_DOMAIN_PATH) revert DomainPathTooLong(hops_);
+        if (path[0] != domainId) revert DomainPathMismatch(path[0], domainId);
+
+        for (uint256 i_; i_ + 1 < hops_; ++i_) {
+            bytes32 tripleId_ = MULTI_VAULT.calculateTripleId(path[i_], SUB_DOMAIN_PREDICATE, path[i_ + 1]);
+            try MULTI_VAULT.getVaultType(tripleId_) returns (uint8 vaultType_) {
+                if (vaultType_ != VAULT_TYPE_TRIPLE) revert DomainPathBroken(path[i_], path[i_ + 1]);
+            } catch {
+                revert DomainPathBroken(path[i_], path[i_ + 1]);
+            }
+        }
     }
 
     /// @dev Whether delegating to `delegate` would route `delegator`'s weight back to

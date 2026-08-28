@@ -4,13 +4,18 @@ pragma solidity >=0.8.23 <0.9.0;
 import { Test } from "forge-std/Test.sol";
 
 import { MockGovernor } from "../../src/MockGovernor.sol";
+import { IMultiVault } from "../../src/interfaces/IMultiVault.sol";
+import { MockMultiVault } from "../mocks/MockMultiVault.sol";
 
 /// @notice Unit suite for the MockGovernor: the proposal record the enforcer targets,
 ///         plus the OpenZeppelin-shaped lifecycle around it.
 contract MockGovernorTest is Test {
     MockGovernor internal governor;
+    MockMultiVault internal vault;
 
-    bytes32 internal constant DOMAIN = keccak256("domain");
+    bytes32 internal DOMAIN;
+    bytes32 internal OTHER_DOMAIN;
+    bytes32 internal predicate;
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -30,7 +35,11 @@ contract MockGovernorTest is Test {
     event WeightDelegated(address indexed delegator, address indexed delegate, bytes32 indexed domainId);
 
     function setUp() public {
-        governor = new MockGovernor();
+        vault = new MockMultiVault();
+        predicate = vault.createAtom("is a sub-domain of");
+        DOMAIN = vault.createAtom("domain");
+        OTHER_DOMAIN = vault.createAtom("other");
+        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
         // Start above block 0 so `voteStart` is never reached by an unrelated roll.
         vm.roll(100);
     }
@@ -248,7 +257,7 @@ contract MockGovernorTest is Test {
         emit VoteCast(0, b, uint8(MockGovernor.VoteType.For), 2, principals);
 
         vm.prank(b);
-        uint256 weight = governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals);
+        uint256 weight = governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals, new bytes32[](0));
 
         assertEq(weight, 2, "B votes with its own weight plus A's");
         (, uint256 forVotes,) = governor.proposalVotes(0);
@@ -273,7 +282,7 @@ contract MockGovernorTest is Test {
         _openVoting();
 
         vm.prank(b);
-        assertEq(governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals), 9);
+        assertEq(governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals, new bytes32[](0)), 9);
     }
 
     function test_RevertWhen_PrincipalAlreadyVotedItself() public {
@@ -292,7 +301,7 @@ contract MockGovernorTest is Test {
         principals[0] = a;
         vm.expectRevert(abi.encodeWithSelector(MockGovernor.AlreadyVoted.selector, 0, a));
         vm.prank(b);
-        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals, new bytes32[](0));
     }
 
     function test_RevertWhen_PrincipalRepresentedTwiceInOneCall() public {
@@ -306,7 +315,7 @@ contract MockGovernorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(MockGovernor.AlreadyVoted.selector, 0, address(0xA)));
         vm.prank(address(0xB));
-        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), address(0xB), principals);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), address(0xB), principals, new bytes32[](0));
     }
 
     function test_RevertWhen_RepresentativeAlreadyVoted() public {
@@ -323,7 +332,7 @@ contract MockGovernorTest is Test {
         principals[0] = address(0xA);
         vm.expectRevert(abi.encodeWithSelector(MockGovernor.AlreadyVoted.selector, 0, b));
         vm.prank(b);
-        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals, new bytes32[](0));
     }
 
     function test_RevertWhen_NoVotingPowerAtAll() public {
@@ -339,7 +348,6 @@ contract MockGovernorTest is Test {
 
     ////////////////////////////// weight transfer //////////////////////////////
 
-    bytes32 internal constant OTHER_DOMAIN = keccak256("other");
 
     function test_DelegateWeight_RecordsAndEmits() public {
         vm.expectEmit(true, true, true, true);
@@ -387,7 +395,7 @@ contract MockGovernorTest is Test {
         address[] memory principals = new address[](1);
         principals[0] = a;
         vm.prank(b);
-        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), b, principals, new bytes32[](0));
 
         (, uint256 forVotes,) = governor.proposalVotes(0);
         assertEq(forVotes, 2, "A's one plus B's one, no more");
@@ -409,7 +417,7 @@ contract MockGovernorTest is Test {
         principals[0] = a;
         principals[1] = b;
         vm.prank(c);
-        assertEq(governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), c, principals), 3);
+        assertEq(governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), c, principals, new bytes32[](0)), 3);
     }
 
     function test_RevertWhen_ClaimingWeightNobodyDelegated() public {
@@ -424,7 +432,7 @@ contract MockGovernorTest is Test {
             )
         );
         vm.prank(address(0xB));
-        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), address(0xB), principals);
+        governor.castVoteFor(0, uint8(MockGovernor.VoteType.For), address(0xB), principals, new bytes32[](0));
     }
 
     function test_RevertWhen_DelegatingToSelf() public {
@@ -474,8 +482,8 @@ contract MockGovernorTest is Test {
 
         address[] memory principals = new address[](1);
         principals[0] = a;
-        assertEq(governor.weightFor(b, DOMAIN, principals), 2);
-        assertEq(governor.weightFor(a, DOMAIN, principals), 0, "A gave this domain away");
+        assertEq(governor.weightFor(b, DOMAIN, principals, new bytes32[](0)), 2);
+        assertEq(governor.weightFor(a, DOMAIN, principals, new bytes32[](0)), 0, "A gave this domain away");
     }
 
     ////////////////////////////// domain resolver //////////////////////////////

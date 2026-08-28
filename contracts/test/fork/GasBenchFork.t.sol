@@ -35,7 +35,7 @@ contract GasBenchForkTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envOr("INTUITION_TESTNET_RPC", DEFAULT_RPC));
         vault = IMultiVault(MULTIVAULT);
-        governor = new MockGovernor();
+        governor = new MockGovernor(vault, PREDICATE);
         enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.castVoteFor.selector);
 
         (, uint256 curveId) = vault.getBondingCurveConfig();
@@ -62,10 +62,11 @@ contract GasBenchForkTest is Test {
         uint256 proposalId = governor.propose(domainId, "bench");
         address[] memory principals = new address[](1);
         principals[0] = delegator;
+        bytes32[] memory noPath = new bytes32[](0);
         bytes memory exec = abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals))
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals, noPath))
         );
 
         uint256 before = gasleft();

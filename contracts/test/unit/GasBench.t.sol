@@ -33,12 +33,12 @@ contract GasBenchTest is Test {
 
     function setUp() public {
         vault = new MockMultiVault();
-        governor = new MockGovernor();
+        predicate = vault.createAtom("is a sub-domain of");
+        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
         enforcer = new GraphDomainCaveatEnforcer(
             IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
         );
 
-        predicate = vault.createAtom("is a sub-domain of");
         chain[0] = vault.createAtom("d0-root");
         for (uint256 i = 1; i < 6; i++) {
             chain[i] = vault.createAtom(abi.encodePacked("d", i));
@@ -66,11 +66,12 @@ contract GasBenchTest is Test {
         // Recorded before the measurement so the proposal write stays out of the number.
         address[] memory principals = new address[](1);
         principals[0] = delegator;
+        bytes32[] memory noPath = new bytes32[](0);
         uint256 proposalId = governor.propose(chain[depth], "bench");
         bytes memory exec = abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals))
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals, noPath))
         );
 
         uint256 before = gasleft();

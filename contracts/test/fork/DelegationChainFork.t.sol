@@ -76,7 +76,7 @@ contract DelegationChainForkTest is Test {
             )
         );
 
-        governor = new MockGovernor();
+        governor = new MockGovernor(vault, PREDICATE);
         enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.castVoteFor.selector);
 
         // ADR 0004: the existing triples carry no real positions — the delegator-as-
@@ -148,6 +148,7 @@ contract DelegationChainForkTest is Test {
     ///      proposal is recorded here and the vote is what the delegation authorizes.
     ///      `voter` must be the redeeming account — the enforcer binds the field.
     function _voteCalldata(bytes32 domainId, address voter_) internal returns (bytes memory) {
+        bytes32[] memory noPath = new bytes32[](0);
         // The ERC-7710 delegation says the delegate MAY vote here; the governor's own
         // register says whose weight it carries. Both are needed for a delegated vote.
         vm.prank(voter);
@@ -161,7 +162,7 @@ contract DelegationChainForkTest is Test {
         return abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter_, principals))
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter_, principals, noPath))
         );
     }
 

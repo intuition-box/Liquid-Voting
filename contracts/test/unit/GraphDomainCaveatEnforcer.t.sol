@@ -47,10 +47,6 @@ contract GraphDomainCaveatEnforcerTest is Test {
 
     function setUp() public {
         vault = new MockMultiVault();
-        governor = new MockGovernor();
-        enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
-        );
 
         design = vault.createAtom("design");
         branding = vault.createAtom("branding");
@@ -58,6 +54,11 @@ contract GraphDomainCaveatEnforcerTest is Test {
         legal = vault.createAtom("legal");
         logo = vault.createAtom("logo");
         predicate = vault.createAtom("is a sub-domain of");
+
+        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
+        enforcer = new GraphDomainCaveatEnforcer(
+            IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
+        );
 
         tBrandingDesign = vault.createTriple(branding, predicate, design);
         tUxDesign = vault.createTriple(ux, predicate, design);
@@ -131,8 +132,11 @@ contract GraphDomainCaveatEnforcerTest is Test {
     function _voteAs(uint256 proposalId, address voter) internal view returns (bytes memory) {
         address[] memory principals = new address[](1);
         principals[0] = delegator;
+        bytes32[] memory noPath = new bytes32[](0);
         return abi.encodePacked(
-            address(governor), uint256(0), abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter, principals))
+            address(governor),
+            uint256(0),
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter, principals, noPath))
         );
     }
 
@@ -299,7 +303,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         address[] memory principals = new address[](1);
         principals[0] = delegator;
         bytes memory exec =
-            abi.encodePacked(other, uint256(0), abi.encodeCall(MockGovernor.castVoteFor, (0, 1, redeemer, principals)));
+            abi.encodePacked(other, uint256(0), abi.encodeCall(MockGovernor.castVoteFor, (0, 1, redeemer, principals, new bytes32[](0))));
 
         vm.expectRevert(
             abi.encodeWithSelector(GraphDomainCaveatEnforcer.InvalidTarget.selector, other, address(governor))
