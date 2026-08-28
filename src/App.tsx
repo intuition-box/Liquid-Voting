@@ -9,7 +9,7 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { RevokePanel } from "./components/RevokePanel";
 import { AddressLink } from "./components/primitives";
 
-type TabId = "domains" | "delegations" | "proposals";
+type TabId = "proposals" | "delegations";
 
 /** The three demo identities. Each carries one colour, used everywhere the role appears. */
 const IDENTITIES: Array<{ role: Role; label: string; className: string }> = [
@@ -19,9 +19,8 @@ const IDENTITIES: Array<{ role: Role; label: string; className: string }> = [
 ];
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "domains", label: "Domains" },
-  { id: "delegations", label: "Delegations" },
   { id: "proposals", label: "Proposals" },
+  { id: "delegations", label: "Delegations" },
 ];
 
 export function App() {
@@ -44,7 +43,7 @@ export function App() {
       : demo.configResult.hint;
     return (
       <main className="shell">
-        <Masthead />
+        <Masthead role={role} onRole={setRole} />
         <section className="panel">
           <h2>Not set up yet</h2>
           <p>
@@ -58,28 +57,9 @@ export function App() {
 
   return (
     <main className="shell">
-      <Masthead />
+      <Masthead role={role} onRole={setRole} />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
-
-      <div className="identity" role="group" aria-label="acting as">
-        {IDENTITIES.map((entry) => (
-          <button
-            key={entry.role}
-            type="button"
-            className={role === entry.role ? `identity-option identity-on ${entry.className}` : "identity-option"}
-            onClick={() => setRole(entry.role)}
-            aria-pressed={role === entry.role}
-          >
-            <span className={`identity-dot ${entry.className}`} />
-            {entry.label}
-          </button>
-        ))}
-      </div>
-      <p className="identity-note">
-        acting as <strong>{IDENTITIES.find((entry) => entry.role === role)?.label}</strong> — your weight on a proposal
-        depends on what you were delegated, and on what you delegated away
-      </p>
 
       <div className="workspace">
         <DomainNav
@@ -168,15 +148,33 @@ export function App() {
   );
 }
 
-function Masthead() {
+function Masthead({ role, onRole }: { role: Role; onRole: (role: Role) => void }) {
   return (
     <header className="masthead">
-      <h1>Voting authority scoped by a graph</h1>
-      <p>
-        A three-level ERC-7710 delegation chain whose domain scope is resolved by traversing the Intuition graph. Add an
-        edge to the graph and every delegation above it widens .
-        No redeploy, No new signature.
-      </p>
+      <div className="masthead-text">
+        <h1>Voting authority scoped by a graph</h1>
+        <p>
+          A three-level ERC-7710 delegation chain whose domain scope is resolved by traversing the Intuition graph. Add
+          an edge to the graph and every delegation above it widens.
+          No redeploy, No new signature.
+        </p>
+      </div>
+
+      <div className="identity" role="group" aria-label="acting as">
+        <span className="identity-label">acting as</span>
+        {IDENTITIES.map((entry) => (
+          <button
+            key={entry.role}
+            type="button"
+            className={role === entry.role ? `identity-option identity-on ${entry.className}` : "identity-option"}
+            onClick={() => onRole(entry.role)}
+            aria-pressed={role === entry.role}
+          >
+            <span className={`identity-dot ${entry.className}`} />
+            {entry.label}
+          </button>
+        ))}
+      </div>
     </header>
   );
 }
