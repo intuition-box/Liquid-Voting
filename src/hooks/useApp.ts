@@ -49,7 +49,7 @@ export interface AppState {
   /** Records a delegation signed in the UI. */
   addGrant: (grant: Grant) => void;
   /** Marks a grant on a domain revoked, so it can be handed to someone else. */
-  revokeGrant: (domain: string) => void;
+  revokeGrant: (from: Role, domain: string) => void;
   sessionDomainCount: number;
   /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
   resetSessionDomains: () => void;
@@ -96,20 +96,30 @@ export function useApp(): AppState {
     setSessionGrants(saveSessionGrant(grant));
   }, []);
   // The seeded pair lives in a file, so a revocation of one is remembered here instead.
-  const [revokedScopes, setRevokedScopes] = useState<string[]>([]);
-  const revokeGrant = useCallback((domain: string) => {
+  /**
+   * Grants taken back this session, keyed `signer|domain`.
+   *
+   * Keyed by the signer too, not the domain alone: A taking `treasury` back must not
+   * touch what B signed on the same domain. What B lent out of A's voice dies with it —
+   * DelegationSet derives that from the authority links — but B's own grant stands.
+   */
+  const [revokedGrants, setRevokedGrants] = useState<string[]>([]);
+  const revokeGrant = useCallback((from: Role, domain: string) => {
+    const key = `${from}|${domain}`;
     setSessionGrants((current) => {
-      const next = current.map((grant) => (grant.scope === domain ? { ...grant, revoked: true } : grant));
+      const next = current.map((grant) =>
+        grant.from === from && grant.scope === domain ? { ...grant, revoked: true } : grant,
+      );
       saveSessionGrants(next);
       return next;
     });
-    setRevokedScopes((current) => (current.includes(domain) ? current : [...current, domain]));
+    setRevokedGrants((current) => (current.includes(key) ? current : [...current, key]));
   }, []);
   const resetSessionDomains = useCallback(() => {
     clearSessionDomains();
     setSessionDomains([]);
     setSessionGrants([]);
-    setRevokedScopes([]);
+    setRevokedGrants([]);
   }, []);
 
   useEffect(() => {
@@ -185,11 +195,11 @@ export function useApp(): AppState {
           ...baseGrants(config, rootDisabled, leafDisabled, (from, scope) => delegatedTo[scope]?.[from] ?? null),
           ...sessionGrants,
         ].map((grant) =>
-          revokedScopes.includes(grant.scope) ? { ...grant, revoked: true } : grant,
+          revokedGrants.includes(`${grant.from}|${grant.scope}`) ? { ...grant, revoked: true } : grant,
         )
       : [];
     return new DelegationSet(signed, graph);
-  }, [config, rootDisabled, leafDisabled, sessionGrants, revokedScopes, graph, delegatedTo]);
+  }, [config, rootDisabled, leafDisabled, sessionGrants, revokedGrants, graph, delegatedTo]);
   const grants = delegations.all() as Grant[];
 
   return {

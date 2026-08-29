@@ -39,7 +39,7 @@ export function ChainPanel({
   /** The domain picked in the rail — what this grant would cover. */
   domain: string;
   onSigned: (grant: Grant) => void;
-  onRevoked: (domain: string) => void;
+  onRevoked: (from: Role, domain: string) => void;
 }) {
   const [to, setTo] = useState<Role | null>(null);
   const [depth, setDepth] = useState(DEFAULT_MAX_DEPTH);
@@ -67,7 +67,7 @@ export function ChainPanel({
     try {
       const result = await revokeWeight(client, config, role, coveredBy.scope);
       if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
-      onRevoked(coveredBy.scope);
+      onRevoked(role, coveredBy.scope);
       setOutcome({ verdict: "pass", text: `you took “${coveredBy.scope}” back` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
@@ -82,7 +82,7 @@ export function ChainPanel({
     try {
       const result = await revokeWeight(client, config, role, domain);
       if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
-      onRevoked(domain);
+      onRevoked(role, domain);
       setOutcome({ verdict: "pass", text: `you took “${domain}” back` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
