@@ -35,23 +35,41 @@
       "termId": "0x9c2e2f2018dbfaa74fd3fd86cd54a62b16e771936f5d342e3751db8d0c046f80"
     },
     "atoms": {
-      "design": "0x1392c1e72e3408bd41c4d2b670e4ac4371ca30c1b92b43b15d8b25a6954cb066",
-      "branding": "0x8017cd335e3f8c0ab844d752a8212952e78b772257c59d65142a6be8ebbeee7f",
-      "UX": "0xafd298baa9c88ca6dd45aee1e061b48f2e5d914fc0a6c02b0a73aa2b83859420",
-      "legal": "0xc9bbf040865761d20ca7e63e5b00c61db924521e0e0c306a0c4f0e9cf52b2325",
-      "logo": "0x1d3f36760a218532b7ceca6364a490f1d2674ec3f3eb29739b9da7e1edaddf7a",
       "governance": "0x2170a6dc3d16526ebbaa965c84b01e9c54717348ad42696f7a218148da139a4a",
-      "contracts": "0xc684f9c9d693b73a28f79120b1695c0ef145f37c5e31f165ed86ecc70828ed8a",
-      "privacy": "0x268a0d4d500920e842456cc218d8dd62ab0ace277a2ee4110022ce90fd07a478"
+      "treasury": "0xf57df9eb257d55dd75b0b631d2f0b82f038b842e6cb196f28666092ce2660400",
+      "grants": "0xa2f6215d2280fff67225f7d92ad5cb95179b7136d3243716661df55a282a94a8",
+      "builder-grants": "0xd5a2813238317a2e6177c6e59b66077d6b142e82233c68b2389956121109a677",
+      "micro-grants": "0xbd8622c98f48dbbad2eb85da08b4796f160681b7f16f594ac5396305ca07b5b8",
+      "retro-funding": "0xaa17a1891c4a53178b1adc37ab8f2270f780f675dd8c2c4d576221001ca2fcb1",
+      "payroll": "0xc46be1ff7b762b0e10fbeadf91be88c705368bd18e3b8a6bddbb270cbedacb0f",
+      "contributor-comp": "0x05561e27710d2448956d3432954af5798456c2caccf70dabf78dbccf683d2474",
+      "protocol": "0xd7bca202e6d8ff668c78c9fa4aae75fa601464e6477f44002b8432f1a49b9f06",
+      "parameters": "0xc9bab48f4be449bacf6ff92d69723dd17c3c366dc60765bd1aa46643cebdf5ff",
+      "fee-switch": "0xe5ac488e0b394b8a01a9a9a65497c2df709c723fdcfef4b90973e33b5dc7e848",
+      "rate-model": "0x443a6f87c1dd011e572d233fd249045669b1d77af8be636963950bbe46b2d032",
+      "upgrades": "0xf650004def16785f7fb97064c0c06714bc6afc5aea8de8600c0ec0b7daabc678",
+      "emergency-patches": "0x45750675bfa609cb8ab1c026eb663a0894e5a025bf51b1c9310a3cf587f4af1e",
+      "community": "0x6479e40afdd8cd883739746f28a9d2a962230b4b4daeffbecb35984f3ef3a5e3",
+      "events": "0x1f9944be8488a61b40357180085ac81e199890168816c64985d06a54f3e501d9",
+      "content": "0x37f887727fe89c6edd1719e830365cab13e95ba1c3e6badc535e1c7256cc9412"
     },
     "triples": {
-      "branding->design": "0x176419b5177cfa99cba68cb6b0b884ea7bb593a84f0053ef6baf1e082f373784",
-      "UX->design": "0xae3359f86f0ea89d3ff29f4d6e36d8d35d1610343da9442e9ca89f4a661ab7de",
-      "logo->branding": "0xdcec7ce37346e051b98f1e19bc7d088a4844cdbe55d2b3ce9a3e5a320d70e865",
-      "design->governance": "0xc0d2e602bdeb179e2ad2a610ab37ee55f28137ac20ea0d3ccd099b17ead1b66d",
-      "legal->governance": "0x87c79c548418ce01e37e872be4c060b66f6ded204dff11983bf6336adba3dd5a",
-      "contracts->legal": "0x6729f9b6d2b8d961c369166fd1d070d6fc76e5c236d94f4718a505ec65407101",
-      "privacy->legal": "0x27f44f077864033d77c38547f8f276ab4bcadf98ef829db34051e92db2902d8a"
+      "treasury->governance": "0x8a77d73d7b8cdf7df00ae309a08c21b3d9212657c422a04d5ebeddbaf64840b4",
+      "grants->treasury": "0x6609f34465a8fa6e4872e4208ad90c0d03c7c236bfeea5770acc142c024740b9",
+      "builder-grants->grants": "0xf9619887098956741a74762f13221cb6ee9ff0c90f49c632ae0d7a0316c0b466",
+      "micro-grants->builder-grants": "0x8aed272731e16ff90082642480b3cb585fffb1d504aa8a50e1dc86075abd863d",
+      "retro-funding->grants": "0xecb232778f240f7497a629b7654fb590972de30057269586e6f9fb7dc05f14e9",
+      "payroll->treasury": "0xba05ba96939188854866ac286070f83ce53e06fbee9e00481753fe8d14645a0b",
+      "contributor-comp->payroll": "0x7521aa77b8ac55e62a22d087b2133455fcf996df645ca9ef52df9efa971a9c80",
+      "protocol->governance": "0x4f42b39af105ab9da9eea532d4e631c20f8f3b9c0da609de42edd9434f5636da",
+      "parameters->protocol": "0x773bdfa5e283de4037fc59d8f836f95a5e1a7425eddb16119b23f2bac9eef75f",
+      "fee-switch->parameters": "0x41bb88e9346855067c416e81e1daf51d3bd33b26967865ae3e6a0e6acab0ad17",
+      "rate-model->parameters": "0xdc6c69d22a3675f7337206f0eeb8d1c471609efe10cf16f90b25808ffd285466",
+      "upgrades->protocol": "0x57d4720aa4c3ee03bbb31fbfa50e8cbe4e82e5136a1d6e2f43755aeb83203c61",
+      "emergency-patches->upgrades": "0xf7b25826e7e36748616c424c0eb3fa86670eb32279d30f08468fcd91f930783a",
+      "community->governance": "0xb0624fd2af7e9d2d2d34f9dd28fad82085e8b81c780305d63aafcf75c673a929",
+      "events->community": "0xdec9770b8ebea75fccbf51143d6b4f1b82729e8f3b79ae8ab4ea9ad14ebae940",
+      "content->community": "0x6778defd7e1064953120b963b31e5870ed9c211004783b45526b14cc8df9d7ab"
     }
   },
   "attestation": {
@@ -59,33 +77,69 @@
     "orgAttestor": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A",
     "curveId": "1",
     "stakes": {
-      "branding->design": {
+      "treasury->governance": {
         "shares": "9900000000000000",
-        "txHash": "0x64967dbb2f55ac0f141c683ca23251b4c17b0eb7c75eacc3ffa1ab1334854e4c"
+        "txHash": "0x56ae52f0161e769010ceae2dd5066249a0869418617e6542d251015b64041a80"
       },
-      "UX->design": {
+      "grants->treasury": {
         "shares": "9900000000000000",
-        "txHash": "0xb8b4f5196747201a22bf6e04759b1219e846eceef4c7d1ad92de7e8c4b7d4ac9"
+        "txHash": "0x01cae0c59b637318b238d9b9e90e7d7545f7a7a9815e2befe6491165a7bcd667"
       },
-      "logo->branding": {
+      "builder-grants->grants": {
         "shares": "9900000000000000",
-        "txHash": "0xe2a61dab9f46f7c25a5e4342a0a9a32abe5ee032e82bbde8f7099805826e76b3"
+        "txHash": "0x951a3b3db174982a8a1d950e4e586cb0f3bc72fb87f2612c948b6fbbe07de6c8"
       },
-      "design->governance": {
+      "micro-grants->builder-grants": {
         "shares": "9900000000000000",
-        "txHash": "0x7f069420cf1b44cc2398110e633039a550fa82f93e2e554501b14b25f85619d2"
+        "txHash": "0xfd5f4b1c74410fc2cac3dd62dd3569267f481b78f7db3e7fb850280d5bfb6691"
       },
-      "legal->governance": {
+      "retro-funding->grants": {
         "shares": "9900000000000000",
-        "txHash": "0x0d992d882db7d9ee1d89801fcc6503c3cbc5a8ceeb6a06ae0b3e4644354d8282"
+        "txHash": "0xf4e65ae661355b40b5eb0c31b1f5d2baf1190d9fcfebe1bcb2829b0125f01637"
       },
-      "contracts->legal": {
+      "payroll->treasury": {
         "shares": "9900000000000000",
-        "txHash": "0x17b0987dc81fa8e37b19027a650bf1b8c0f2cbfe3dfd4f8627723ee74d29d7fe"
+        "txHash": "0xe00f70e7dd49976f1e5685fd6033c62a96b41aae2c6d4711014431ba71ec62a0"
       },
-      "privacy->legal": {
+      "contributor-comp->payroll": {
         "shares": "9900000000000000",
-        "txHash": "0xb0b687cc59f5fc41f63cb6f1dbbabdff21238ce89edc4747f3dfeaeed7477999"
+        "txHash": "0xcacab23eae3efe06c62996ae5b1f513254dae06793a128e983f759954ebf7feb"
+      },
+      "protocol->governance": {
+        "shares": "9900000000000000",
+        "txHash": "0x294b38899e23b292206d948e0a462fa8572e95577c3d82e4f2d65da62f2963b1"
+      },
+      "parameters->protocol": {
+        "shares": "9900000000000000",
+        "txHash": "0x5bd44b9e9c977eb629e7dd67952e5c7955f232dd1efff5a2f729c0642a61e7af"
+      },
+      "fee-switch->parameters": {
+        "shares": "9900000000000000",
+        "txHash": "0x4069c9355eb73fbda2d4c7d336c1aa57605e128f24ee8a203cd20b052273a5a4"
+      },
+      "rate-model->parameters": {
+        "shares": "9900000000000000",
+        "txHash": "0xa060753d01be0f1f877f2ffa7c6bf0925f30e6ec3093a69e2fb90be05ad934d9"
+      },
+      "upgrades->protocol": {
+        "shares": "9900000000000000",
+        "txHash": "0x3d9b05742e0c47a26919ae1f0827c1d564243c6df304cfd69503066d6accf3e9"
+      },
+      "emergency-patches->upgrades": {
+        "shares": "9900000000000000",
+        "txHash": "0x8600065cb304db61acabd65c3e784b4a329886c5f9ac2e03236c4e6fe18427cb"
+      },
+      "community->governance": {
+        "shares": "9900000000000000",
+        "txHash": "0xd593a86a7a7fb43a7bd13a754ea33497c2d0a4daa9d29cbf9d203eb0defb5aef"
+      },
+      "events->community": {
+        "shares": "9900000000000000",
+        "txHash": "0xe726e452f564f5af32a3cf12d83b6ba645d081e8e0d80f19b05d404ba911acf5"
+      },
+      "content->community": {
+        "shares": "9900000000000000",
+        "txHash": "0x1fb64df1519e206ff99ab03c995974c0c4b27954d1a4425d4e3cd434b5d37761"
       }
     }
   },
