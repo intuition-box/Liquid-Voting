@@ -18,8 +18,8 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/demo-config";
-import { readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
-import { DomainGraph } from "../lib/domain-graph";
+import { readGraphLimits, readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
+import { DomainGraph, type GraphLimits } from "../lib/domain-graph";
 import { baseGrants, type Grant } from "../lib/grants";
 import { readEdgeStates, type EdgeState } from "../lib/graph";
 
@@ -82,6 +82,7 @@ export function useDemo(): DemoState {
   const [proposals, setProposals] = useState<ProposalRecord[]>([]);
   const [votingPower, setVotingPower] = useState<Record<Role, bigint>>({ voter: 0n, delegate: 0n, executor: 0n });
   const [weights, setWeights] = useState<Record<string, Record<Role, bigint>>>({});
+  const [limits, setLimits] = useState<GraphLimits | null>(null);
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,14 +124,16 @@ export function useDemo(): DemoState {
 
     void (async () => {
       try {
-        const [edgeStates, records, powers, root, leaf] = await Promise.all([
+        const [edgeStates, records, powers, root, leaf, graphLimits] = await Promise.all([
           readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId),
           readProposals(client, config, 40),
           readVotingPower(client, config),
           isDelegationDisabled(client, config.delegations.root.hash),
           isDelegationDisabled(client, config.delegations.leaf.hash),
+          readGraphLimits(client, config),
         ]);
         if (cancelled) return;
+        setLimits(graphLimits);
         setEdges(edgeStates);
         setProposals(records);
         setVotingPower(powers);
@@ -139,7 +142,7 @@ export function useDemo(): DemoState {
         // weight. The path lets a grant on a parent domain count here; the governor
         // verifies every hop of it against the graph.
         const domainIds = [...new Set(records.map((record) => record.domainId))];
-        const fresh = DomainGraph.from(config.nodes, edgeStates);
+        const fresh = DomainGraph.from(config.nodes, edgeStates, graphLimits);
         const perDomain = await Promise.all(
           domainIds.map((id) => {
             const label = fresh.labelOf(id);
@@ -164,8 +167,8 @@ export function useDemo(): DemoState {
 
   // Indexed once per (nodes, edges) change, so panels ask rather than re-walk.
   const graph = useMemo(
-    () => DomainGraph.from(config?.nodes ?? [], edges),
-    [config?.nodes, edges],
+    () => DomainGraph.from(config?.nodes ?? [], edges, limits ?? undefined),
+    [config?.nodes, edges, limits],
   );
 
   // The scopes each level granted: read from the signed terms, not hardcoded.

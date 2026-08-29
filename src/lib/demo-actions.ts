@@ -17,7 +17,7 @@ import {
   type PreflightResult,
 } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
-import { DomainGraph } from "./domain-graph";
+import { DomainGraph, type GraphLimits } from "./domain-graph";
 import { type EdgeState, type PathResult } from "./graph";
 import { toHybridAccount } from "./smart-accounts";
 import { sendUserOp, type UserOpResult } from "./user-op";
@@ -322,6 +322,24 @@ export async function revokeRoot(client: PublicClient, config: DemoConfig): Prom
   return sendUserOp(client, submitterClient(config), voter, [
     { to: FRAMEWORK.delegationManager, value: 0n, data: buildDisableCalldata(config.delegations.root) },
   ]);
+}
+
+/**
+ * The governor's own path cap, read rather than copied.
+ *
+ * The constant stays on chain because that is where it does its work: it bounds the
+ * verification loops against a hand-crafted path, and a bound the caller can talk the
+ * contract out of is not a bound. Reading it here only lets the UI decline a trip the
+ * contract would refuse anyway — the same rule the seeder follows for atom cost and
+ * curve id: query, never hardcode.
+ */
+export async function readGraphLimits(client: PublicClient, config: DemoConfig): Promise<GraphLimits> {
+  const maxDomainPath = await client.readContract({
+    address: config.governor,
+    abi: governorAbi,
+    functionName: "MAX_DOMAIN_PATH",
+  });
+  return { maxDomainPath: Number(maxDomainPath) };
 }
 
 /** Lifecycle states, in the governor's enum order. */

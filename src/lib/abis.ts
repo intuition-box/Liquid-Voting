@@ -176,6 +176,13 @@ export const governorAbi = [
   },
   {
     type: "function",
+    name: "MAX_DOMAIN_PATH",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "delegatedTo",
     stateMutability: "view",
     inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
