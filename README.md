@@ -27,6 +27,7 @@ The graph is the authority; stake is the trust signal.
 ## Layout
 
 ```
+docs/OVERVIEW.md       what we built and why, in plain terms — start here
 docs/WRITEUP.md        design decisions, gas, limitations, Mission 11 notes
 docs/DEMO.md           ordered demo script with expected output and recovery moves
 docs/adr/              ADRs 0001–0016 — every architectural decision, with rejected alternatives
