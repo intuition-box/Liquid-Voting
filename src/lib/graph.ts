@@ -39,65 +39,6 @@ export type PathResult =
   | { found: true; path: `0x${string}`[]; labels: string[]; steps: PathStep[] }
   | { found: false; reason: string };
 
-/**
- * Client-side path discovery — the complement to the on-chain verification (ADR 0003).
- *
- * The MultiVault has no reverse index, so the contract can never discover intermediate
- * nodes; the redeemer must supply the path as a witness. This BFS walks the *authorizing*
- * edges only (positive triples the attestor staked), so the witness it produces is one
- * the enforcer will accept — discovery here, verification there.
- */
-export function computePath(edges: EdgeState[], nodes: DomainNode[], from: string, to: string): PathResult {
-  const termIdOf = new Map(nodes.map((node) => [node.label, node.termId]));
-  const fromId = termIdOf.get(from);
-  const toId = termIdOf.get(to);
-  if (!fromId) return { found: false, reason: `unknown domain “${from}”` };
-  if (!toId) return { found: false, reason: `unknown domain “${to}”` };
-
-  if (from === to) {
-    return { found: true, path: [fromId], labels: [from], steps: [] };
-  }
-
-  const outgoing = new Map<string, EdgeState[]>();
-  for (const edge of edges) {
-    if (!edge.isAuthorizing) continue;
-    const list = outgoing.get(edge.child) ?? [];
-    list.push(edge);
-    outgoing.set(edge.child, list);
-  }
-
-  const previous = new Map<string, EdgeState>();
-  const seen = new Set([from]);
-  const queue = [from];
-  while (queue.length > 0) {
-    // Safe: the while condition guarantees a non-empty queue.
-    const current = queue.shift() as string;
-    if (current === to) break;
-    for (const edge of outgoing.get(current) ?? []) {
-      if (seen.has(edge.parent)) continue;
-      seen.add(edge.parent);
-      previous.set(edge.parent, edge);
-      queue.push(edge.parent);
-    }
-  }
-  if (!seen.has(to)) {
-    return { found: false, reason: `no attested chain of sub-domain edges from “${from}” up to “${to}”` };
-  }
-
-  const steps: PathStep[] = [];
-  for (let cursor = to; cursor !== from; ) {
-    const edge = previous.get(cursor);
-    if (!edge) return { found: false, reason: "path reconstruction failed" };
-    steps.unshift({ from: edge.child, to: edge.parent, tripleId: edge.tripleId });
-    cursor = edge.child;
-  }
-
-  const labels = [from, ...steps.map((step) => step.to)];
-  // Safe: every label came from an edge whose endpoints are nodes in termIdOf.
-  const path = labels.map((label) => termIdOf.get(label) as `0x${string}`);
-  return { found: true, path, labels, steps };
-}
-
 function describe(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : String(cause);
   return message.split("\n")[0] ?? "read failed";

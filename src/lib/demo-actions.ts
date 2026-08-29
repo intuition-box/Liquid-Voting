@@ -17,7 +17,8 @@ import {
   type PreflightResult,
 } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
-import { computePath, readEdgeStates, type EdgeState, type PathResult } from "./graph";
+import { DomainGraph } from "./domain-graph";
+import { type EdgeState, type PathResult } from "./graph";
 import { toHybridAccount } from "./smart-accounts";
 import { sendUserOp, type UserOpResult } from "./user-op";
 
@@ -82,10 +83,10 @@ export function planVote(
   support: number,
 ): VotePlan {
   const { chain, redeemer, roots, principals } = chainFor(config, level);
-  const nodes = config.nodes;
+  const graph = DomainGraph.from(config.nodes, edgeStates);
   const paths = roots.map((rootLabel) => ({
     rootLabel,
-    result: computePath(edgeStates, nodes, domainLabel, rootLabel),
+    result: graph.pathTo(domainLabel, rootLabel),
   }));
   const base = { level, redeemer, chain, paths, principals };
 
@@ -323,9 +324,6 @@ export async function revokeRoot(client: PublicClient, config: DemoConfig): Prom
   ]);
 }
 
-/** Total weight a proposal needs before it can succeed — the governor's `QUORUM`. */
-export const QUORUM = 1n;
-
 /** Lifecycle states, in the governor's enum order. */
 export const PROPOSAL_STATES = ["pending", "active", "defeated", "succeeded", "executed"] as const;
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
@@ -410,40 +408,6 @@ export async function readVotingPower(
     ),
   );
   return { voter: powers[0] ?? 0n, delegate: powers[1] ?? 0n, executor: powers[2] ?? 0n };
-}
-
-export type ExtensionPreview =
-  | { status: "absent"; atomId: Hex; message: string }
-  | { status: "unauthorized"; atomId: Hex; message: string }
-  | { status: "authorized"; atomId: Hex; message: string };
-
-/**
- * Answers "would this domain be authorized today?" before the graph is touched — the
- * contrast that makes the live extension land. Reads live state; the panel only renders.
- */
-export async function previewExtension(
-  client: PublicClient,
-  config: DemoConfig,
-  label: string,
-): Promise<ExtensionPreview> {
-  const vault = { address: config.multiVault, abi: multiVaultAbi } as const;
-  const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [stringToHex(label)] });
-  const exists = await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] });
-  if (!exists) {
-    return {
-      status: "absent",
-      atomId,
-      message: `“${label}” (${atomId.slice(0, 14)}…) does not exist on chain yet — no path can reach it, so no delegation authorizes it.`,
-    };
-  }
-  // The atom exists: the question is whether an attested path reaches it from the
-  // delegation's root. That is a graph question, answered against live edge state — no
-  // proposal needs to exist for the answer to be true.
-  const edges = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
-  const path = computePath(edges, config.nodes, label, "design");
-  return path.found
-    ? { status: "authorized", atomId, message: `“${label}” already verifies — pick a domain that is not yet linked.` }
-    : { status: "unauthorized", atomId, message: `no attested path up to “design”: ${path.reason}` };
 }
 
 export interface ExtendResult {
