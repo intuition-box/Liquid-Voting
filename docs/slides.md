@@ -73,11 +73,11 @@ trust-layer integration rather than a lookup table.
 ## 5 · Demo
 
 Switch to the browser. Follow `docs/DEMO.md`:
-graph → exact match → one hop → `legal` fails → narrowing blocks `branding` →
-**extend the graph live** → revoke kills the chain.
+graph → exact match → one hop → `events` fails → narrowing blocks `payroll` →
+**extend the graph live** → revoking takes back what was lent, not what B gave.
 
 **The moment to land:** a delegation signed before the meeting authorizing
-`motion design`, a domain that did not exist when it was signed.
+`audit-fund`, a domain that did not exist when it was signed.
 
 ---
 
