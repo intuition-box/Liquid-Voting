@@ -73,20 +73,13 @@ enfants de ce nœud ? ». Il n'y a pas d'index inverse.
 
 Le parcours on-chain n'est donc pas coûteux — il est *impossible*.
 
-D'où la répartition retenue :
+On a donc partagé le travail en deux. Le navigateur cherche le chemin qui va de
+`micro-grants` jusqu'à `treasury` et le joint au vote. Le contrat, lui, ne le croit pas : il
+recalcule chaque maillon contre ce que le graphe contient réellement au moment du vote.
 
-| Côté | Rôle |
-|---|---|
-| **Le navigateur** | trouve le chemin `micro-grants → builder-grants → grants → treasury` et le joint au vote |
-| **Le contrat** | ne le croit pas — il **recalcule** chaque maillon contre l'état on-chain |
-
-Le chemin fourni sert d'indice sur *où regarder*, jamais de preuve. Pour chaque maillon, le
-contrat recalcule l'identifiant du lien et pose deux questions au graphe :
-
-1. **Ce lien existe-t-il vraiment**, comme affirmation positive ?
-2. **Le curateur a-t-il misé dessus ?**
-
-La deuxième question est ce qui empêche la triche.
+Pour chaque maillon, il pose deux questions. D'abord, est-ce que ce lien existe vraiment,
+comme affirmation positive ? Ensuite, est-ce que le curateur a misé dessus ? C'est la
+deuxième qui empêche la triche, et la section suivante explique pourquoi.
 
 *(Le détail complet est dans le schéma [scope-check.excalidraw](scope-check.excalidraw).)*
 
@@ -126,16 +119,14 @@ Notre première version les regroupait dans un seul objet signé. Conséquence :
 reprenait sa voix, C perdait **tout** — y compris ce que B lui avait donné de son propre
 chef, ce que A n'avait aucun droit de reprendre.
 
-**La solution : une délégation signée par voix portée.** B en signe deux vers C — l'une
-pour sa voix propre, l'autre relayant celle de A. Elles vivent séparément :
+La solution a été de signer une délégation par voix portée. B en signe deux vers C : l'une
+pour sa voix propre, l'autre pour relayer celle de A. Elles vivent séparément, et c'est ce
+qui change tout au moment d'une reprise.
 
-| A reprend `treasury` | Résultat |
-|---|---|
-| la voix de A relayée par B | meurt — elle dépendait de A |
-| la voix propre de B | **survit** — elle n'a jamais été à A |
-
-Concrètement : C passe de 3 voix à 2. Il perd celle de A, garde celle de B. Personne n'est
-réduit au silence, chacun ne reprend que ce qu'il avait prêté.
+Si A reprend `treasury`, la voix qu'il avait prêtée disparaît, puisqu'elle dépendait de
+lui. Celle de B, elle, reste valable, parce qu'elle n'a jamais été à A. Concrètement, C
+passe de trois voix à deux : il perd celle de A et garde celle de B. Personne n'est réduit
+au silence, et chacun ne reprend que ce qu'il avait prêté.
 
 Techniquement, ce n'était pas une contrainte du standard mais une conséquence de notre
 premier choix — le standard permet de racheter plusieurs chaînes indépendantes dans le
@@ -146,53 +137,120 @@ même appel, ce qu'on fait désormais.
 
 ## Ce qu'on n'a pas eu à écrire
 
-La partie la plus révélatrice du projet est ce qui **n'existe pas** dans notre code.
+La partie la plus révélatrice du projet est ce qui n'existe pas dans notre code.
 
-**La révocation.** Aucune ligne écrite. Le standard ERC-7710 la fournit : le délégateur
-désactive sa délégation, et toute chaîne qui en dérivait cesse de fonctionner. Notre
-contrat n'a pas connaissance de la révocation.
+La révocation, d'abord. On n'a écrit aucune ligne pour elle, parce que le standard ERC-7710
+la fournit déjà : le délégateur désactive sa délégation et toute chaîne qui en dérivait
+cesse de fonctionner. Notre contrat, lui, n'a même pas connaissance de la notion.
 
-**Le resserrement.** Quand A délègue `treasury` et que B ne transmet que `grants`, C ne
-peut pas voter sur `payroll` — pourtant aucune ligne ne l'interdit. Ça découle de la
-structure : le contrôle s'exécutant à chaque niveau, un vote doit être valide *pour tous
-les niveaux à la fois*. L'intersection produit le resserrement toute seule.
+Le resserrement, ensuite. Quand A délègue `treasury` et que B ne transmet que `grants`, C
+ne peut pas voter sur `payroll`, alors qu'aucune ligne ne l'interdit nulle part. Ça découle
+de la structure : comme le contrôle s'exécute à chaque niveau, un vote doit être valable
+pour tous les niveaux à la fois, et l'intersection produit le resserrement d'elle-même.
 
-Ces deux propriétés ont été obtenues gratuitement, en s'appuyant sur le standard plutôt
+Ces deux comportements ont été obtenus gratuitement, en s'appuyant sur le standard plutôt
 qu'en le contournant.
 
 ---
 
-## Les choix qu'on a faits, et pourquoi
+## Les six choix, et pourquoi
 
-| Choix | Alternative écartée | Raison |
-|---|---|---|
-| Le chemin fourni par le demandeur | Parcours on-chain | Impossible — pas d'index inverse |
-| Autorisation par la mise | Par l'existence du lien | Le minting est libre, donc l'existence ne prouve rien |
-| Classification précise du lien | Un test grossier disponible | Le test grossier accepte aussi les liens de contestation |
-| Une délégation par voix | Une seule chaînée | Sinon reprendre sa voix en fait taire d'autres |
-| Bornes lues on-chain | Recopiées côté client | Un garde-fou qu'on peut contredire n'en est plus un |
-| Le contrôle par délégation | Une fois par vote | C'est ce qui rend le resserrement automatique |
+Chacune de ces décisions est arrivée de la même façon : on a d'abord essayé la solution
+évidente, elle ne marchait pas, et on a compris pourquoi.
 
-Chacun est consigné dans un ADR, avec les alternatives et ce qu'elles coûtaient.
+### 1 · C'est le votant qui donne le chemin
+
+La première idée était que le contrat remonte le graphe tout seul, de `micro-grants`
+jusqu'à `treasury`. Ça n'a pas été possible, parce que le graphe d'Intuition sait dire si
+un lien existe, mais il ne sait pas dire quels sont les enfants d'un nœud. C'est un
+annuaire dans lequel on peut vérifier un numéro qu'on connaît déjà, mais où on ne peut pas
+chercher qui habite dans une rue. Ce n'est pas une question de lenteur, c'est simplement
+impossible.
+
+Alors on a inversé le sens. C'est le votant qui annonce son chemin — micro-grants, puis
+builder-grants, puis grants, puis treasury — et le contrat vérifie chaque étape une par
+une contre le graphe. Le chemin annoncé ne prouve rien du tout, il indique seulement où
+regarder.
+
+### 2 · Il faut avoir misé de l'argent, pas seulement écrit la phrase
+
+On aurait pu accepter n'importe quel lien présent dans le graphe. Le souci, c'est que sur
+Intuition écrire une phrase coûte une fraction de centime et que n'importe qui peut écrire
+n'importe quoi. Un délégué à qui vous avez confié la trésorerie pourrait publier lui-même
+« les événements font partie de la trésorerie », puis voter sur les événements avec votre
+voix. Il agrandirait son propre pouvoir sans rien demander à personne.
+
+C'est pour ça qu'un lien ne compte que si le curateur de la DAO a misé de l'argent dessus.
+Écrire reste gratuit et ouvert à tous, mais ça ne suffit plus : parler ne coûte rien,
+s'engager coûte quelque chose.
+
+### 3 · On vérifie quel type de lien, pas seulement qu'il y en a un
+
+Il existait une fonction toute prête pour savoir si un lien existe, et on a failli s'en
+servir. Elle cachait un piège : sur Intuition, on peut publier une affirmation et
+publier son contraire. Pour chaque « A fait partie de B », quelqu'un peut enregistrer un
+« non, A ne fait pas partie de B ». Or cette fonction répond oui dans les deux cas, parce
+qu'elle regarde la famille du lien et pas son sens.
+
+Un attaquant aurait donc pu se servir d'une contestation comme si c'était une
+affirmation. On demande maintenant le type exact du lien et on n'accepte que l'affirmation
+positive.
+
+### 4 · Une signature par voix transmise
+
+Quand B transmet à C ce que A lui a confié en même temps que sa propre voix, il aurait été
+naturel de tout mettre dans un seul document signé. Sauf que ces deux voix n'appartiennent
+pas à la même personne. Si A reprend la sienne, il détruit le document entier, et C perd
+au passage la voix de B — que A n'avait pourtant aucun droit de reprendre. C'est comme si,
+en récupérant un livre que vous aviez prêté, vous emportiez aussi celui que votre ami avait
+offert à quelqu'un d'autre.
+
+B signe donc deux documents séparés. A peut reprendre le sien, l'autre reste valable, et C
+garde ce que B lui a donné.
+
+### 5 · Les limites de sécurité restent dans le contrat
+
+Le contrat refuse les chemins de plus de six étapes, et on aurait pu recopier ce six dans
+l'application pour éviter d'envoyer des transactions vouées à l'échec. On ne l'a pas fait,
+parce que deux copies d'un même chiffre finissent toujours par diverger, et surtout parce
+qu'une limite de sécurité que le client peut contredire n'est plus une limite mais une
+suggestion.
+
+Le chiffre reste donc uniquement dans le contrat. L'application le lit pour vous éviter de
+payer une transaction perdue d'avance, mais c'est toujours le contrat qui tranche. Si on
+change la limite dans le contrat, l'application suit d'elle-même.
+
+### 6 · Chaque maillon est vérifié séparément
+
+On aurait pu contrôler le vote une seule fois, à son arrivée. On a préféré vérifier chaque
+niveau de la chaîne indépendamment, et c'est ce qui a produit le résultat dont on est le
+plus contents.
+
+A a délégué `treasury` à B, et B n'a transmis que `grants` à C. Quand C vote, son vote doit
+être valable pour les deux niveaux à la fois. Sur `payroll`, qui appartient à `treasury`
+mais pas à `grants`, le niveau de B refuse — donc C ne peut pas voter dessus. Personne n'a
+écrit cette règle nulle part : elle apparaît d'elle-même parce qu'on vérifie niveau par
+niveau. La bonne structure a rendu inutile d'écrire la règle.
 
 ---
 
+Chacun de ces six choix a son document dédié dans [`adr/`](adr/), avec les alternatives
+qu'on a essayées et ce qu'elles coûtaient.
+
 ## Où en est le projet
 
-**Tout tourne en réel sur le testnet Intuition (chaîne 13579).** Rien n'est simulé : les
-délégations sont signées, les votes envoyés, le graphe modifié pour de bon.
+Tout tourne en réel sur le testnet Intuition, et rien n'est simulé : les délégations sont
+signées pour de bon, les votes partent sur la chaîne, et le graphe est modifié réellement
+quand on ajoute un domaine pendant la démonstration.
 
-| | |
-|---|---|
-| Contrats | 843 lignes de Solidity (hors interfaces), source vérifiée on-chain |
-| Tests | 103, dont 12 contre le vrai graphe Intuition |
-| Graphe | 17 domaines, 16 liens, chacun misé par le curateur |
-| Décisions | 16 ADR |
-| Vérification avant démo | `bun run verify` — 5 secondes, lecture seule |
+Les contrats sont déployés avec leur code source vérifié, la suite de tests tourne en
+partie contre le vrai graphe d'Intuition plutôt que contre une imitation, et chaque
+décision d'architecture a son document dans [`adr/`](adr/).
 
-`verify` contrôle chaque affirmation de la démonstration contre l'état réel de la chaîne :
-les liens autorisent, les votes attendus passent, et ceux qui doivent échouer échouent pour
-la bonne raison.
+Avant chaque présentation, une commande de cinq secondes — `bun run verify` — relit l'état
+de la chaîne et contrôle chaque affirmation de la démonstration : que les liens autorisent
+bien ce qu'on annonce, que les votes attendus passent, et que ceux qui doivent échouer
+échouent pour la bonne raison plutôt que par accident.
 
 ---
 
