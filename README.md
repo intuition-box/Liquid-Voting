@@ -33,6 +33,7 @@ docs/adr/              ADRs 0001–0016 — every architectural decision, with r
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
 docs/notes/            working notes: the code audit and the refactor plans it produced
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
+docs/scope-check.excalidraw       how a delegation's scope is verified against the graph
 contracts/             Foundry project: enforcer, mock governor, unit + fork suites
 scripts/               CLI: seed, account setup, delegation signing, acceptance runner, verify
 src/lib/               services by subject — chain/, graph/, delegation/, config/, actions/
