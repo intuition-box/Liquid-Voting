@@ -6,7 +6,7 @@ import type { AppConfig } from "../lib/config/app-config";
 import type { DomainGraph } from "../lib/graph/domain-graph";
 import { ROLES } from "../lib/delegation/grant";
 import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/actions";
-import { Button, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
+import { Button, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Outcome {
   verdict: Verdict;
@@ -52,7 +52,7 @@ export function RevokePanel({
     try {
       const result = await revokeRoot(client, config);
       if (!result.success) {
-        setOutcome({ verdict: "fail", message: "the revocation user operation reverted", txHash: result.txHash });
+        setOutcome({ verdict: "fail", message: "the transaction did not go through", txHash: result.txHash });
         return;
       }
       // Re-simulate every account that held a chain, on the domain it actually held —
@@ -72,16 +72,20 @@ export function RevokePanel({
             config,
             planVoteForcingWitness(config, graph, resolved, scope, 0n, VOTE_FOR),
           );
-          return { holder, ok: outcome.ok, reason: outcome.ok ? "still passes" : outcome.revert?.name ?? "rejected" };
+          return { holder, ok: outcome.ok };
         }),
       );
-      const allDead = probes.every((probe) => !probe.ok);
-      const detail = probes.map((probe) => `${probe.holder}: ${probe.reason}`).join(", ");
+      // Every account that was passing this voice along should now be refused.
+      const stopped = probes.filter((probe) => !probe.ok).map((probe) => probe.holder);
+      const stillWorking = probes.filter((probe) => probe.ok).map((probe) => probe.holder);
       setOutcome({
-        verdict: allDead ? "pass" : "fail",
-        message: allDead
-          ? `every chain relaying this voice is dead — ${detail}`
-          : `unexpected — ${detail}`,
+        verdict: stillWorking.length === 0 ? "pass" : "fail",
+        message:
+          stillWorking.length === 0
+            ? stopped.length > 0
+              ? `Signature cancelled. ${stopped.join(" and ")} can no longer vote with A’s voice.`
+              : "Signature cancelled. It can never be used again."
+            : `Unexpected: ${stillWorking.join(" and ")} can still use it.`,
         txHash: result.txHash,
       });
       onSettled();
@@ -93,25 +97,26 @@ export function RevokePanel({
   }
 
   return (
-    <Panel title="Revoke">
+    <Panel title="Cancel a signature">
       <p>
-        The voter disables its root delegation at the DelegationManager. Every delegation relaying that voice derives
-        from this hash, so all of them stop in the same transaction — and any grant an account signed on its own
-        authority keeps standing. You take back what you lent, not what others gave.
+        Taking a domain back — in the panel above — stops your weight counting there. This does something
+        stronger: it tears up a signature, so it can never be used again by anyone.
       </p>
-      <dl className="kv">
-        <dt>root hash</dt>
-        <dd>
-          <Mono dim>{config.delegations.root.hash}</Mono>
-        </dd>
-        <dt>state</dt>
-        <dd>{rootDisabled ? <span className="tag tag-bad">revoked</span> : <span className="tag tag-ok">active</span>}</dd>
-      </dl>
+      <p className="muted">
+        A pre-signed delegation from A to B is kept for this. It is not in force — nothing is delegated until
+        someone hands a domain over — but cancelling it here shows what happens to everything below: anything
+        passing A’s voice along stops working too, while a vote B lent out of its own is untouched. You cancel
+        what you lent, not what others gave.
+      </p>
       <div className="actions">
         <Button onClick={() => void revoke()} busy={busy} disabled={!writable || rootDisabled} variant="danger">
-          revoke root delegation
+          {rootDisabled ? "already cancelled" : "cancel A’s signature"}
         </Button>
-        {rootDisabled ? <span className="muted">already revoked — re-sign with `bun run delegate`</span> : null}
+        {rootDisabled ? (
+          <span className="muted">sign a fresh one with `bun run delegate`</span>
+        ) : (
+          <span className="muted">permanent — this signature can never be reused</span>
+        )}
       </div>
       {outcome ? (
         <Status verdict={outcome.verdict}>
