@@ -19,13 +19,9 @@
  *
  * Run: bun run phase3:run
  */
-import { createPublicClient, createWalletClient, http, type Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import type { Hex } from "viem";
 
-import { intuitionTestnet, readManifest } from "./lib/network";
+import { prepareRunner } from "./lib/runner";
 import { governorAbi } from "../src/lib/abis";
 import { FRAMEWORK } from "../src/lib/chain";
 import {
@@ -35,47 +31,20 @@ import {
   preflightRedeem,
   type Delegation,
 } from "../src/lib/delegation";
-import { toHybridAccount } from "../src/lib/smart-accounts";
 import { sendUserOp } from "../src/lib/user-op";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const accountsPath = join(repoRoot, "data", "accounts.json");
-const delegationsPath = join(repoRoot, "data", "delegations.json");
-
-interface SignedDelegations {
-  rootDelegation: Delegation & { hash: Hex };
-  leafDelegation: Delegation & { hash: Hex };
-}
 
 async function main(): Promise<void> {
-  if (!existsSync(accountsPath) || !existsSync(delegationsPath)) {
-    throw new Error("run phase3:setup and phase3:delegate first");
-  }
-  const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
-  const signed = JSON.parse(readFileSync(delegationsPath, "utf-8")) as SignedDelegations;
-  const manifest = readManifest();
-  const governor = manifest.contracts.MockGovernor.address;
+  const { manifest, publicClient, submitter, accounts, signed, governor, atoms } = await prepareRunner();
   const enforcer = manifest.contracts.GraphDomainCaveatEnforcer.address;
   const attestor = manifest.attestation.orgAttestor;
   if (!attestor) throw new Error("manifest attestation.orgAttestor missing — run seed first");
-  const atoms = manifest.vocabulary.atoms as Record<string, Hex>;
   const design = atoms["design"] as Hex;
   const branding = atoms["branding"] as Hex;
   const ux = atoms["UX"] as Hex;
   const legal = atoms["legal"] as Hex;
   const logo = atoms["logo"] as Hex;
-
-  const transport = http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]);
-  const publicClient = createPublicClient({ chain: intuitionTestnet, transport });
-  const submitter = createWalletClient({
-    chain: intuitionTestnet,
-    transport,
-    account: privateKeyToAccount((process.env["PRIVATE_KEY"] ?? "") as `0x${string}`),
-  });
-  const voterSA = await toHybridAccount(publicClient, privateKeyToAccount(stored.keys["voter"] as `0x${string}`));
-  const delegateSA = await toHybridAccount(publicClient, privateKeyToAccount(stored.keys["delegate"] as `0x${string}`));
-  const executorSA = await toHybridAccount(publicClient, privateKeyToAccount(stored.keys["executor"] as `0x${string}`));
-
+  const { voter: voterSA, delegate: delegateSA, executor: executorSA } = accounts;
   const root: Delegation = { ...signed.rootDelegation };
   const leaf: Delegation = { ...signed.leafDelegation };
   const manager = FRAMEWORK.delegationManager;
