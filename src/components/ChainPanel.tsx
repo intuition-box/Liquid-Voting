@@ -107,12 +107,17 @@ export function ChainPanel({
         graph.domainPathOf(domain),
         held?.voices.map((voice) => voice.chain[0]!) ?? [],
       );
-      const principals: Role[] = [role, ...(held?.principals ?? [])];
-      signed.forEach((delegation, index) => {
+      // Whose voice each one carries is read from what it relays, not from position:
+      // signDelegation only relays the grants it may chain to, so an index into the
+      // voices we passed in would not line up with what came back.
+      const principalOf = new Map(
+        (held?.voices ?? []).map((voice) => [voice.chain[0]!.hash.toLowerCase(), voice.principal]),
+      );
+      signed.forEach(({ delegation, relays }) => {
         onSigned({
           from: role,
           to: target,
-          principal: principals[index] ?? role,
+          principal: relays ? principalOf.get(relays.hash.toLowerCase()) ?? role : role,
           scope: domain,
           revoked: false,
           delegation,

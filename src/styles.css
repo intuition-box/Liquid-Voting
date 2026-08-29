@@ -884,3 +884,70 @@ select:focus-visible,
 .ballot-note {
   font-size: 12px;
 }
+
+/* Delegations in force. A chain gets a line of its own: badges on the tree could not
+   show one without crowding out the domain names they hung off. */
+.voices {
+  list-style: none;
+  margin: 0 0 var(--s5);
+  padding: 0;
+}
+
+.voice-row,
+.grant-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+
+.voice-note,
+.grant-note {
+  font-size: 12px;
+}
+
+.grant-group {
+  margin-bottom: var(--s5);
+}
+
+.grant-scope {
+  margin: 0 0 var(--s1);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.grant-scope-on {
+  color: var(--accent);
+}
+
+.grant-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* The viewer's own grants sit slightly forward of the rest. */
+.grant-row-yours {
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--s3);
+}
+
+.grant-chain {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.grant-arrow {
+  color: var(--dim);
+  margin: 0 var(--s1);
+}

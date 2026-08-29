@@ -26,7 +26,7 @@ export async function signDelegation(
   domainPath: Hex[] = [],
   /** The delegations the signer already holds on this domain, one per voice it carries. */
   upstream: (Delegation & { hash: Hex })[] = [],
-): Promise<(Delegation & { hash: Hex })[]> {
+): Promise<{ delegation: Delegation & { hash: Hex }; relays: (Delegation & { hash: Hex }) | null }[]> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
 
@@ -45,7 +45,7 @@ export async function signDelegation(
   // was never the upstream's to take back. A voice keeps belonging to whoever cast it.
   const authorities: Hex[] = [ROOT_AUTHORITY, ...relayable.map((held) => held.hash)];
 
-  const signed: (Delegation & { hash: Hex })[] = [];
+  const signed: { delegation: Delegation & { hash: Hex }; relays: (Delegation & { hash: Hex }) | null }[] = [];
   for (const [index, authority] of authorities.entries()) {
     const delegation: Delegation = {
       delegate: config.accounts[to].smartAccount,
@@ -76,7 +76,8 @@ export async function signDelegation(
       functionName: "getDelegationHash",
       args: [{ ...delegation, salt: BigInt(delegation.salt) }],
     });
-    signed.push({ ...delegation, hash });
+    // index 0 is the signer's own voice; the rest relay `relayable` in the same order.
+    signed.push({ delegation: { ...delegation, hash }, relays: index === 0 ? null : (relayable[index - 1] ?? null) });
   }
 
   // The signatures say the delegate MAY vote on this domain; the governor's register says

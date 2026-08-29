@@ -1,6 +1,5 @@
 import type { Role } from "../lib/config/app-config";
 import type { DomainGraph, TreeNode } from "../lib/graph/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS } from "../lib/delegation/grant";
 
 /** A delegation in force on one domain, and whose voice it carries. */
 export interface Held {
@@ -11,26 +10,21 @@ export interface Held {
 }
 
 /**
- * The domain graph as a tree. Selecting a branch lights it and everything under it,
- * because a delegation on a domain reaches every domain beneath it.
+ * The domain graph as a tree, and nothing else — this is the navigation.
  *
- * A domain already handed over carries the pair that moved it, written from the viewer's
- * side: what they gave, what they were given, or a transfer between two other accounts.
+ * Selecting a branch lights it and everything under it, because a delegation on a domain
+ * reaches every domain beneath it. Who handed what to whom is a list of its own, in the
+ * Delegations tab: badges on the rows could not show a chain without crowding out the
+ * names they hung off.
  */
 export function DomainTree({
   graph,
   selected,
-  grantedTo,
-  viewer,
   onSelect,
 }: {
   graph: DomainGraph;
   /** The domain currently in scope; its whole subtree is highlighted. */
   selected: string;
-  /** Every grant in force, by domain name — one entry per voice handed on. */
-  grantedTo?: Map<string, Held[]>;
-  /** Who the viewer is acting as. */
-  viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
   return (
@@ -42,8 +36,6 @@ export function DomainTree({
           depth={0}
           selected={selected}
           inScope={false}
-          grantedTo={grantedTo}
-          viewer={viewer}
           onSelect={onSelect}
         />
       ))}
@@ -56,8 +48,6 @@ function Branch({
   depth,
   selected,
   inScope,
-  grantedTo,
-  viewer,
   onSelect,
 }: {
   node: TreeNode;
@@ -65,13 +55,10 @@ function Branch({
   selected: string;
   /** True once an ancestor is the selected domain — the whole subtree is in scope. */
   inScope: boolean;
-  grantedTo?: Map<string, Held[]>;
-  viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
   const isSelected = node.label === selected;
   const covered = inScope || isSelected;
-  const held = grantedTo?.get(node.label) ?? [];
 
   return (
     <li className="tree-node">
@@ -90,33 +77,6 @@ function Branch({
         disabled={!onSelect}
       >
         <span className="tree-name">{node.label}</span>
-        {held.map((grant) => {
-          const side = grant.from === viewer ? "gave" : grant.to === viewer ? "got" : "other";
-          // A relayed voice shows where it started, so a chain reads A → B → C on the row
-          // rather than as two badges nobody can connect.
-          const relayed = grant.principal !== grant.from;
-          return (
-            <span
-              key={`${grant.principal}-${grant.from}-${grant.to}`}
-              className={`tree-holder tree-holder-${side}`}
-              title={
-                relayed
-                  ? `${ROLE_LABELS[grant.from]} passed on ${ROLE_LABELS[grant.principal]}'s vote to ${ROLE_LABELS[grant.to]}`
-                  : `${ROLE_LABELS[grant.from]} delegated its own vote to ${ROLE_LABELS[grant.to]}`
-              }
-            >
-              {relayed ? (
-                <>
-                  <span className={ROLE_CLASS[grant.principal]}>{ROLE_LABELS[grant.principal]}</span>
-                  <span className="tree-holder-arrow">→</span>
-                </>
-              ) : null}
-              <span className={ROLE_CLASS[grant.from]}>{ROLE_LABELS[grant.from]}</span>
-              <span className="tree-holder-arrow">→</span>
-              <span className={ROLE_CLASS[grant.to]}>{ROLE_LABELS[grant.to]}</span>
-            </span>
-          );
-        })}
         {node.usable ? null : <span className="tree-flag">unusable</span>}
       </button>
       {node.children.length > 0 ? (
@@ -128,8 +88,6 @@ function Branch({
               depth={depth + 1}
               selected={selected}
               inScope={covered}
-              grantedTo={grantedTo}
-              viewer={viewer}
               onSelect={onSelect}
             />
           ))}

@@ -2,10 +2,10 @@ import { useState } from "react";
 import { parseEther, type PublicClient } from "viem";
 
 import { extendGraph } from "../lib/actions";
-import type { AppConfig, Role, SessionDomain } from "../lib/config/app-config";
+import type { AppConfig, SessionDomain } from "../lib/config/app-config";
 import type { DomainGraph } from "../lib/graph/domain-graph";
 import type { EdgeState } from "../lib/graph/edges";
-import { DomainTree, type Held } from "./DomainTree";
+import { DomainTree } from "./DomainTree";
 import { Button, Empty, Field, Status, TxLink, type Verdict } from "./primitives";
 
 const STAKE = parseEther("0.005");
@@ -31,8 +31,6 @@ export function DomainNav({
   loading,
   writable,
   selected,
-  grantedTo,
-  viewer,
   sessionDomainCount,
   onSelect,
   onRegistered,
@@ -46,10 +44,6 @@ export function DomainNav({
   writable: boolean;
   /** The domain scoping the centre; its whole subtree reads as covered. */
   selected: string;
-  /** Who handed each domain to whom, drawn as a badge on the row. */
-  grantedTo?: Map<string, Held[]>;
-  /** Who the viewer is acting as; the badges are written from their side. */
-  viewer: Role;
   sessionDomainCount: number;
   onSelect: (domain: string) => void;
   onRegistered: (domain: SessionDomain) => void;
@@ -84,8 +78,6 @@ export function DomainNav({
         <DomainTree
           graph={graph}
           selected={selected}
-          grantedTo={grantedTo}
-          viewer={viewer}
           onSelect={onSelect}
         />
       )}

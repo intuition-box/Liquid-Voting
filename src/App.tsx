@@ -8,8 +8,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
 import { ProposalsPanel } from "./components/ProposalsPanel";
 import { RevokePanel } from "./components/RevokePanel";
-import type { Held } from "./components/DomainTree";
-import { AddressLink } from "./components/primitives";
+import { GrantList, VoiceSummary } from "./components/GrantList";
+import { AddressLink, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations";
 
@@ -31,17 +31,6 @@ export function App() {
   const [domain, setDomain] = useState("design");
   const [role, setRole] = useState<Role>("delegate");
   const { config, client } = demo;
-
-  // Every grant in force on each domain, so the rail can badge them all. A domain often
-  // carries more than one — handing a domain on relays each voice separately — and keying
-  // a single entry per domain would silently drop all but the last.
-  const grantedTo = new Map<string, Held[]>();
-  for (const entry of demo.grants) {
-    if (entry.revoked) continue;
-    const held = grantedTo.get(entry.scope) ?? [];
-    held.push({ from: entry.from, to: entry.to, principal: entry.principal });
-    grantedTo.set(entry.scope, held);
-  }
 
   if (!demo.configResult.ok || !config || !client) {
     const missing = demo.configResult.ok ? "chain client" : demo.configResult.missing;
@@ -77,8 +66,6 @@ export function App() {
           loading={demo.loading}
           writable={demo.writable}
           selected={domain}
-          grantedTo={grantedTo}
-          viewer={role}
           sessionDomainCount={demo.sessionDomainCount}
           onSelect={setDomain}
           onRegistered={demo.registerDomain}
@@ -118,6 +105,10 @@ export function App() {
 
             {tab === "delegations" ? (
               <div className="stack">
+                <Panel title="In force">
+                  <VoiceSummary delegations={demo.delegations} domain={domain} />
+                  <GrantList delegations={demo.delegations} viewer={role} domain={domain} />
+                </Panel>
                 <ChainPanel
                   config={config}
                   client={client}
