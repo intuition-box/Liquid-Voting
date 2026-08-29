@@ -175,6 +175,27 @@ export const governorAbi = [
     outputs: [],
   },
   {
+    type: "event",
+    name: "VoteCast",
+    inputs: [
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "voter", type: "address", indexed: true },
+      { name: "support", type: "uint8", indexed: false },
+      { name: "weight", type: "uint256", indexed: false },
+      { name: "principals", type: "address[]", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "VoteCastOnBehalf",
+    inputs: [
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "principal", type: "address", indexed: true },
+      { name: "representative", type: "address", indexed: true },
+      { name: "weight", type: "uint256", indexed: false },
+    ],
+  },
+  {
     type: "function",
     name: "MAX_DOMAIN_PATH",
     stateMutability: "view",

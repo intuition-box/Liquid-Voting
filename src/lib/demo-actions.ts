@@ -2,7 +2,7 @@
  * Demo actions — the service layer behind the panels. No React, no DOM: every function
  * takes the config plus its inputs and returns data. Hooks own the lifecycle.
  */
-import { createWalletClient, encodeFunctionData, http, stringToHex, toHex, type Hex, type PublicClient } from "viem";
+import { createWalletClient, encodeFunctionData, http, parseAbiItem, stringToHex, toHex, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY } from "@metamask/smart-accounts-kit";
 
@@ -18,6 +18,15 @@ import {
 } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
 import type { RedeemableChain } from "./delegation-set";
+import { ROLES } from "./grants";
+
+/** The governor's vote logs, as parsed items — getLogs infers its arg types from these. */
+const VOTE_CAST = parseAbiItem(
+  "event VoteCast(uint256 indexed proposalId, address indexed voter, uint8 support, uint256 weight, address[] principals)",
+);
+const VOTE_ON_BEHALF = parseAbiItem(
+  "event VoteCastOnBehalf(uint256 indexed proposalId, address indexed principal, address indexed representative, uint256 weight)",
+);
 import { DomainGraph, type GraphLimits } from "./domain-graph";
 import { type PathResult } from "./graph";
 import { toHybridAccount } from "./smart-accounts";
@@ -406,6 +415,75 @@ export async function readProposals(client: PublicClient, config: DemoConfig, li
       };
     }),
   );
+}
+
+/** One account's weight inside a vote, and who actually carried it to the governor. */
+export interface BallotEntry {
+  /** Whose weight this is. */
+  principal: Role | null;
+  principalAddress: `0x${string}`;
+  /** Who submitted it — the same account when the principal voted for itself. */
+  carriedBy: Role | null;
+  carriedByAddress: `0x${string}`;
+  weight: bigint;
+}
+
+/** Every ballot on one proposal, broken down by whose voice each share of it was. */
+export interface Ballot {
+  support: number;
+  entries: BallotEntry[];
+  total: bigint;
+}
+
+/**
+ * Who voted on a proposal, and for whom.
+ *
+ * Read from the governor's own logs rather than reconstructed: `VoteCast` carries the
+ * total and the accounts represented, and one `VoteCastOnBehalf` per principal says whose
+ * voice each share was. The contract already records the split, so a delegated vote can
+ * be read back voice by voice instead of appearing as one larger number.
+ */
+export async function readBallots(
+  client: PublicClient,
+  config: DemoConfig,
+  proposalId: bigint,
+): Promise<Ballot[]> {
+  const roleOf = (address: `0x${string}`): Role | null =>
+    ROLES.find(
+      (role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase(),
+    ) ?? null;
+
+  const [cast, onBehalf] = await Promise.all([
+    client.getLogs({ address: config.governor, event: VOTE_CAST, args: { proposalId }, fromBlock: "earliest" }),
+    client.getLogs({ address: config.governor, event: VOTE_ON_BEHALF, args: { proposalId }, fromBlock: "earliest" }),
+  ]);
+
+  return cast.flatMap((log) => {
+    const { voter, support, weight } = log.args;
+    if (!voter || support === undefined || weight === undefined) return [];
+    // The delegated shares are logged separately; what is left is the voter's own.
+    const carried = onBehalf
+      .map((entry) => entry.args)
+      .filter(
+        (entry): entry is { principal: `0x${string}`; representative: `0x${string}`; weight: bigint } =>
+          entry.principal !== undefined &&
+          entry.weight !== undefined &&
+          entry.representative?.toLowerCase() === voter.toLowerCase(),
+      );
+    const own = weight - carried.reduce((sum, entry) => sum + entry.weight, 0n);
+
+    const entries: BallotEntry[] = [
+      { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
+      ...carried.map((entry) => ({
+        principal: roleOf(entry.principal),
+        principalAddress: entry.principal,
+        carriedBy: roleOf(voter),
+        carriedByAddress: voter,
+        weight: entry.weight,
+      })),
+    ];
+    return [{ support: Number(support), entries, total: weight }];
+  });
 }
 
 /**

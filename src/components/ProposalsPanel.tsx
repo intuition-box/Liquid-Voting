@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PublicClient } from "viem";
 
 import type { DemoConfig, Role } from "../lib/demo-config";
 import {
   planVoteForcingWitness,
+  readBallots,
   recordProposal,
   submitVote,
   VOTE_ABSTAIN,
   VOTE_AGAINST,
   VOTE_FOR,
+  type Ballot,
   type ProposalRecord,
 } from "../lib/demo-actions";
 import type { DelegationSet } from "../lib/delegation-set";
 import type { DomainGraph } from "../lib/domain-graph";
+import { ROLE_CLASS, ROLE_LABELS } from "../lib/grants";
+import { shortHex } from "../lib/chain";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Feedback {
@@ -73,6 +77,25 @@ export function ProposalsPanel({
   const [title, setTitle] = useState("Fund the Q3 identity refresh");
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [ballots, setBallots] = useState<Record<string, Ballot[]>>({});
+
+  // Read the open row's ballots from the governor's logs. Only the open one: the list is
+  // detail, and a read per row would cost a round-trip each on a page that shows many.
+  useEffect(() => {
+    if (expanded === null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const entries = await readBallots(client, config, BigInt(expanded));
+        if (!cancelled) setBallots((current) => ({ ...current, [expanded]: entries }));
+      } catch {
+        // A log read that fails leaves the tallies on screen; it is detail, not the vote.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, client, config, feedback]);
 
   const rows = proposals.map((proposal) => {
     const domain = graph.labelOf(proposal.domainId) ?? "unknown";
@@ -212,6 +235,8 @@ export function ProposalsPanel({
                       </dd>
                     </dl>
 
+                    <Ballots entries={ballots[key]} />
+
                     <div className="vote-row">
                       {OPTIONS.map((option) => (
                         <Button
@@ -270,5 +295,41 @@ export function ProposalsPanel({
         </Status>
       ) : null}
     </Panel>
+  );
+}
+
+const SUPPORT_LABELS = ["against", "for", "abstain"];
+
+/**
+ * Who voted, and for whom.
+ *
+ * A delegated vote reaches the governor as one number, which hides what it is made of.
+ * The contract logs the split — one `VoteCastOnBehalf` per principal — so the weight can
+ * be shown back voice by voice: whose it was, and who carried it here.
+ */
+function Ballots({ entries }: { entries?: Ballot[] }) {
+  if (!entries || entries.length === 0) return null;
+  return (
+    <div className="ballots">
+      <h5 className="section-label">who voted</h5>
+      {entries.map((ballot, index) => (
+        <ul key={index} className="ballot">
+          {ballot.entries.map((entry) => {
+            const name = entry.principal ? ROLE_LABELS[entry.principal] : shortHex(entry.principalAddress);
+            const carrier = entry.carriedBy ? ROLE_LABELS[entry.carriedBy] : shortHex(entry.carriedByAddress);
+            const relayed = entry.principal !== entry.carriedBy;
+            return (
+              <li key={entry.principalAddress} className="ballot-row">
+                <span className={`ballot-who ${entry.principal ? ROLE_CLASS[entry.principal] : ""}`}>{name}</span>
+                <span className="ballot-note muted">
+                  {relayed ? `carried by ${carrier}` : "own voice"} · {SUPPORT_LABELS[ballot.support] ?? "?"}
+                </span>
+                <Mono>{entry.weight.toString()}</Mono>
+              </li>
+            );
+          })}
+        </ul>
+      ))}
+    </div>
   );
 }
