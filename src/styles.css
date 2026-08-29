@@ -103,6 +103,22 @@ body {
   }
 }
 
+/* ── Delegation depth ────────────────────────────────────────────────── */
+
+/* The cap is signed into the terms, so it is chosen here and fixed afterwards. */
+.depth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.depth-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
 /* ── Delegation wiring ───────────────────────────────────────────────── */
 
 .holders {

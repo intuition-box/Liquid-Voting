@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PublicClient } from "viem";
 
-import { revokeWeight, signDelegation } from "../lib/actions";
+import { DEFAULT_MAX_DEPTH, revokeWeight, signDelegation } from "../lib/actions";
 import type { AppConfig, Role } from "../lib/config/app-config";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import type { DomainGraph } from "../lib/graph/domain-graph";
@@ -42,6 +42,7 @@ export function ChainPanel({
   onRevoked: (domain: string) => void;
 }) {
   const [to, setTo] = useState<Role | null>(null);
+  const [depth, setDepth] = useState(DEFAULT_MAX_DEPTH);
   const [outcome, setOutcome] = useState<{ verdict: Verdict; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -106,6 +107,7 @@ export function ChainPanel({
         domain,
         graph.domainPathOf(domain),
         held?.voices.map((voice) => voice.chain[0]!) ?? [],
+        depth,
       );
       // Whose voice each one carries is read from what it relays, not from position:
       // signDelegation only relays the grants it may chain to, so an index into the
@@ -173,6 +175,19 @@ export function ChainPanel({
           );
         })}
       </ul>
+
+      {!coveredBy && !locked ? (
+        <label className="depth">
+          <span className="depth-label">how deep it reaches</span>
+          <select value={depth} onChange={(event) => setDepth(Number(event.target.value))}>
+            {[0, 1, 2, 3, 4, 5].map((level) => (
+              <option key={level} value={level}>
+                {level === 0 ? `“${domain}” only` : `${level} level${level > 1 ? "s" : ""} below`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div className="actions">
         {coveredBy ? (

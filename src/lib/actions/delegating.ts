@@ -26,6 +26,9 @@ export async function signDelegation(
   domainPath: Hex[] = [],
   /** The delegations the signer already holds on this domain, one per voice it carries. */
   upstream: (Delegation & { hash: Hex })[] = [],
+  /** How many hops below the domain the grant reaches. Signed into the terms, so it is
+   *  fixed for the life of the delegation. */
+  maxDepth: number = DEFAULT_MAX_DEPTH,
 ): Promise<{ delegation: Delegation & { hash: Hex }; relays: (Delegation & { hash: Hex }) | null }[]> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
@@ -57,7 +60,7 @@ export async function signDelegation(
           terms: encodeTerms({
             rootDomainId: domainId,
             predicateId: config.predicate.termId,
-            maxDepth: DEFAULT_MAX_DEPTH,
+            maxDepth,
             expiry: 0n,
             attestor: config.attestor,
           }),

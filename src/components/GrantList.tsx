@@ -1,4 +1,5 @@
 import type { DelegationSet } from "../lib/delegation/delegation-set";
+import { decodeTerms } from "../lib/delegation/encoding";
 import { ROLE_CLASS, ROLE_LABELS, type Grant } from "../lib/delegation/grant";
 import type { Role } from "../lib/roles";
 import { Empty, Mono } from "./primitives";
@@ -56,6 +57,14 @@ export function GrantList({
   );
 }
 
+/** How far below its domain a grant reaches, read from the signed terms. */
+function reachLabel(grant: Grant): string {
+  const caveat = grant.delegation.caveats[0];
+  if (!caveat) return "";
+  const { maxDepth } = decodeTerms(caveat.terms);
+  return maxDepth === 0 ? "that domain only" : `${maxDepth} level${maxDepth > 1 ? "s" : ""} below`;
+}
+
 function GrantRow({ grant, viewer, showScope }: { grant: Grant; viewer: Role; showScope?: boolean }) {
   // A relayed grant is signed by the middle account and carries the voice of the one
   // behind it, so the row reads from the origin rather than from the signature.
@@ -78,6 +87,7 @@ function GrantRow({ grant, viewer, showScope }: { grant: Grant; viewer: Role; sh
           ? `${ROLE_LABELS[grant.from]} passes on ${ROLE_LABELS[grant.principal]}’s vote`
           : `${ROLE_LABELS[grant.from]}’s own vote`}
         {showScope ? ` · granted on “${grant.scope}”` : ""}
+        {` · ${reachLabel(grant)}`}
       </span>
       <Mono dim>{grant.delegation.hash.slice(0, 10)}…</Mono>
     </li>
