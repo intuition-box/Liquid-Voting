@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { PublicClient } from "viem";
 
 import type { DemoConfig, Role } from "../lib/demo-config";
@@ -11,7 +11,8 @@ import {
   VOTE_FOR,
   type ProposalRecord,
 } from "../lib/demo-actions";
-import { computePath, type EdgeState } from "../lib/graph";
+import type { DomainGraph } from "../lib/domain-graph";
+import type { EdgeState } from "../lib/graph";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Feedback {
@@ -44,6 +45,7 @@ function votingPowerOf(
 export function ProposalsPanel({
   config,
   client,
+  graph,
   edges,
   proposals,
   weights,
@@ -54,6 +56,7 @@ export function ProposalsPanel({
 }: {
   config: DemoConfig;
   client: PublicClient;
+  graph: DomainGraph;
   edges: EdgeState[];
   proposals: ProposalRecord[];
   /** What each role casts per domain, read from the governor. */
@@ -70,22 +73,15 @@ export function ProposalsPanel({
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
-  const labelOf = useMemo(
-    () => new Map(config.nodes.map((node) => [node.termId.toLowerCase(), node.label])),
-    [config.nodes],
-  );
-
   const rows = proposals.map((proposal) => {
-    const domain = labelOf.get(proposal.domainId.toLowerCase()) ?? "unknown";
+    const domain = graph.labelOf(proposal.domainId) ?? "unknown";
     const own = votingPowerOf(weights, proposal.domainId, role);
     return { proposal, domain, weight: own };
   });
 
   // A domain covers everything beneath it, which is exactly what a delegation on it
   // reaches — so the rail's selection lists the subtree, not one node.
-  const shown = rows.filter(
-    (row) => row.domain === domain || computePath(edges, config.nodes, row.domain, domain).found,
-  );
+  const shown = rows.filter((row) => graph.isDescendantOf(row.domain, domain));
 
   async function vote(proposal: ProposalRecord, domain: string, support: number): Promise<void> {
     const key = proposal.id.toString();

@@ -3,9 +3,8 @@ import type { PublicClient } from "viem";
 
 import { revokeWeight, signDelegation } from "../lib/demo-actions";
 import type { DemoConfig, Role } from "../lib/demo-config";
-import type { EdgeState } from "../lib/graph";
+import type { DomainGraph } from "../lib/domain-graph";
 import { candidatesFor, ROLE_CLASS, ROLE_LABELS, ROLES, upstreamOf, type Grant } from "../lib/grants";
-import { computePath } from "../lib/graph";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
@@ -17,9 +16,9 @@ import { Button, Panel, Status, type Verdict } from "./primitives";
 export function ChainPanel({
   config,
   client,
+  graph,
   writable,
   role,
-  edges,
   grants,
   domain,
   onSigned,
@@ -27,10 +26,10 @@ export function ChainPanel({
 }: {
   config: DemoConfig;
   client: PublicClient;
+  graph: DomainGraph;
   writable: boolean;
   /** Who the viewer is acting as — they can only delegate their own vote. */
   role: Role;
-  edges: EdgeState[];
   /** Every delegation signed so far, revoked ones included. */
   grants: Grant[];
   /** The domain picked in the rail — what this grant would cover. */
@@ -43,16 +42,15 @@ export function ChainPanel({
   const [busy, setBusy] = useState(false);
 
   // Both questions are per domain: granting `design` away says nothing about `legal`.
-  const blocked = upstreamOf(config, edges, grants, role, domain);
-  const candidates = candidatesFor(config, edges, grants, role, domain);
+  const blocked = upstreamOf(graph, grants, role, domain);
+  const candidates = candidatesFor(graph, grants, role, domain);
   const target = to && candidates.includes(to) ? to : (candidates[0] ?? null);
 
   const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
   const yours = grants.find((grant) => !grant.revoked && grant.from === role && grant.scope === domain);
   // Granting a parent gives its children away with it, so a domain under one you already
   // delegated cannot be granted again — the parent has to come back first.
-  const path = computePath(edges, config.nodes, domain, "governance");
-  const ancestors = path.found ? path.labels.slice(1) : [];
+  const ancestors = graph.ancestorsOf(domain);
   const coveredBy = grants.find(
     (grant) => !grant.revoked && grant.from === role && ancestors.includes(grant.scope),
   );
@@ -102,7 +100,7 @@ export function ChainPanel({
         role,
         target,
         domain,
-        path.found ? path.path : [],
+        graph.domainPathOf(domain),
       );
       onSigned({ from: role, to: target, scope: domain, revoked: false, delegation: signed });
       setOutcome({ verdict: "pass", text: `${ROLE_LABELS[role]} handed “${domain}” to ${ROLE_LABELS[target]}` });

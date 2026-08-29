@@ -99,6 +99,7 @@ export function App() {
               <ProposalsPanel
                 config={config}
                 client={client}
+                graph={demo.graph}
                 edges={demo.edges}
                 proposals={demo.proposals}
                 weights={demo.weights}
@@ -114,9 +115,9 @@ export function App() {
                 <ChainPanel
                   config={config}
                   client={client}
+                  graph={demo.graph}
                   writable={demo.writable}
                   role={role}
-                  edges={demo.edges}
                   grants={demo.grants}
                   domain={domain}
                   onSigned={demo.addGrant}

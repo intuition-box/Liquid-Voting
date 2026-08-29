@@ -1,6 +1,6 @@
 import { decodeTerms, type Delegation } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
-import { computePath, type EdgeState } from "./graph";
+import type { DomainGraph } from "./domain-graph";
 
 export const ROLES: Role[] = ["voter", "delegate", "executor"];
 export const ROLE_LABELS: Record<Role, string> = { voter: "A", delegate: "B", executor: "C" };
@@ -41,11 +41,6 @@ export function baseGrants(config: DemoConfig, rootDisabled: boolean, leafDisabl
   ];
 }
 
-/** Whether a grant's scope covers `domain` — the same graph question the enforcer asks. */
-function covers(edges: EdgeState[], config: DemoConfig, scope: string, domain: string): boolean {
-  return computePath(edges, config.nodes, domain, scope).found;
-}
-
 /**
  * Everyone whose vote already flows to `holder` **on this domain**, directly or through
  * someone else. Delegating back to one of them would send that weight in a circle.
@@ -54,14 +49,8 @@ function covers(edges: EdgeState[], config: DemoConfig, scope: string, domain: s
  * freely: A granting `design` to B says nothing about `legal`, so C may still grant
  * `legal` to A without any conflict.
  */
-export function upstreamOf(
-  config: DemoConfig,
-  edges: EdgeState[],
-  grants: Grant[],
-  holder: Role,
-  domain: string,
-): Set<Role> {
-  const live = grants.filter((grant) => !grant.revoked && covers(edges, config, grant.scope, domain));
+export function upstreamOf(graph: DomainGraph, grants: Grant[], holder: Role, domain: string): Set<Role> {
+  const live = grants.filter((grant) => !grant.revoked && graph.isDescendantOf(domain, grant.scope));
   const upstream = new Set<Role>();
   let grew = true;
   while (grew) {
@@ -78,14 +67,8 @@ export function upstreamOf(
 }
 
 /** Who a holder may still delegate this domain to: anyone but itself and its upstream. */
-export function candidatesFor(
-  config: DemoConfig,
-  edges: EdgeState[],
-  grants: Grant[],
-  holder: Role,
-  domain: string,
-): Role[] {
-  const blocked = upstreamOf(config, edges, grants, holder, domain);
+export function candidatesFor(graph: DomainGraph, grants: Grant[], holder: Role, domain: string): Role[] {
+  const blocked = upstreamOf(graph, grants, holder, domain);
   return ROLES.filter((candidate) => candidate !== holder && !blocked.has(candidate));
 }
 
@@ -108,14 +91,13 @@ export interface WeightBreakdown {
  * flowing in behind it. The totals therefore stay conserved across the three accounts.
  */
 export function weightOn(
-  config: DemoConfig,
-  edges: EdgeState[],
+  graph: DomainGraph,
   grants: Grant[],
   votingPower: Record<Role, bigint>,
   holder: Role,
   domain: string,
 ): WeightBreakdown {
-  const live = grants.filter((grant) => !grant.revoked && covers(edges, config, grant.scope, domain));
+  const live = grants.filter((grant) => !grant.revoked && graph.isDescendantOf(domain, grant.scope));
 
   const passedTo = live.find((grant) => grant.from === holder)?.to ?? null;
   if (passedTo) return { total: 0n, own: 0n, carried: [], passedTo };
