@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { PublicClient } from "viem";
 
+import type { DelegationSet } from "../lib/delegation-set";
 import type { DemoConfig } from "../lib/demo-config";
+import type { DomainGraph } from "../lib/domain-graph";
+import { ROLE_LABELS, ROLES } from "../lib/grants";
 import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/demo-actions";
-import type { EdgeState } from "../lib/graph";
 import { Button, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Outcome {
@@ -20,14 +22,19 @@ interface Outcome {
 export function RevokePanel({
   config,
   client,
-  edges,
+  graph,
+  delegations,
+  domain,
   writable,
   rootDisabled,
   onSettled,
 }: {
   config: DemoConfig;
   client: PublicClient;
-  edges: EdgeState[];
+  graph: DomainGraph;
+  delegations: DelegationSet;
+  /** The domain in scope — where the probes look for a chain to re-simulate. */
+  domain: string;
   writable: boolean;
   rootDisabled: boolean;
   onSettled: () => void;
@@ -44,20 +51,33 @@ export function RevokePanel({
         setOutcome({ verdict: "fail", message: "the revocation user operation reverted", txHash: result.txHash });
         return;
       }
-      // The manager rejects a disabled delegation before any caveat runs, so the probe
-      // needs no real proposal — any id reaches the check that matters.
-      const [viaChain, viaRoot] = await Promise.all([
-        preflightVote(client, config, planVoteForcingWitness(config, edges, "full", "UX", 0n, VOTE_FOR)),
-        preflightVote(client, config, planVoteForcingWitness(config, edges, "root", "branding", 0n, VOTE_FOR)),
-      ]);
-      const executorReason = viaChain.ok ? "still passes" : viaChain.revert?.name ?? "rejected";
-      const delegateReason = viaRoot.ok ? "still passes" : viaRoot.revert?.name ?? "rejected";
-      const bothDead = !viaChain.ok && !viaRoot.ok;
+      // Re-simulate every account that held a chain, on the domain it actually held —
+      // the probes follow the grants rather than two domain names written in here.
+      // The manager rejects a disabled delegation before any caveat runs, so no real
+      // proposal is needed: any id reaches the check that matters.
+      const downstream = ROLES.flatMap((holder) => {
+        const scope = delegations.chainFor(holder, domain)?.scopes[0];
+        return scope ? [{ holder, scope }] : [];
+      });
+      const probes = await Promise.all(
+        downstream.map(async ({ holder, scope }) => {
+          const resolved = delegations.chainFor(holder, scope);
+          if (!resolved) return { holder, ok: true, reason: "no chain left" };
+          const outcome = await preflightVote(
+            client,
+            config,
+            planVoteForcingWitness(config, graph, resolved, scope, 0n, VOTE_FOR),
+          );
+          return { holder, ok: outcome.ok, reason: outcome.ok ? "still passes" : outcome.revert?.name ?? "rejected" };
+        }),
+      );
+      const allDead = probes.every((probe) => !probe.ok);
+      const detail = probes.map((probe) => `${ROLE_LABELS[probe.holder]}: ${probe.reason}`).join(", ");
       setOutcome({
-        verdict: bothDead ? "pass" : "fail",
-        message: bothDead
-          ? `both downstream accounts are dead — executor: ${executorReason}, delegate: ${delegateReason}`
-          : `unexpected: executor ${executorReason}, delegate ${delegateReason}`,
+        verdict: allDead ? "pass" : "fail",
+        message: allDead
+          ? `every downstream account is dead — ${detail}`
+          : `unexpected — ${detail}`,
         txHash: result.txHash,
       });
       onSettled();

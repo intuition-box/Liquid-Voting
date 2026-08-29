@@ -11,8 +11,8 @@ import {
   VOTE_FOR,
   type ProposalRecord,
 } from "../lib/demo-actions";
+import type { DelegationSet } from "../lib/delegation-set";
 import type { DomainGraph } from "../lib/domain-graph";
-import type { EdgeState } from "../lib/graph";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Feedback {
@@ -46,7 +46,7 @@ export function ProposalsPanel({
   config,
   client,
   graph,
-  edges,
+  delegations,
   proposals,
   weights,
   domain,
@@ -57,7 +57,8 @@ export function ProposalsPanel({
   config: DemoConfig;
   client: PublicClient;
   graph: DomainGraph;
-  edges: EdgeState[];
+  /** The grants in force — which signed chain a vote is redeemed through. */
+  delegations: DelegationSet;
   proposals: ProposalRecord[];
   /** What each role casts per domain, read from the governor. */
   weights: Record<string, Record<Role, bigint>>;
@@ -88,8 +89,11 @@ export function ProposalsPanel({
     setBusy(key);
     setFeedback((current) => ({ ...current, [key]: { verdict: "pass", text: "voting…" } }));
     try {
-      const level = role === "executor" ? "full" : "root";
-      const plan = planVoteForcingWitness(config, edges, level, domain, proposal.id, support);
+      // The chain comes from the grants actually signed, so whoever the viewer is acting
+      // as redeems in its own name — with whatever weight was delegated to it, or alone.
+      const resolved = delegations.chainFor(role, domain);
+      if (!resolved) throw new Error(`nobody delegated “${domain}” to ${role} — vote as yourself instead`);
+      const plan = planVoteForcingWitness(config, graph, resolved, domain, proposal.id, support);
       const result = await submitVote(client, config, plan);
       setFeedback((current) => ({
         ...current,

@@ -17,8 +17,9 @@ import {
   type PreflightResult,
 } from "./delegation";
 import type { DemoConfig, Role } from "./demo-config";
+import type { RedeemableChain } from "./delegation-set";
 import { DomainGraph, type GraphLimits } from "./domain-graph";
-import { type EdgeState, type PathResult } from "./graph";
+import { type PathResult } from "./graph";
 import { toHybridAccount } from "./smart-accounts";
 import { sendUserOp, type UserOpResult } from "./user-op";
 
@@ -37,11 +38,7 @@ export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "./delegation";
 /** Hop cap written into every delegation signed from the UI — deep enough for the demo graph. */
 const DEFAULT_MAX_DEPTH = 3;
 
-/** Which level of the chain a vote is redeemed through. */
-export type ChainLevel = "full" | "root";
-
 export interface VotePlan {
-  level: ChainLevel;
   /** The account that must be `msg.sender` at the DelegationManager, and the recorded voter. */
   redeemer: Role;
   chain: Delegation[];
@@ -55,40 +52,32 @@ export interface VotePlan {
 }
 
 /**
- * The chain a vote is redeemed through, and whose weight it carries. Principals are the
- * delegators up the chain: redeeming the root alone lets the delegate vote with the
- * voter's weight; redeeming the full chain lets the executor vote with both.
- */
-function chainFor(
-  config: DemoConfig,
-  level: ChainLevel,
-): { chain: Delegation[]; redeemer: Role; roots: string[]; principals: Role[] } {
-  const { root, leaf } = config.delegations;
-  return level === "full"
-    ? { chain: [leaf, root], redeemer: "executor", roots: ["UX", "design"], principals: ["voter", "delegate"] }
-    : { chain: [root], redeemer: "delegate", roots: ["design"], principals: ["voter"] };
-}
-
-/**
- * Builds a proposal: computes one path witness per delegation level from the live graph,
- * then encodes the redemption. Path discovery happens here (client-side, ADR 0003) and is
- * surfaced step by step so the UI can show it rather than hide it behind a spinner.
+ * Plans a delegated vote through the delegations that were actually signed.
+ *
+ * The chain comes from the grants in force, resolved by walking back from the voter:
+ * whoever handed it this domain, and whoever handed it to them. Sign a new grant in the
+ * UI and it is the one redeemed — before this, the plan reached for a fixed pair and
+ * whatever had just been signed was ignored.
+ *
+ * One witness is computed per link, each against its own scope, since every level of the
+ * chain carries its own caveat and is verified against its own signer's scope (ADR 0007).
+ * Path discovery is client-side (ADR 0003) and surfaced step by step so the UI can show
+ * it rather than hide it behind a spinner.
  */
 export function planVote(
   config: DemoConfig,
-  edgeStates: EdgeState[],
-  level: ChainLevel,
+  graph: DomainGraph,
+  resolved: RedeemableChain,
   domainLabel: string,
   proposalId: bigint,
   support: number,
 ): VotePlan {
-  const { chain, redeemer, roots, principals } = chainFor(config, level);
-  const graph = DomainGraph.from(config.nodes, edgeStates);
-  const paths = roots.map((rootLabel) => ({
+  const { chain, redeemer, principals, scopes } = resolved;
+  const paths = scopes.map((rootLabel) => ({
     rootLabel,
     result: graph.pathTo(domainLabel, rootLabel),
   }));
-  const base = { level, redeemer, chain, paths, principals };
+  const base = { redeemer, chain, paths, principals };
 
   const blockedAt = paths.find((entry) => !entry.result.found);
   if (blockedAt && !blockedAt.result.found) {
@@ -131,22 +120,21 @@ function encodeVote(
  */
 export function planVoteForcingWitness(
   config: DemoConfig,
-  edgeStates: EdgeState[],
-  level: ChainLevel,
+  graph: DomainGraph,
+  resolved: RedeemableChain,
   domainLabel: string,
   proposalId: bigint,
   support: number,
 ): VotePlan {
-  const plan = planVote(config, edgeStates, level, domainLabel, proposalId, support);
+  const plan = planVote(config, graph, resolved, domainLabel, proposalId, support);
   if (!plan.blocked) return plan;
 
-  const termIdOf = new Map(config.nodes.map((node) => [node.label, node.termId]));
-  const domainId = termIdOf.get(domainLabel);
+  const domainId = graph.termId(domainLabel);
   if (!domainId) return plan;
 
   const witnesses = plan.paths.map((entry) => {
     if (entry.result.found) return entry.result.path;
-    const rootId = termIdOf.get(entry.rootLabel);
+    const rootId = graph.termId(entry.rootLabel);
     return rootId && rootId !== domainId ? [domainId, rootId] : [domainId];
   });
   return {
@@ -221,6 +209,12 @@ export async function recordProposal(
  * DelegationManager when someone redeems it. The signature is verified against the
  * delegator's account (EIP-1271) before it is returned, so an invalid grant fails here
  * rather than at redemption time.
+ *
+ * When the signer holds this domain through a delegation of its own, the new grant is
+ * chained to it: `authority` carries the upstream hash instead of ROOT_AUTHORITY, which
+ * is what makes the authority derive rather than stand on its own. The consequence is the
+ * framework's, not ours — disabling a link kills everything below it, because every hash
+ * beneath points at it.
  */
 export async function signDelegation(
   client: PublicClient,
@@ -230,15 +224,22 @@ export async function signDelegation(
   domainLabel: string,
   /** The domain and its parents, so the governor can refuse one already covered. */
   domainPath: Hex[] = [],
+  /** The delegation the signer holds this domain through, when there is one. */
+  upstream?: Delegation & { hash: Hex },
 ): Promise<Delegation & { hash: Hex }> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
 
+  // The manager walks a chain leaf to root and requires each link's delegator to be the
+  // next one's delegate. Chaining anywhere else would build a chain it rejects, so an
+  // upstream that does not hand over to this signer is ignored and the grant stands alone.
   const delegator = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
+  const signerAccount = config.accounts[from].smartAccount;
+  const chainable = upstream && upstream.delegate.toLowerCase() === signerAccount.toLowerCase();
   const delegation: Delegation = {
     delegate: config.accounts[to].smartAccount,
-    delegator: config.accounts[from].smartAccount,
-    authority: ROOT_AUTHORITY,
+    delegator: signerAccount,
+    authority: chainable ? upstream.hash : ROOT_AUTHORITY,
     caveats: [
       {
         enforcer: config.enforcer,
@@ -268,8 +269,7 @@ export async function signDelegation(
   // The signature says the delegate MAY vote on this domain; the governor's register says
   // whose weight it carries. Recording the transfer is what makes the delegator stop
   // counting on this domain and the delegate count for both.
-  const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
-  const op = await sendUserOp(client, submitterClient(config), account, [
+  const op = await sendUserOp(client, submitterClient(config), delegator, [
     {
       to: config.governor,
       value: 0n,

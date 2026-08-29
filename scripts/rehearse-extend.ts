@@ -26,6 +26,9 @@ import {
   VOTE_FOR,
 } from "../src/lib/demo-actions";
 import type { DemoConfig } from "../src/lib/demo-config";
+import { DelegationSet } from "../src/lib/delegation-set";
+import { DomainGraph } from "../src/lib/domain-graph";
+import { baseGrants } from "../src/lib/grants";
 import { readEdgeStates } from "../src/lib/graph";
 
 const STAKE = parseEther("0.005");
@@ -90,7 +93,10 @@ async function main(): Promise<void> {
 
   // Step 5a — the domain must be unauthorized before we touch the graph.
   const edgesBefore = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
-  const planBefore = planVoteForcingWitness(config, edgesBefore, "root", label, 0n, VOTE_FOR);
+  const graphBefore = DomainGraph.from(config.nodes, edgesBefore);
+  const chainBefore = new DelegationSet(baseGrants(config, false, false), graphBefore).chainFor("delegate", PARENT);
+  if (!chainBefore) throw new Error("no signed chain hands the delegate this domain — run `bun run phase3:delegate`");
+  const planBefore = planVoteForcingWitness(config, graphBefore, chainBefore, label, 0n, VOTE_FOR);
   if (!planBefore.blocked) throw new Error(`“${label}” already resolves — pick an unused label`);
   console.log(`  5a  no witness exists yet — ${planBefore.blocked}`);
 
@@ -108,7 +114,10 @@ async function main(): Promise<void> {
   };
   const edgesAfter = await readEdgeStates(client, extended.multiVault, extended.edges, extended.attestor, extended.curveId);
   const { proposalId } = await recordProposal(client, extended, label, "rehearsal after");
-  const planAfter = planVoteForcingWitness(extended, edgesAfter, "root", label, proposalId, VOTE_FOR);
+  const graphAfter = DomainGraph.from(extended.nodes, edgesAfter);
+  const chainAfter = new DelegationSet(baseGrants(extended, false, false), graphAfter).chainFor("delegate", PARENT);
+  if (!chainAfter) throw new Error("the signed chain vanished between the two reads");
+  const planAfter = planVoteForcingWitness(extended, graphAfter, chainAfter, label, proposalId, VOTE_FOR);
   if (planAfter.blocked) throw new Error(`5c witness still missing: ${planAfter.blocked}`);
   const witness = planAfter.paths.map((entry) => (entry.result.found ? entry.result.labels.join(" → ") : "none")).join(" ; ");
   const preflight = await preflightVote(client, extended, planAfter);

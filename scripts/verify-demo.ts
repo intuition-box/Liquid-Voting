@@ -15,20 +15,29 @@ import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
 import { isDelegationDisabled } from "../src/lib/delegation";
-import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR, type ChainLevel } from "../src/lib/demo-actions";
+import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR } from "../src/lib/demo-actions";
+import { DelegationSet } from "../src/lib/delegation-set";
+import { DomainGraph } from "../src/lib/domain-graph";
+import { baseGrants } from "../src/lib/grants";
+import type { Role } from "../src/lib/demo-config";
 import type { DemoConfig } from "../src/lib/demo-config";
 import { readEdgeStates } from "../src/lib/graph";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const delegationsPath = join(repoRoot, "data", "delegations.json");
 
-/** domain, level, expected outcome — the demo script's claims, as assertions. */
-const EXPECTATIONS: Array<{ domain: string; level: ChainLevel; expect: "pass" | string }> = [
-  { domain: "UX", level: "full", expect: "pass" },
-  { domain: "branding", level: "root", expect: "pass" },
-  { domain: "logo", level: "root", expect: "pass" },
-  { domain: "legal", level: "root", expect: "NotATriple" },
-  { domain: "branding", level: "full", expect: "NotATriple" },
+/**
+ * The demo script's claims, as assertions: who votes, on which domain, and what the
+ * chain does about it. `heldOn` is the domain the voter's chain was actually granted on —
+ * for the failing cases it differs from the domain being voted, which is the point: the
+ * chain is real and gets redeemed, and the enforcer is what refuses it.
+ */
+const EXPECTATIONS: Array<{ domain: string; voter: Role; heldOn?: string; expect: "pass" | string }> = [
+  { domain: "UX", voter: "executor", expect: "pass" },
+  { domain: "branding", voter: "delegate", expect: "pass" },
+  { domain: "logo", voter: "delegate", expect: "pass" },
+  { domain: "legal", voter: "delegate", heldOn: "design", expect: "NotATriple" },
+  { domain: "branding", voter: "executor", heldOn: "UX", expect: "NotATriple" },
 ];
 
 async function main(): Promise<void> {
@@ -93,10 +102,13 @@ async function main(): Promise<void> {
   }
 
   // Panel 2 — the chain must be live, or every proposal dies for the wrong reason.
+  const graph = DomainGraph.from(config.nodes, edges);
   const rootDisabled = await isDelegationDisabled(client, config.delegations.root.hash);
   const leafDisabled = await isDelegationDisabled(client, config.delegations.leaf.hash);
   if (rootDisabled || leafDisabled) fail(`delegation chain is revoked (root=${rootDisabled} leaf=${leafDisabled}) — re-sign with \`bun run phase3:delegate\``);
   else console.log(`ok    delegation chain active, signed ${new Date(config.delegations.signedAt).toLocaleString()}`);
+
+  const grants = new DelegationSet(baseGrants(config, rootDisabled, leafDisabled), graph);
 
   // Panel 3 — each demo claim, simulated on live contracts against real proposals.
   // Newest first, so a domain proposed more than once verifies against its latest.
@@ -118,12 +130,19 @@ async function main(): Promise<void> {
       fail(`no fresh active proposal on “${expectation.domain}” — record one in the app before presenting`);
       continue;
     }
-    const plan = planVoteForcingWitness(config, edges, expectation.level, expectation.domain, existing.id, VOTE_FOR);
+    // Resolve the chain on the domain it was granted on, then aim it at the domain under
+    // test: a failing case has to reach the enforcer to be refused by it.
+    const resolved = grants.chainFor(expectation.voter, expectation.heldOn ?? expectation.domain);
+    if (!resolved) {
+      fail(`no signed chain lets ${expectation.voter} vote on “${expectation.heldOn ?? expectation.domain}”`);
+      continue;
+    }
+    const plan = planVoteForcingWitness(config, graph, resolved, expectation.domain, existing.id, VOTE_FOR);
     const result = await preflightVote(client, config, plan);
     const witness = plan.paths
       .map((entry) => (entry.result.found ? entry.result.labels.join(" → ") : `none up to ${entry.rootLabel}`))
       .join(" ; ");
-    const label = `vote on ${expectation.domain} via ${expectation.level} chain [${witness}]`;
+    const label = `vote on ${expectation.domain} as ${expectation.voter} [${witness}]`;
     if (expectation.expect === "pass") {
       if (result.ok) console.log(`ok    ${label} passes`);
       else fail(`${label} should pass but got ${result.revert?.formatted ?? result.raw}`);

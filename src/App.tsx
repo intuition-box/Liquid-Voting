@@ -100,7 +100,7 @@ export function App() {
                 config={config}
                 client={client}
                 graph={demo.graph}
-                edges={demo.edges}
+                delegations={demo.delegations}
                 proposals={demo.proposals}
                 weights={demo.weights}
                 domain={domain}
@@ -126,7 +126,9 @@ export function App() {
                 <RevokePanel
                   config={config}
                   client={client}
-                  edges={demo.edges}
+                  graph={demo.graph}
+                  delegations={demo.delegations}
+                  domain={domain}
                   writable={demo.writable}
                   rootDisabled={demo.rootDisabled}
                   onSettled={demo.refresh}

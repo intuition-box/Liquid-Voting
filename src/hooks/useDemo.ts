@@ -19,6 +19,7 @@ import {
   type SessionDomain,
 } from "../lib/demo-config";
 import { readGraphLimits, readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
+import { DelegationSet } from "../lib/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/domain-graph";
 import { baseGrants, type Grant } from "../lib/grants";
 import { readEdgeStates, type EdgeState } from "../lib/graph";
@@ -46,6 +47,8 @@ export interface DemoState {
   registerDomain: (domain: SessionDomain) => void;
   /** Every delegation in force: the seeded pair plus anything signed this session. */
   grants: Grant[];
+  /** The grants as an object: who may delegate what, and which signed chain to redeem. */
+  delegations: DelegationSet;
   /** What each role would cast on a domain, keyed by domain term id — read from the governor. */
   weights: Record<string, Record<Role, bigint>>;
   /** Records a delegation signed in the UI. */
@@ -182,11 +185,16 @@ export function useDemo(): DemoState {
   const leafScope = scopeOf(config?.delegations.leaf);
 
   // The seeded pair carries its on-chain revoked state; session grants are always live.
-  const grants: Grant[] = config
-    ? [...baseGrants(config, rootDisabled, leafDisabled), ...sessionGrants].map((grant) =>
-        revokedScopes.includes(grant.scope) ? { ...grant, revoked: true } : grant,
-      )
-    : [];
+  // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
+  const delegations = useMemo(() => {
+    const signed = config
+      ? [...baseGrants(config, rootDisabled, leafDisabled), ...sessionGrants].map((grant) =>
+          revokedScopes.includes(grant.scope) ? { ...grant, revoked: true } : grant,
+        )
+      : [];
+    return new DelegationSet(signed, graph);
+  }, [config, rootDisabled, leafDisabled, sessionGrants, revokedScopes, graph]);
+  const grants = delegations.all() as Grant[];
 
   return {
     configResult,
@@ -206,6 +214,7 @@ export function useDemo(): DemoState {
     refresh,
     registerDomain,
     grants,
+    delegations,
     weights,
     addGrant,
     revokeGrant,
