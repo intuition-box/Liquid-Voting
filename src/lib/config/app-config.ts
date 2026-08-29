@@ -5,9 +5,20 @@ import { parseEdgeKey } from "../graph/domain-graph";
 import { ROLES, type Role } from "../roles";
 import type { Delegation } from "../delegation/encoding";
 
-declare const __DEMO_SUBMITTER_KEY__: string;
-declare const __DEMO_OWNER_KEYS__: Record<string, string>;
-declare const __DEMO_RPC__: string;
+/**
+ * Dev-only secrets, injected by vite.config.ts. A production build receives empty
+ * values, `canWrite()` turns false, and the write panels fall back to read-only
+ * (ADR 0011).
+ */
+const DEMO_SUBMITTER_KEY: string = import.meta.env.DEMO_SUBMITTER_KEY ?? "";
+const DEMO_RPC: string = import.meta.env.DEMO_RPC ?? "";
+const DEMO_OWNER_KEYS: Record<string, string> = (() => {
+  try {
+    return JSON.parse(import.meta.env.DEMO_OWNER_KEYS ?? "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+})();
 
 interface ManifestShape {
   multiVault: `0x${string}`;
@@ -66,7 +77,7 @@ export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missin
 /**
  * Only non-secret artefacts may be bundled. `data/accounts.json` holds the owner private
  * keys and is deliberately NOT globbed — it reaches the app through the dev-only
- * `__DEMO_OWNER_KEYS__` define in vite.config.ts, so a production build carries no keys.
+ * `DEMO_OWNER_KEYS` env define in vite.config.ts, so a production build carries no keys.
  */
 const delegationFiles = import.meta.glob<{ default: unknown }>("/data/delegations.json", { eager: true });
 const manifestFiles = import.meta.glob<{ default: unknown }>("/manifest/*.json", { eager: true });
@@ -115,7 +126,7 @@ export function loadAppConfig(): ConfigResult {
   // Missing owner keys are normal in a production build; they only gate write actions.
   const ownerKeys: AppConfig["ownerKeys"] = {};
   for (const role of ROLES) {
-    const key = __DEMO_OWNER_KEYS__[role];
+    const key = DEMO_OWNER_KEYS[role];
     if (isHexKey(key)) ownerKeys[role] = key;
   }
 
@@ -141,8 +152,8 @@ export function loadAppConfig(): ConfigResult {
         maxDepth: delegationsFile.maxDepth,
       },
       // Empty string in a production build — validated by canWrite() before any use.
-      submitterKey: __DEMO_SUBMITTER_KEY__ as `0x${string}`,
-      rpcUrl: __DEMO_RPC__ || undefined,
+      submitterKey: DEMO_SUBMITTER_KEY as `0x${string}`,
+      rpcUrl: DEMO_RPC || undefined,
     },
   };
 }
