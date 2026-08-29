@@ -1,20 +1,25 @@
 # ERC-7710 Liquid Democracy with Intuition Graph Domain Caveats
 
 **Mission 10 POC — Intuition Box DAO.** A three-level ERC-7710 delegation chain
-(`voter → delegate → executor`) where voting authority is scoped by *domain*, and the
-scope check is resolved by traversing the Intuition knowledge graph. Adding
-`branding — is a sub-domain of — design` to the graph extends every `design`-scoped
-delegation already signed, with no contract redeploy and no new signature.
+(`A → B → C`) where voting weight is delegated by *domain*, and the scope check is
+resolved by traversing the Intuition knowledge graph. Adding
+`micro-grants — is a sub-domain of — builder-grants` to the graph extends every
+`treasury`-scoped delegation already signed, with no contract redeploy and no new
+signature.
+
+What that buys a large DAO is sub-delegation with real depth: a treasury delegate who
+hands the grants programme to someone closer to it, who hands micro-grants further down
+still — each level scoped by a graph the DAO already curates, each revocable on its own.
 
 Everything below is deployed and verified on **Intuition testnet (chain 13579)**.
 
 | | |
 |---|---|
-| `GraphDomainCaveatEnforcer` | [`0x97874e29cE2b98afF21d1dCad03348ac8A16739b`](https://testnet.explorer.intuition.systems/address/0x97874e29cE2b98afF21d1dCad03348ac8A16739b) — source-verified |
-| `MockGovernor` | [`0xE9F0B082Ac97518b41E6aA5f0aEb75BD26d8484E`](https://testnet.explorer.intuition.systems/address/0xE9F0B082Ac97518b41E6aA5f0aEb75BD26d8484E) — source-verified |
-| Voter / delegate / executor | `0x99FD1744…97De` · `0x7DbF9154…9Ffb` · `0xa3a3Aa99…7601` (HybridDeleGator v1.3.0) |
+| `GraphDomainCaveatEnforcer` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) — source-verified |
+| `MockGovernor` | [`0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — source-verified |
+| A / B / C | `0x446FF798…417B` · `0xd99c420d…6fa4` · `0x91C69d59…A5b2` (HybridDeleGator v1.3.0) |
 | Delegation Framework | v1.3.0 at canonical CREATE2 addresses — all 31 standard enforcers present |
-| Tests | 46 passing (25 unit, 9 fork against live MultiVault, 9 gas, 3 governor); **100 %** line/statement/branch/function coverage on the enforcer |
+| Tests | 103 passing (91 unit + gas + governor, 12 fork against live MultiVault); **100 %** line/statement/branch/function coverage on the enforcer |
 
 ---
 
@@ -71,9 +76,9 @@ never believed — only checked, hop by hop, against the same graph the DAO gove
 ### Attestation is position, not existence (ADR-B)
 
 Intuition triples are permissionless. Anyone can mint
-`legal — is a sub-domain of — design` for about 1e15 wei. If the enforcer treated
+`events — is a sub-domain of — treasury` for about 1e15 wei. If the enforcer treated
 existence as authorization, any griefer could widen any delegation's scope for pocket
-change — and the bounty's own acceptance criterion ("a `legal` proposal fails") would
+change — and the bounty's own acceptance criterion ("an out-of-scope proposal fails") would
 break for an accidental reason.
 
 Two MultiVault facts resolve this:
@@ -103,8 +108,8 @@ expresses two different governance models:
 | an org address or proxy | *"Only our organisation's ontology counts."* Institutional curation — what most DAOs would actually deploy. |
 | `address(0)` → the delegator | *"My delegation is read through my own view of the graph."* Since `_delegator` differs at each level, **every hop is interpreted through its own signer's curation.** |
 
-The second is the deeper fit with liquid democracy: delegating "within design" means
-within what *I* recognise as design, not what anyone with 1e15 wei says design is. The
+The second is the deeper fit with liquid democracy: delegating "within treasury" means
+within what *I* recognise as treasury, not what anyone with 1e15 wei says treasury is. The
 POC ships both and switches between them by changing two lines of signed terms — no
 redeploy. There is a dedicated test for the dial in both directions.
 
@@ -131,41 +136,74 @@ getVaultType(counterId) == 2         // COUNTER_TRIPLE — rejected
 
 ### Narrowing is emergent (ADR-E)
 
-`voter → delegate` is scoped to `design`; `delegate → executor` is narrowed to `UX`. We
+`A → B` is scoped to `treasury`; `B → C` is narrowed to `grants`. We
 wrote **no narrowing code**. The Delegation Framework runs every caveat on every
 delegation in the chain and requires all of them to pass, so a proposal must verify a
-path to `UX` *and* a path to `design`. The intersection is the narrowing.
+path to `grants` *and* a path to `treasury`. The intersection is the narrowing.
 
 Note the semantics are an intersection, not an enforced subset relation: a delegate who
 "narrows" to a disjoint domain produces a chain where nothing can pass. That is a dead
 delegation, not an escalation — escalation is impossible because level 1's enforcer
 still runs. Test 14 and the fork suite prove it end to end.
 
+### Weight is transferred, not copied
+
+A delegation says the delegate *may* vote here; it does not say whose weight comes with
+it. The governor holds that second half — a register of who handed which domain to whom —
+and it is what keeps the arithmetic honest: an account that granted a domain casts
+nothing on it, and whoever received the grant casts theirs plus everything flowing in
+behind. Three accounts hold three votes wherever they end up.
+
+Three rules fall out of the graph rather than out of a list:
+
+- **A grant on a parent covers its children.** A delegation on `treasury` reaches a
+  `payroll` proposal without `payroll` ever being granted. The governor cannot walk there
+  itself — the MultiVault has no reverse index — so the voter presents the domain path and
+  every hop of it is verified against the vault, exactly as the caveat verifies a witness.
+- **A chain may change domain at each hop.** A hands `treasury` to B, B hands `grants` to
+  C; a `micro-grants` proposal carries all three voices. Each step of the walk therefore
+  tries every domain covering the proposal, not just the one the previous hop used.
+- **One holder at a time, parents included.** Granting a domain already given — or one
+  whose parent is already given — reverts, because either would promise the same vote
+  twice. Revoking is the way to move it, which makes the change visible rather than
+  silent.
+
+`maxDepth` is what bounds all of this per delegation: it is signed into the terms, so the
+signer chooses how far down the tree a grant reaches and cannot widen it afterwards. A DAO
+can hand out a whole branch, or exactly one topic.
+
 ---
 
 ## 2. What runs, end to end
 
 ```
-voter EOA ──signs EIP-712──▶ delegation 1 (scope: design)   ─┐
-delegate EOA ─signs EIP-712─▶ delegation 2 (scope: UX)       │  offline, zero transactions
+A's EOA ──signs EIP-712───▶ delegation 1 (scope: treasury)  ─┐
+B's EOA ──signs EIP-712───▶ delegation 2 (scope: grants)    │  offline, zero transactions
                                                              ▼
-executor SA ──user op──▶ EntryPoint ──▶ DelegationManager ──▶ enforcer × 2 ──▶ MultiVault
-                                              │                                    (3 reads/hop)
-                                              ▼
-                                    voter SA executes propose() ──▶ Governor
+C's SA ──user op──▶ EntryPoint ──▶ DelegationManager ──▶ enforcer × 2 ──▶ MultiVault
+                                           │                                 (3 reads/hop)
+                                           ▼
+                                 A's SA executes castVoteFor() ──▶ Governor
 ```
 
-The proposal is recorded **in the voter's name** — the governor sees the voter's smart
-account as `msg.sender`. That is what makes it delegation rather than impersonation.
+Proposing needs no delegation — anyone proposes in their own name — so the caveat guards
+voting alone.
+
+The framework executes from the root delegator's account, so `msg.sender` at the governor
+is A, not C. C names itself in the call's `voter` field and the enforcer binds that field
+to the redeemer the DelegationManager verified: a vote recorded for C is proof that C
+redeemed. The governor then counts C's own weight plus every principal whose weight
+routes to it, and emits `VoteCastOnBehalf` per voice, so the tally can be audited back to
+who lent what.
 
 The delegated-voting flows are verified live (`bun run votes`):
 
 | Flow | Result |
 |---|---|
-| B redeems A's delegation and votes on `branding` | passes — recorded as B, weight 2 |
-| B tries the same on `legal` | `NotATriple(0x4385e3…)` — outside the delegated scope |
-| B votes on `legal` for itself | passes — weight 1, A untouched |
-| `branding` through the `UX`-narrowed chain | `NotATriple(0x5b52dc…)` — narrowing |
+| B redeems A's delegation and votes on `payroll` | passes — recorded as B, weight 2 |
+| B tries the same on `events` | `NotATriple(0x…)` — outside the delegated scope |
+| B votes on `events` for itself | passes — weight 1, A untouched |
+| `payroll` through the `grants`-narrowed chain | `NotATriple(0x…)` — narrowing |
 
 The `maxDepth` and revocation paths are covered by the contract tests
 (`contracts/test/unit/`), which exercise them against a stub enforcer rather than
@@ -231,9 +269,11 @@ Full threat-model walk in [`contracts/SECURITY_REVIEW.md`](contracts/SECURITY_RE
   (the execution's domain word, the signed root) or fed into `calculateTripleId`, whose
   result must classify as a positive triple *and* carry the attestor's stake. The
   redeemer cannot smuggle a triple id directly — the enforcer computes it.
-- **The execution is pinned.** Target must be the governor, selector must be `propose`,
-  and only single default execution mode is accepted (batch and try modes revert). Without
-  the selector check, any other function on the target would slip through.
+- **The execution is pinned.** Target must be the governor, selector must be the delegated
+  vote, and only single default execution mode is accepted (batch and try modes revert).
+  Without the selector check, any other function on the target would slip through — and
+  the `voter` field inside that call is bound to the redeemer, so a vote cannot be
+  recorded in someone else's name.
 - **The enforcer is stateless.** No storage, no value, view-only calls. Hooks are callable
   by anyone, which is safe precisely because there is nothing to poison: an unauthorised
   call is a predicate that reverts or returns.
@@ -281,8 +321,9 @@ on 13579, including `TimestampEnforcer`. We kept `expiry` in our terms for demo 
 framework revert. Production should compose the audited `TimestampEnforcer` and drop the
 field, shrinking the custom surface (ADR-0009).
 
-**`value` is discarded from the execution.** Safe only because `propose` is non-payable.
-A production enforcer should bind `value == 0` or compose `ValueLteEnforcer`.
+**`value` is discarded from the execution.** Safe only because the governor's vote entry
+point is non-payable. A production enforcer should bind `value == 0` or compose
+`ValueLteEnforcer`.
 
 ---
 
@@ -368,7 +409,7 @@ bun install
 bun run verify            # read-only: asserts every demo claim against live chain state
 bun run dev               # the five-panel frontend on http://localhost:5173
 
-cd contracts && forge test   # 46 tests (unit + fork against live MultiVault)
+cd contracts && forge test   # 103 tests (unit + fork against live MultiVault)
 ```
 
 From a clean chain: `bun run seed` (vocabulary + attestor stakes) →
