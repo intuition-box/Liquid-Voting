@@ -556,12 +556,9 @@ code {
 .tree-label {
   display: flex;
   align-items: center;
-  /* A domain can carry several grants — one per voice handed on — so the row wraps
-     instead of pushing the badges out of the rail. */
-  flex-wrap: wrap;
   gap: 8px;
   width: 100%;
-  min-width: 210px;
+  min-width: 0;
   background: transparent;
   border: none;
   border-left: 2px solid transparent;
@@ -958,4 +955,40 @@ select:focus-visible,
 .grant-arrow {
   color: var(--dim);
   margin: 0 var(--s1);
+}
+
+/* A folding branch, laid out like a file tree: the twisty owns a fixed column so every
+   name lines up whether or not it has children. */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.tree-twisty {
+  flex: 0 0 auto;
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tree-twisty:hover {
+  color: var(--text);
+}
+
+/* Same width, no control — a leaf keeps the column without pretending to fold. */
+.tree-twisty-empty {
+  cursor: default;
+}
+
+/* How many domains a folded branch is hiding. */
+.tree-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
 }

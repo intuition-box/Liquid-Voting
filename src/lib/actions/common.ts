@@ -28,7 +28,6 @@ export function submitterClient(config: AppConfig) {
   });
 }
 
-/** Hop cap written into every delegation signed from the UI — deep enough for the graph. */
 /** Hops a grant reaches below its domain unless the signer says otherwise. Five clears
  *  the demo tree, whose deepest branch is four hops from the root. */
 export const DEFAULT_MAX_DEPTH = 5;

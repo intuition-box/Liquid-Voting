@@ -3,7 +3,7 @@
 Intuition Box DAO bounty (Mission 10). A 3-level ERC-7710 delegation chain
 (`voter → delegate → executor`) where voting authority is scoped by *domain*, and the
 scope check is resolved by traversing the Intuition knowledge graph — so that adding
-`branding — is a sub-domain of — design` to the graph extends every `design`-scoped
+`micro-grants — is a sub-domain of — builder-grants` to the graph extends every `treasury`-scoped
 delegation, **with no contract redeploy and no re-signature**.
 
 The mechanism: each delegation carries a custom caveat, `GraphDomainCaveatEnforcer`.
@@ -18,7 +18,7 @@ The graph is the authority; stake is the trust signal.
 |---|---|
 | 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | done — [gate report](docs/phase0/gate-report.md) |
 | 1 — Enforcer (implement, gas table, review, deploy + verify) | done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
-| 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed-graph.ts), org-attestor staked on all 3 edges, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (branding passes, legal reverts) |
+| 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed-graph.ts), org-attestor staked on every edge, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (a domain under the delegated root passes, one outside it reverts) |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | done — the delegated-voting flows verified live on 13579 (`bun run votes`): chain redemption, narrowing, scope rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
 | 5 — Writeup | done — [WRITEUP.md](WRITEUP.md) |
@@ -51,7 +51,7 @@ The frontend reads the same artefacts the scripts write (`manifest/13579.json`,
 ```bash
 bun run seed            # attestor stakes on every graph edge (Phase 2)
 bun run setup           # deploy + fund the three HybridDeleGator accounts
-bun run delegate        # sign the delegations (design → narrowed to UX)
+bun run delegate        # sign the delegations (treasury → narrowed to grants)
 bun run votes           # optional: the acceptance flows, end to end
 ```
 
