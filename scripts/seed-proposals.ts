@@ -30,13 +30,16 @@ import { sendUserOp } from "../src/lib/chain/user-op";
  * without opening the body.
  */
 const DOMAINS: Array<{ domain: string; description: string }> = [
-  { domain: "branding", description: "Approve the Refreshed Brand System and Retire the 2024 Palette" },
-  { domain: "branding", description: "Fund a Motion Identity Package for Q3 Launches" },
-  { domain: "UX", description: "Adopt the Two-Step Checkout Flow Across All Surfaces" },
-  { domain: "UX", description: "Standardise Empty States Across the Product" },
-  { domain: "logo", description: "Commission a Small-Size Wordmark Variant for Sub-32px Contexts" },
-  { domain: "legal", description: "Amend the Terms of Service to Cover Delegated Voting" },
-  { domain: "legal", description: "Retain Outside Counsel for the Foundation Filing" },
+  { domain: "grants", description: "Fund the Q3 Builder Grants Round at 250k USDC" },
+  { domain: "builder-grants", description: "Extend the Builder Track to Protocol Tooling" },
+  { domain: "micro-grants", description: "Raise the Micro-Grant Ceiling from 2k to 5k" },
+  { domain: "retro-funding", description: "Open Retro Round 4 to Infrastructure Contributors" },
+  { domain: "payroll", description: "Approve the Core Contributor Payroll for Q3" },
+  { domain: "contributor-comp", description: "Move Contributor Comp to a Quarterly Review Cycle" },
+  { domain: "parameters", description: "Lower the Protocol Fee from 10 to 7 Basis Points" },
+  { domain: "fee-switch", description: "Route the Fee Switch to the Treasury for Two Quarters" },
+  { domain: "upgrades", description: "Schedule the v2 Router Upgrade Behind the Timelock" },
+  { domain: "events", description: "Sponsor the Devconnect Community Booth" },
 ];
 
 const VOTING_POWER = 1n;
@@ -84,8 +87,8 @@ async function main(): Promise<void> {
     /** The domain and its parents — the governor refuses one already covered by a parent. */
     path: string[];
   }> = [
-    { from: "voter", to: "delegate", domain: "design", path: ["design", "governance"] },
-    { from: "delegate", to: "executor", domain: "UX", path: ["UX", "design", "governance"] },
+    { from: "voter", to: "delegate", domain: "treasury", path: ["treasury", "governance"] },
+    { from: "delegate", to: "executor", domain: "grants", path: ["grants", "treasury", "governance"] },
   ];
   for (const transfer of TRANSFERS) {
     const from = accounts[transfer.from]?.smartAccount;

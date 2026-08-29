@@ -28,11 +28,12 @@ import { readEdgeStates } from "../src/lib/graph/edges";
  * chain is real and gets redeemed, and the enforcer is what refuses it.
  */
 const EXPECTATIONS: Array<{ domain: string; voter: Role; heldOn?: string; expect: "pass" | string }> = [
-  { domain: "UX", voter: "executor", expect: "pass" },
-  { domain: "branding", voter: "delegate", expect: "pass" },
-  { domain: "logo", voter: "delegate", expect: "pass" },
-  { domain: "legal", voter: "delegate", heldOn: "design", expect: "NotATriple" },
-  { domain: "branding", voter: "executor", heldOn: "UX", expect: "NotATriple" },
+  { domain: "grants", voter: "executor", expect: "pass" },
+  { domain: "payroll", voter: "delegate", expect: "pass" },
+  // Three hops up to `grants`, the deepest the demo graph reaches — the cap allows it.
+  { domain: "micro-grants", voter: "executor", expect: "pass" },
+  { domain: "events", voter: "delegate", heldOn: "treasury", expect: "NotATriple" },
+  { domain: "payroll", voter: "executor", heldOn: "grants", expect: "NotATriple" },
 ];
 
 async function main(): Promise<void> {

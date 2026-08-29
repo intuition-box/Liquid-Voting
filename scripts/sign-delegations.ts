@@ -1,7 +1,7 @@
 /**
  * Phase 3 step 2 — build and sign the two delegations, offline:
  *
- *   voter SA    --[GraphDomainCaveatEnforcer root=design]-->  delegate SA
+ *   voter SA    --[GraphDomainCaveatEnforcer root=treasury]-->  delegate SA
  *   delegate SA --[GraphDomainCaveatEnforcer root=UX]------>  executor SA   (narrowing, ADR 0007)
  *
  * The delegation structs are built directly (the whole grant IS our custom caveat, so
@@ -28,7 +28,9 @@ import { encodeTerms } from "../src/lib/delegation/encoding";
 import { toHybridAccount, ensureEnvironment } from "../src/lib/chain/smart-accounts";
 
 const EIP1271_MAGIC = "0x1626ba7e";
-const MAX_DEPTH = 3;
+/** Five hops: the deepest branch is micro-grants → builder-grants → grants → treasury →
+ *  governance, so the cap clears the whole tree with a hop to spare. */
+const MAX_DEPTH = 5;
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const accountsPath = join(repoRoot, "data", "accounts.json");
@@ -92,7 +94,7 @@ async function main(): Promise<void> {
   // fresh salt on each signing run gives the demo a reset path after the revocation act.
   const salt = toHex(BigInt(Date.now()));
 
-  // Level 1: voter -> delegate, rooted at `design`.
+  // Level 1: voter -> delegate, rooted at `treasury`.
   const rootDelegation: Delegation = {
     delegate: delegateSA.address,
     delegator: voterSA.address,
@@ -101,7 +103,7 @@ async function main(): Promise<void> {
       {
         enforcer,
         terms: encodeTerms({
-          rootDomainId: manifest.vocabulary.atoms["design"] as `0x${string}`,
+          rootDomainId: manifest.vocabulary.atoms["treasury"] as `0x${string}`,
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
@@ -115,9 +117,9 @@ async function main(): Promise<void> {
   };
   rootDelegation.signature = await voterSA.signDelegation({ delegation: rootDelegation });
   const rootHash = await hashAndVerify(rootDelegation, voterSA.address);
-  console.log(`root delegation signed  (voter -> delegate, root=design)  hash ${rootHash}`);
+  console.log(`root delegation signed  (voter -> delegate, root=treasury)  hash ${rootHash}`);
 
-  // Level 2: delegate -> executor, narrowed to `UX`, authority-bound to level 1.
+  // Level 2: delegate -> executor, narrowed to `grants`, authority-bound to level 1.
   const leafDelegation: Delegation = {
     delegate: executorSA.address,
     delegator: delegateSA.address,
@@ -126,7 +128,7 @@ async function main(): Promise<void> {
       {
         enforcer,
         terms: encodeTerms({
-          rootDomainId: manifest.vocabulary.atoms["UX"] as `0x${string}`,
+          rootDomainId: manifest.vocabulary.atoms["grants"] as `0x${string}`,
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
@@ -140,7 +142,7 @@ async function main(): Promise<void> {
   };
   leafDelegation.signature = await delegateSA.signDelegation({ delegation: leafDelegation });
   const leafHash = await hashAndVerify(leafDelegation, delegateSA.address);
-  console.log(`leaf delegation signed  (delegate -> executor, root=UX)   hash ${leafHash}`);
+  console.log(`leaf delegation signed  (delegate -> executor, root=grants) hash ${leafHash}`);
 
   // Level 2 again, for the delegate's OWN voice: same pair, same scope, rooted at
   // ROOT_AUTHORITY instead of chained to level 1.
@@ -157,7 +159,7 @@ async function main(): Promise<void> {
       {
         enforcer,
         terms: encodeTerms({
-          rootDomainId: manifest.vocabulary.atoms["UX"] as `0x${string}`,
+          rootDomainId: manifest.vocabulary.atoms["grants"] as `0x${string}`,
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
