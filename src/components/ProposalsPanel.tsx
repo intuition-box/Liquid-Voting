@@ -25,6 +25,29 @@ interface Feedback {
   txHash?: `0x${string}`;
 }
 
+const SUPPORT_LABELS = ["against", "for", "abstain"];
+
+/**
+ * The ballot the viewer already cast on a proposal, if any.
+ *
+ * Read from what the governor logged rather than from anything held locally, so a vote
+ * cast in an earlier session — or from the CLI — still shows up here.
+ */
+function ballotFor(
+  ballots: Ballot[] | undefined,
+  role: Role,
+): { support: number; weight: bigint; carried: Role[] } | null {
+  for (const ballot of ballots ?? []) {
+    const own = ballot.entries.find((entry) => entry.carriedBy === role);
+    if (!own) continue;
+    const carried = ballot.entries
+      .filter((entry) => entry.principal !== role && entry.principal !== null)
+      .map((entry) => entry.principal as Role);
+    return { support: ballot.support, weight: ballot.total, carried };
+  }
+  return null;
+}
+
 const OPTIONS = [
   { support: VOTE_FOR, label: "for" },
   { support: VOTE_AGAINST, label: "against" },
@@ -178,6 +201,7 @@ export function ProposalsPanel({
             const key = proposal.id.toString();
             const said = feedback[key];
             const open = expanded === key;
+            const mine = ballotFor(ballots[key], role);
             return (
               <li key={key} className={open ? "proposal proposal-open" : "proposal"}>
                 <button
@@ -239,13 +263,24 @@ export function ProposalsPanel({
 
                     <Ballots entries={ballots[key]} />
 
+                    {/* What the viewer already cast, read back from the governor's logs —
+                        the vote stays on screen instead of vanishing into the tally. */}
+                    {mine ? (
+                      <p className="voted">
+                        You voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here, weighing{" "}
+                        <Mono>{mine.weight.toString()}</Mono>
+                        {mine.carried.length > 0 ? ` — yours plus ${mine.carried.join(" and ")}` : " — your own voice"}
+                        . The governor counts an account once per proposal, so it cannot be changed.
+                      </p>
+                    ) : null}
+
                     <div className="vote-row">
                       {OPTIONS.map((option) => (
                         <Button
                           key={option.label}
                           onClick={() => void vote(proposal, domain, option.support)}
                           busy={busy === key}
-                          disabled={!writable || proposal.state !== "active" || weight === 0n}
+                          disabled={!writable || proposal.state !== "active" || weight === 0n || mine !== null}
                           variant={option.support === VOTE_FOR ? "primary" : undefined}
                         >
                           {option.label}
@@ -299,8 +334,6 @@ export function ProposalsPanel({
     </Panel>
   );
 }
-
-const SUPPORT_LABELS = ["against", "for", "abstain"];
 
 /**
  * Who voted, and for whom.

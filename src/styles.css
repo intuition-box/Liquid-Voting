@@ -992,3 +992,18 @@ select:focus-visible,
   font-size: 10px;
   color: var(--dim);
 }
+
+/* What the viewer already cast — kept on screen, since the tally alone does not say
+   whether your own vote is inside it. */
+.voted {
+  margin: var(--s4) 0 0;
+  padding: var(--s3);
+  border-left: 2px solid var(--ok);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.voted strong {
+  color: var(--text);
+}
