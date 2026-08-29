@@ -115,8 +115,7 @@ export interface RedeemParams {
  */
 export function buildRedeemCalldata({ chain, witnesses, governor, domainId, description }: RedeemParams): Hex {
   return buildRedeem(
-    chain,
-    witnesses,
+    [{ chain, witnesses }],
     governor,
     encodeFunctionData({ abi: governorAbi, functionName: "propose", args: [domainId, description] }),
   );
@@ -128,10 +127,8 @@ export const VOTE_FOR = 1;
 export const VOTE_ABSTAIN = 2;
 
 export interface VoteParams {
-  /** Delegation chain, leaf → root. */
-  chain: Delegation[];
-  /** Path witness per chain entry, same order. */
-  witnesses: Hex[][];
+  /** One independent chain per voice carried, each with a witness per link. */
+  chains: { chain: Delegation[]; witnesses: Hex[][] }[];
   governor: `0x${string}`;
   proposalId: bigint;
   /** `VOTE_AGAINST` | `VOTE_FOR` | `VOTE_ABSTAIN`. */
@@ -154,8 +151,7 @@ export interface VoteParams {
  * redeemer, which is what makes the recorded vote the delegate's own.
  */
 export function buildVoteCalldata({
-  chain,
-  witnesses,
+  chains,
   governor,
   proposalId,
   support,
@@ -164,8 +160,7 @@ export function buildVoteCalldata({
   domainPath,
 }: VoteParams): Hex {
   return buildRedeem(
-    chain,
-    witnesses,
+    chains,
     governor,
     encodeFunctionData({
       abi: governorAbi,
@@ -175,22 +170,37 @@ export function buildVoteCalldata({
   );
 }
 
-/** Shared assembly: attach each level's witness to its caveat, wrap one single execution. */
+/**
+ * Shared assembly: attach each level's witness to its caveat, wrap one single execution.
+ *
+ * `redeemDelegations` takes an array of permission contexts, so a redeemer carrying
+ * several voices presents one independent chain per voice rather than one object holding
+ * all of them. Each context is validated on its own — which is what keeps a revoked
+ * upstream from taking down a voice that never depended on it.
+ */
 function buildRedeem(
-  chain: Delegation[],
-  witnesses: Hex[][],
+  chains: { chain: Delegation[]; witnesses: Hex[][] }[],
   governor: `0x${string}`,
   innerCalldata: Hex,
 ): Hex {
-  const withWitnesses = chain.map((delegation, index) => ({
-    ...delegation,
-    caveats: delegation.caveats.map((caveat) => ({ ...caveat, args: encodePathWitness(witnesses[index] ?? []) })),
-  }));
+  const contexts = chains.map(({ chain, witnesses }) =>
+    encodeDelegations(
+      chain.map((delegation, index) => ({
+        ...delegation,
+        caveats: delegation.caveats.map((caveat) => ({
+          ...caveat,
+          args: encodePathWitness(witnesses[index] ?? []),
+        })),
+      })),
+    ),
+  );
+  // The execution repeats per context: one vote, redeemed through each chain that
+  // authorises a share of its weight.
   const execution = encodeSingleExecution(governor, 0n, innerCalldata);
   return encodeFunctionData({
     abi: delegationManagerAbi,
     functionName: "redeemDelegations",
-    args: [[encodeDelegations(withWitnesses)], [SINGLE_DEFAULT_MODE], [execution]],
+    args: [contexts, contexts.map(() => SINGLE_DEFAULT_MODE), contexts.map(() => execution)],
   });
 }
 

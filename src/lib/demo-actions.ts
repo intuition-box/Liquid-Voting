@@ -41,28 +41,29 @@ const DEFAULT_MAX_DEPTH = 3;
 export interface VotePlan {
   /** The account that must be `msg.sender` at the DelegationManager, and the recorded voter. */
   redeemer: Role;
-  chain: Delegation[];
-  /** Per-level path computation, in the same order as `chain` (leaf → root). */
+  /** One chain per voice carried, each with a witness per link. */
+  chains: { chain: Delegation[]; witnesses: Hex[][] }[];
+  /** Per-link path computation, flattened across voices, for the UI to show its work. */
   paths: { rootLabel: string; result: PathResult }[];
   /** Whose voting power rides along with the redeemer's own. */
   principals: Role[];
   calldata: Hex | null;
-  /** Set when a level could not produce a witness — nothing to submit. */
+  /** Set when a link could not produce a witness — nothing to submit. */
   blocked: string | null;
 }
 
 /**
  * Plans a delegated vote through the delegations that were actually signed.
  *
- * The chain comes from the grants in force, resolved by walking back from the voter:
- * whoever handed it this domain, and whoever handed it to them. Sign a new grant in the
- * UI and it is the one redeemed — before this, the plan reached for a fixed pair and
- * whatever had just been signed was ignored.
+ * A holder carrying two voices redeems two chains, not one. Each is planned on its own —
+ * its own links, its own witnesses — because the DelegationManager validates each
+ * permission context independently. That independence is the point: a voice whose
+ * upstream was revoked drops out without taking the others with it.
  *
- * One witness is computed per link, each against its own scope, since every level of the
- * chain carries its own caveat and is verified against its own signer's scope (ADR 0007).
- * Path discovery is client-side (ADR 0003) and surfaced step by step so the UI can show
- * it rather than hide it behind a spinner.
+ * One witness is computed per link, each against its own scope, since every level carries
+ * its own caveat and is verified against its own signer's scope (ADR 0007). Path
+ * discovery is client-side (ADR 0003) and surfaced step by step so the UI can show it
+ * rather than hide it behind a spinner.
  */
 export function planVote(
   config: DemoConfig,
@@ -72,42 +73,45 @@ export function planVote(
   proposalId: bigint,
   support: number,
 ): VotePlan {
-  const { chain, redeemer, principals, scopes } = resolved;
-  const paths = scopes.map((rootLabel) => ({
-    rootLabel,
-    result: graph.pathTo(domainLabel, rootLabel),
+  const { redeemer, voices, principals } = resolved;
+  const planned = voices.map((voice) => ({
+    voice,
+    paths: voice.scopes.map((rootLabel) => ({ rootLabel, result: graph.pathTo(domainLabel, rootLabel) })),
   }));
-  const base = { redeemer, chain, paths, principals };
+  const paths = planned.flatMap((entry) => entry.paths);
+  const chains = planned.map((entry) => ({
+    chain: entry.voice.chain as Delegation[],
+    witnesses: entry.paths.map((path) => (path.result.found ? path.result.path : [])),
+  }));
+  const base = { redeemer, chains, paths, principals };
 
   const blockedAt = paths.find((entry) => !entry.result.found);
   if (blockedAt && !blockedAt.result.found) {
     return { ...base, calldata: null, blocked: `no witness up to “${blockedAt.rootLabel}”: ${blockedAt.result.reason}` };
   }
-
-  const witnesses = paths.map((entry) => (entry.result.found ? entry.result.path : []));
-  return { ...base, calldata: encodeVote(config, chain, witnesses, redeemer, principals, proposalId, support), blocked: null };
+  return { ...base, calldata: encodeVote(config, chains, redeemer, principals, proposalId, support), blocked: null };
 }
 
-/** Encodes the redemption of a delegated vote for the given chain and witnesses. */
+/** Encodes the redemption of a delegated vote for the given chains and witnesses. */
 function encodeVote(
   config: DemoConfig,
-  chain: Delegation[],
-  witnesses: Hex[][],
+  chains: { chain: Delegation[]; witnesses: Hex[][] }[],
   redeemer: Role,
   principals: Role[],
   proposalId: bigint,
   support: number,
 ): Hex {
+  // The governor needs the same path the caveats verify: a grant on a parent domain
+  // covers this proposal, and the path is what proves the parent relation. Every chain
+  // climbs to the same proposal domain, so the first one's top witness speaks for all.
+  const witnesses = chains[0]?.witnesses ?? [];
   return buildVoteCalldata({
-    chain,
-    witnesses,
+    chains,
     governor: config.governor,
     proposalId,
     support,
     voter: config.accounts[redeemer].smartAccount,
     principals: principals.map((role) => config.accounts[role].smartAccount),
-    // The governor needs the same path the caveat verifies: a grant on a parent domain
-    // covers this proposal, and the path is what proves the parent relation.
     domainPath: witnesses[witnesses.length - 1] ?? [],
   });
 }
@@ -132,14 +136,22 @@ export function planVoteForcingWitness(
   const domainId = graph.termId(domainLabel);
   if (!domainId) return plan;
 
-  const witnesses = plan.paths.map((entry) => {
+  const forced = (entry: { rootLabel: string; result: PathResult }): Hex[] => {
     if (entry.result.found) return entry.result.path;
     const rootId = graph.termId(entry.rootLabel);
     return rootId && rootId !== domainId ? [domainId, rootId] : [domainId];
+  };
+  // Rebuild each chain's witnesses in place, so a voice that has one keeps it and only
+  // the missing ones are guessed at.
+  let cursor = 0;
+  const chains = plan.chains.map(({ chain }) => {
+    const witnesses = chain.map(() => forced(plan.paths[cursor++]!));
+    return { chain, witnesses };
   });
   return {
     ...plan,
-    calldata: encodeVote(config, plan.chain, witnesses, plan.redeemer, plan.principals, proposalId, support),
+    chains,
+    calldata: encodeVote(config, chains, plan.redeemer, plan.principals, proposalId, support),
   };
 }
 
@@ -224,51 +236,65 @@ export async function signDelegation(
   domainLabel: string,
   /** The domain and its parents, so the governor can refuse one already covered. */
   domainPath: Hex[] = [],
-  /** The delegation the signer holds this domain through, when there is one. */
-  upstream?: Delegation & { hash: Hex },
-): Promise<Delegation & { hash: Hex }> {
+  /** The delegations the signer already holds on this domain, one per voice it carries. */
+  upstream: (Delegation & { hash: Hex })[] = [],
+): Promise<(Delegation & { hash: Hex })[]> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
 
-  // The manager walks a chain leaf to root and requires each link's delegator to be the
-  // next one's delegate. Chaining anywhere else would build a chain it rejects, so an
-  // upstream that does not hand over to this signer is ignored and the grant stands alone.
   const delegator = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
   const signerAccount = config.accounts[from].smartAccount;
-  const chainable = upstream && upstream.delegate.toLowerCase() === signerAccount.toLowerCase();
-  const delegation: Delegation = {
-    delegate: config.accounts[to].smartAccount,
-    delegator: signerAccount,
-    authority: chainable ? upstream.hash : ROOT_AUTHORITY,
-    caveats: [
-      {
-        enforcer: config.enforcer,
-        terms: encodeTerms({
-          rootDomainId: domainId,
-          predicateId: config.predicate.termId,
-          maxDepth: DEFAULT_MAX_DEPTH,
-          expiry: 0n,
-          attestor: config.attestor,
-        }),
-        args: "0x",
-      },
-    ],
-    // Time-based: disableDelegation blacklists a hash forever, so every grant is distinct.
-    salt: toHex(BigInt(Date.now())),
-    signature: "0x",
-  };
 
-  delegation.signature = await delegator.signDelegation({ delegation });
-  const hash = await client.readContract({
-    address: FRAMEWORK.delegationManager,
-    abi: delegationManagerAbi,
-    functionName: "getDelegationHash",
-    args: [{ ...delegation, salt: BigInt(delegation.salt) }],
-  });
+  // The manager walks a chain leaf to root and requires each link's delegator to be the
+  // next one's delegate, so only an upstream that hands over to this signer can be relayed.
+  const relayable = upstream.filter(
+    (held) => held.delegate.toLowerCase() === signerAccount.toLowerCase(),
+  );
 
-  // The signature says the delegate MAY vote on this domain; the governor's register says
+  // One delegation per voice: the signer's own, plus one relaying each voice it was
+  // lent. Bundling them into a single object would tie the signer's own voice to
+  // authority it merely borrowed — revoking upstream would then silence a voice that
+  // was never the upstream's to take back. A voice keeps belonging to whoever cast it.
+  const authorities: Hex[] = [ROOT_AUTHORITY, ...relayable.map((held) => held.hash)];
+
+  const signed: (Delegation & { hash: Hex })[] = [];
+  for (const [index, authority] of authorities.entries()) {
+    const delegation: Delegation = {
+      delegate: config.accounts[to].smartAccount,
+      delegator: signerAccount,
+      authority,
+      caveats: [
+        {
+          enforcer: config.enforcer,
+          terms: encodeTerms({
+            rootDomainId: domainId,
+            predicateId: config.predicate.termId,
+            maxDepth: DEFAULT_MAX_DEPTH,
+            expiry: 0n,
+            attestor: config.attestor,
+          }),
+          args: "0x",
+        },
+      ],
+      // disableDelegation blacklists a hash forever, so every delegation needs its own
+      // salt — including the siblings signed in this same call.
+      salt: toHex(BigInt(Date.now()) * 1000n + BigInt(index)),
+      signature: "0x",
+    };
+    delegation.signature = await delegator.signDelegation({ delegation });
+    const hash = await client.readContract({
+      address: FRAMEWORK.delegationManager,
+      abi: delegationManagerAbi,
+      functionName: "getDelegationHash",
+      args: [{ ...delegation, salt: BigInt(delegation.salt) }],
+    });
+    signed.push({ ...delegation, hash });
+  }
+
+  // The signatures say the delegate MAY vote on this domain; the governor's register says
   // whose weight it carries. Recording the transfer is what makes the delegator stop
-  // counting on this domain and the delegate count for both.
+  // counting on this domain and the delegate count for both. One transfer, however many
+  // voices moved: the register tracks the holder, the signatures track the authority.
   const op = await sendUserOp(client, submitterClient(config), delegator, [
     {
       to: config.governor,
@@ -284,7 +310,7 @@ export async function signDelegation(
     throw new Error(op.revert ? `weight transfer reverted: ${op.revert.formatted}` : "weight transfer reverted");
   }
 
-  return { ...delegation, hash };
+  return signed;
 }
 
 /**

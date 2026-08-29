@@ -11,16 +11,29 @@ import type { Role } from "./demo-config";
 import type { DomainGraph } from "./domain-graph";
 import { ROLES, type Grant } from "./grants";
 
-/** A chain ready to redeem: the delegations, leaf to root, and whose weight it carries. */
-export interface RedeemableChain {
+/**
+ * One voice a holder can exercise, and the signed chain that carries it.
+ *
+ * A holder carrying two voices redeems two chains, not one object holding both: each
+ * voice keeps its own authority, so revoking one leaves the other standing.
+ */
+export interface VoiceChain {
+  /** Whose voice this is — the account whose weight the vote will count. */
+  principal: Role;
   /** Delegations in the order the DelegationManager walks them — leaf first. */
   chain: (Delegation & { hash: `0x${string}` })[];
-  /** The account that redeems, and that the vote is recorded for. */
-  redeemer: Role;
-  /** The delegators up the chain, whose weight rides along. */
-  principals: Role[];
   /** The scope of each link, leaf to root — one path witness is computed per link. */
   scopes: string[];
+}
+
+/** Everything a holder may redeem on one domain: the voices, and who redeems them. */
+export interface RedeemableChain {
+  /** The account that redeems, and that the vote is recorded for. */
+  redeemer: Role;
+  /** One entry per voice carried, each with its own chain. */
+  voices: VoiceChain[];
+  /** Whose weight rides along, in `voices` order. */
+  principals: Role[];
 }
 
 export class DelegationSet {
@@ -120,37 +133,39 @@ export class DelegationSet {
   }
 
   /**
-   * The signed chain that lets `holder` vote on `domain`, leaf to root.
+   * Every voice `holder` can exercise on `domain`, each with the chain that carries it.
    *
-   * Walks the grants backwards from the holder: whoever handed it this domain, whoever
-   * handed it to them, and so on. The result is the delegations that were really signed,
-   * which is what replaced picking a fixed pair — sign a new grant and it is the one that
-   * gets redeemed.
+   * One grant handed to the holder is one voice. Following its authority link back gives
+   * the chain the DelegationManager will walk — leaf to root — and the grant's principal
+   * says whose weight it actually is, which is not always the signer's: a relayed grant
+   * is signed by the middle account and carries the voice of the one behind it.
    *
-   * Null when nobody delegated this domain to the holder: there is no chain to redeem,
-   * and the holder votes for itself with its own weight.
+   * Null when nobody delegated this domain to the holder: there is nothing to redeem, and
+   * the holder votes for itself with its own weight.
    */
   chainFor(holder: Role, domain: string): RedeemableChain | null {
     const live = this.liveOn(domain);
-    const chain: RedeemableChain["chain"] = [];
-    const principals: Role[] = [];
-    const scopes: string[] = [];
+    const byHash = new Map(this.grants.map((grant) => [grant.delegation.hash.toLowerCase(), grant]));
 
-    // Bounded by the role count: a chain cannot visit the same account twice without
-    // circling, and the governor refuses circular delegation in the first place.
-    const seen = new Set<Role>([holder]);
-    let current = holder;
-    for (let hop = 0; hop < ROLES.length; hop++) {
-      const incoming = live.find((grant) => grant.to === current && !seen.has(grant.from));
-      if (!incoming) break;
-      chain.push(incoming.delegation);
-      scopes.push(incoming.scope);
-      principals.push(incoming.from);
-      seen.add(incoming.from);
-      current = incoming.from;
+    const voices: VoiceChain[] = [];
+    for (const incoming of live.filter((grant) => grant.to === holder)) {
+      const chain = [incoming.delegation];
+      const scopes = [incoming.scope];
+
+      // Climb the authority links: each one names the delegation that authorised it.
+      // Bounded by the grant count, which no chain can exceed without repeating a link.
+      let current = incoming;
+      for (let hop = 0; hop < this.grants.length; hop++) {
+        const parent = byHash.get(current.delegation.authority.toLowerCase());
+        if (!parent) break;
+        chain.push(parent.delegation);
+        scopes.push(parent.scope);
+        current = parent;
+      }
+      voices.push({ principal: incoming.principal, chain, scopes });
     }
 
-    if (chain.length === 0) return null;
-    return { chain, redeemer: holder, principals, scopes };
+    if (voices.length === 0) return null;
+    return { redeemer: holder, voices, principals: voices.map((voice) => voice.principal) };
   }
 }

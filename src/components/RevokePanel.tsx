@@ -56,7 +56,7 @@ export function RevokePanel({
       // The manager rejects a disabled delegation before any caveat runs, so no real
       // proposal is needed: any id reaches the check that matters.
       const downstream = ROLES.flatMap((holder) => {
-        const scope = delegations.chainFor(holder, domain)?.scopes[0];
+        const scope = delegations.chainFor(holder, domain)?.voices[0]?.scopes[0];
         return scope ? [{ holder, scope }] : [];
       });
       const probes = await Promise.all(

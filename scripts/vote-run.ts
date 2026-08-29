@@ -128,8 +128,7 @@ async function main(): Promise<void> {
   // ── 2. B votes on `branding` carrying A's weight — the delegated vote ───────────
   {
     const calldata = buildVoteCalldata({
-      chain: [root],
-      witnesses: [[branding, design]],
+      chains: [{ chain: [root], witnesses: [[branding, design]] }],
       governor,
       proposalId: brandingProposal,
       support: VOTE_FOR,
@@ -168,8 +167,7 @@ async function main(): Promise<void> {
   // ── 3. B cannot exercise A's weight on `legal` ─────────────────────────────────
   {
     const calldata = buildVoteCalldata({
-      chain: [root],
-      witnesses: [[legal, design]],
+      chains: [{ chain: [root], witnesses: [[legal, design]] }],
       governor,
       proposalId: legalProposal,
       support: VOTE_FOR,
@@ -216,8 +214,7 @@ async function main(): Promise<void> {
   // ── 5. Narrowing applies to votes: the UX leaf blocks `branding` ───────────────
   {
     const calldata = buildVoteCalldata({
-      chain: [leaf, root],
-      witnesses: [[branding, ux], [branding, design]],
+      chains: [{ chain: [leaf, root], witnesses: [[branding, ux], [branding, design]] }],
       governor,
       proposalId: brandingProposal,
       support: VOTE_FOR,

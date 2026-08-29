@@ -95,6 +95,9 @@ export function ChainPanel({
     setBusy(true);
     setOutcome(null);
     try {
+      // One delegation per voice the signer carries: its own, plus one relaying each
+      // voice lent to it. They are signed together and stand apart afterwards.
+      const held = delegations.chainFor(role, domain);
       const signed = await signDelegation(
         client,
         config,
@@ -102,8 +105,19 @@ export function ChainPanel({
         target,
         domain,
         graph.domainPathOf(domain),
+        held?.voices.map((voice) => voice.chain[0]!) ?? [],
       );
-      onSigned({ from: role, to: target, scope: domain, revoked: false, delegation: signed });
+      const principals: Role[] = [role, ...(held?.principals ?? [])];
+      signed.forEach((delegation, index) => {
+        onSigned({
+          from: role,
+          to: target,
+          principal: principals[index] ?? role,
+          scope: domain,
+          revoked: false,
+          delegation,
+        });
+      });
       setOutcome({ verdict: "pass", text: `${ROLE_LABELS[role]} handed “${domain}” to ${ROLE_LABELS[target]}` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
