@@ -336,35 +336,91 @@ export function ProposalsPanel({
 }
 
 /**
- * Who voted, and for whom.
+ * Who voted, and whose voices came along.
  *
  * A delegated vote reaches the governor as one number, which hides what it is made of.
- * The contract logs the split — one `VoteCastOnBehalf` per principal — so the weight can
- * be shown back voice by voice: whose it was, and who carried it here.
+ * The contract logs the split — one `VoteCastOnBehalf` per principal — so it can be shown
+ * as what it is: one vote, cast by one account, carrying the voices lent to it.
+ *
+ * Drawn the way the domain rail is, and for the same reason: the carried voices belong
+ * *under* the account that cast them, not beside it. A ballot with nothing riding along
+ * has no twisty, exactly like a domain with no children.
  */
 function Ballots({ entries }: { entries?: Ballot[] }) {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set());
   if (!entries || entries.length === 0) return null;
+
+  const toggle = (index: number): void => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(index)) next.add(index);
+      return next;
+    });
+  };
+
   return (
     <div className="ballots">
       <h5 className="section-label">who voted</h5>
-      {entries.map((ballot, index) => (
-        <ul key={index} className="ballot">
-          {ballot.entries.map((entry) => {
-            const name = entry.principal ? entry.principal : shortHex(entry.principalAddress);
-            const carrier = entry.carriedBy ? entry.carriedBy : shortHex(entry.carriedByAddress);
-            const relayed = entry.principal !== entry.carriedBy;
-            return (
-              <li key={entry.principalAddress} className="ballot-row">
-                <span className={`ballot-who ${entry.principal ? ROLE_CLASS[entry.principal] : ""}`}>{name}</span>
-                <span className="ballot-note muted">
-                  {relayed ? `carried by ${carrier}` : "own voice"} · {SUPPORT_LABELS[ballot.support] ?? "?"}
+      {entries.map((ballot, index) => {
+        // The voter's own entry is the one it carried itself; the rest rode along.
+        const own = ballot.entries.find((entry) => entry.principal === entry.carriedBy);
+        const carried = ballot.entries.filter((entry) => entry.principal !== entry.carriedBy);
+        const voter = own ?? ballot.entries[0];
+        if (!voter) return null;
+        const open = carried.length > 0 && !collapsed.has(index);
+
+        return (
+          <ul key={index} className="ballot">
+            <li className="ballot-node">
+              <div className="ballot-row">
+                {carried.length > 0 ? (
+                  <button
+                    type="button"
+                    className="tree-twisty"
+                    onClick={() => toggle(index)}
+                    aria-expanded={open}
+                    aria-label={`${open ? "Collapse" : "Expand"} the voices carried by ${voter.carriedBy ?? "this account"}`}
+                  >
+                    <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+                  </button>
+                ) : (
+                  <span className="tree-twisty tree-twisty-empty" aria-hidden="true" />
+                )}
+                <span className={`ballot-who ${voter.carriedBy ? ROLE_CLASS[voter.carriedBy] : ""}`}>
+                  {voter.carriedBy ?? shortHex(voter.carriedByAddress)}
                 </span>
-                <Mono>{entry.weight.toString()}</Mono>
-              </li>
-            );
-          })}
-        </ul>
-      ))}
+                <span className="ballot-note muted">
+                  voted {SUPPORT_LABELS[ballot.support] ?? "?"}
+                  {carried.length > 0
+                    ? ` · carrying ${carried.length} other ${carried.length > 1 ? "voices" : "voice"}`
+                    : " · its own voice"}
+                </span>
+                {/* The total, which is the sum of the lines below it. */}
+                <Mono>{ballot.total.toString()}</Mono>
+              </div>
+
+              {open ? (
+                <ul className="ballot">
+                  {[own, ...carried].filter(Boolean).map((entry) => (
+                    <li key={entry!.principalAddress} className="ballot-node">
+                      <div className="ballot-row ballot-row-nested">
+                        <span className="tree-twisty tree-twisty-empty" aria-hidden="true" />
+                        <span className={`ballot-who ${entry!.principal ? ROLE_CLASS[entry!.principal] : ""}`}>
+                          {entry!.principal ?? shortHex(entry!.principalAddress)}
+                        </span>
+                        <span className="ballot-note muted">
+                          {entry!.principal === entry!.carriedBy ? "its own voice" : "lent to the voter"}
+                        </span>
+                        <Mono dim>{entry!.weight.toString()}</Mono>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          </ul>
+        );
+      })}
     </div>
   );
 }
