@@ -97,10 +97,12 @@ export function ProposalsPanel({
     };
   }, [expanded, client, config, feedback]);
 
-  const rows = proposals.map((proposal) => {
-    const domain = graph.labelOf(proposal.domainId) ?? "unknown";
-    const own = votingPowerOf(weights, proposal.domainId, role);
-    return { proposal, domain, weight: own };
+  // A proposal on a domain the graph no longer carries has nothing to be scoped against,
+  // so it is left out rather than shown against a name nobody recognises.
+  const rows = proposals.flatMap((proposal) => {
+    const domain = graph.labelOf(proposal.domainId);
+    if (!domain) return [];
+    return [{ proposal, domain, weight: votingPowerOf(weights, proposal.domainId, role) }];
   });
 
   // A domain covers everything beneath it, which is exactly what a delegation on it

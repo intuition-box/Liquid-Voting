@@ -40,6 +40,14 @@ const DOMAINS: Array<{ domain: string; description: string }> = [
   { domain: "fee-switch", description: "Route the Fee Switch to the Treasury for Two Quarters" },
   { domain: "upgrades", description: "Schedule the v2 Router Upgrade Behind the Timelock" },
   { domain: "events", description: "Sponsor the Devconnect Community Booth" },
+  // The intermediate nodes vote too: a DAO decides at every level of its own tree.
+  { domain: "governance", description: "Adopt a Standing Delegation Policy for the DAO" },
+  { domain: "treasury", description: "Set the Treasury Diversification Target at 30 Percent" },
+  { domain: "protocol", description: "Freeze Protocol Changes During the Audit Window" },
+  { domain: "rate-model", description: "Switch the Rate Model to a Kinked Curve" },
+  { domain: "emergency-patches", description: "Grant the Security Council a 48-Hour Patch Window" },
+  { domain: "community", description: "Fund a Translator Programme for Four Languages" },
+  { domain: "content", description: "Commission a Quarterly Governance Digest" },
 ];
 
 const VOTING_POWER = 1n;
