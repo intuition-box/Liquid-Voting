@@ -14,7 +14,7 @@
  *
  * Run: bun run phase3:delegate
  */
-import { concatHex, createPublicClient, encodeAbiParameters, http, keccak256, toHex } from "viem";
+import { concatHex, createPublicClient, http, keccak256, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY, type Delegation } from "@metamask/smart-accounts-kit";
 import { getDelegationHashOffchain } from "@metamask/smart-accounts-kit/utils";
@@ -23,6 +23,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
+import { delegationManagerAbi } from "../src/lib/abis";
+import { encodeTerms } from "../src/lib/delegation";
 import { toHybridAccount, ensureEnvironment } from "../src/lib/smart-accounts";
 
 const EIP1271_MAGIC = "0x1626ba7e";
@@ -31,38 +33,6 @@ const MAX_DEPTH = 3;
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const accountsPath = join(repoRoot, "data", "accounts.json");
 const delegationsPath = join(repoRoot, "data", "delegations.json");
-
-const delegationManagerAbi = [
-  {
-    type: "function",
-    name: "getDelegationHash",
-    stateMutability: "pure",
-    inputs: [
-      {
-        name: "_input",
-        type: "tuple",
-        components: [
-          { name: "delegate", type: "address" },
-          { name: "delegator", type: "address" },
-          { name: "authority", type: "bytes32" },
-          {
-            name: "caveats",
-            type: "tuple[]",
-            components: [
-              { name: "enforcer", type: "address" },
-              { name: "terms", type: "bytes" },
-              { name: "args", type: "bytes" },
-            ],
-          },
-          { name: "salt", type: "uint256" },
-          { name: "signature", type: "bytes" },
-        ],
-      },
-    ],
-    outputs: [{ type: "bytes32" }],
-  },
-  { type: "function", name: "getDomainHash", stateMutability: "view", inputs: [], outputs: [{ type: "bytes32" }] },
-] as const;
 
 const eip1271Abi = [
   {
@@ -73,19 +43,6 @@ const eip1271Abi = [
     outputs: [{ type: "bytes4" }],
   },
 ] as const;
-
-function encodeTerms(rootDomainId: `0x${string}`, predicateId: `0x${string}`, attestor: `0x${string}`): `0x${string}` {
-  return encodeAbiParameters(
-    [
-      { type: "bytes32", name: "rootDomainId" },
-      { type: "bytes32", name: "predicateId" },
-      { type: "uint8", name: "maxDepth" },
-      { type: "uint64", name: "expiry" },
-      { type: "address", name: "attestor" },
-    ],
-    [rootDomainId, predicateId, MAX_DEPTH, 0n, attestor],
-  );
-}
 
 async function main(): Promise<void> {
   if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run phase3:setup first");
@@ -143,7 +100,13 @@ async function main(): Promise<void> {
     caveats: [
       {
         enforcer,
-        terms: encodeTerms(manifest.vocabulary.atoms["design"] as `0x${string}`, manifest.vocabulary.predicate.termId, orgAttestor),
+        terms: encodeTerms({
+          rootDomainId: manifest.vocabulary.atoms["design"] as `0x${string}`,
+          predicateId: manifest.vocabulary.predicate.termId,
+          maxDepth: MAX_DEPTH,
+          expiry: 0n,
+          attestor: orgAttestor,
+        }),
         args: "0x",
       },
     ],
@@ -162,7 +125,13 @@ async function main(): Promise<void> {
     caveats: [
       {
         enforcer,
-        terms: encodeTerms(manifest.vocabulary.atoms["UX"] as `0x${string}`, manifest.vocabulary.predicate.termId, orgAttestor),
+        terms: encodeTerms({
+          rootDomainId: manifest.vocabulary.atoms["UX"] as `0x${string}`,
+          predicateId: manifest.vocabulary.predicate.termId,
+          maxDepth: MAX_DEPTH,
+          expiry: 0n,
+          attestor: orgAttestor,
+        }),
         args: "0x",
       },
     ],
@@ -187,7 +156,13 @@ async function main(): Promise<void> {
     caveats: [
       {
         enforcer,
-        terms: encodeTerms(manifest.vocabulary.atoms["UX"] as `0x${string}`, manifest.vocabulary.predicate.termId, orgAttestor),
+        terms: encodeTerms({
+          rootDomainId: manifest.vocabulary.atoms["UX"] as `0x${string}`,
+          predicateId: manifest.vocabulary.predicate.termId,
+          maxDepth: MAX_DEPTH,
+          expiry: 0n,
+          attestor: orgAttestor,
+        }),
         args: "0x",
       },
     ],
