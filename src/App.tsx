@@ -116,6 +116,7 @@ export function App() {
                   config={config}
                   client={client}
                   graph={demo.graph}
+                  delegations={demo.delegations}
                   writable={demo.writable}
                   role={role}
                   grants={demo.grants}

@@ -3,8 +3,9 @@ import type { PublicClient } from "viem";
 
 import { revokeWeight, signDelegation } from "../lib/demo-actions";
 import type { DemoConfig, Role } from "../lib/demo-config";
+import type { DelegationSet } from "../lib/delegation-set";
 import type { DomainGraph } from "../lib/domain-graph";
-import { candidatesFor, ROLE_CLASS, ROLE_LABELS, ROLES, upstreamOf, type Grant } from "../lib/grants";
+import { ROLE_CLASS, ROLE_LABELS, ROLES, type Grant } from "../lib/grants";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
@@ -17,6 +18,7 @@ export function ChainPanel({
   config,
   client,
   graph,
+  delegations,
   writable,
   role,
   grants,
@@ -27,6 +29,8 @@ export function ChainPanel({
   config: DemoConfig;
   client: PublicClient;
   graph: DomainGraph;
+  /** The grants in force — who may still receive this domain, and who holds it. */
+  delegations: DelegationSet;
   writable: boolean;
   /** Who the viewer is acting as — they can only delegate their own vote. */
   role: Role;
@@ -42,21 +46,18 @@ export function ChainPanel({
   const [busy, setBusy] = useState(false);
 
   // Both questions are per domain: granting `design` away says nothing about `legal`.
-  const blocked = upstreamOf(graph, grants, role, domain);
-  const candidates = candidatesFor(graph, grants, role, domain);
+  const blocked = delegations.upstreamOf(role, domain);
+  const candidates = delegations.candidatesFor(role, domain);
   const target = to && candidates.includes(to) ? to : (candidates[0] ?? null);
 
   const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
-  const yours = grants.find((grant) => !grant.revoked && grant.from === role && grant.scope === domain);
+  const yours = delegations.grantedAway(role, domain);
   // Granting a parent gives its children away with it, so a domain under one you already
   // delegated cannot be granted again — the parent has to come back first.
-  const ancestors = graph.ancestorsOf(domain);
-  const coveredBy = grants.find(
-    (grant) => !grant.revoked && grant.from === role && ancestors.includes(grant.scope),
-  );
+  const coveredBy = delegations.coveredBy(role, domain);
 
   // A domain has one holder at a time, so while yours stands the only move is to revoke.
-  const locked = yours !== undefined || coveredBy !== undefined;
+  const locked = yours !== null || coveredBy !== null;
 
   async function revokeParent(): Promise<void> {
     if (!coveredBy) return;
