@@ -6,10 +6,10 @@
  * receive a domain, which signed chain lets an account vote — is answered here, from the
  * grants that were actually signed rather than from a fixed pair.
  */
-import type { Delegation } from "./delegation";
-import type { Role } from "./demo-config";
-import type { DomainGraph } from "./domain-graph";
-import { ROLES, type Grant } from "./grants";
+import type { Delegation } from "./encoding";
+import type { Role } from "../config/app-config";
+import type { DomainGraph } from "../graph/domain-graph";
+import { ROLES, type Grant } from "./grant";
 
 /**
  * One voice a holder can exercise, and the signed chain that carries it.

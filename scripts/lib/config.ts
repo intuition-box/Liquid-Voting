@@ -1,9 +1,9 @@
 /**
- * Builds the frontend's DemoConfig from the manifest and the signed delegations.
+ * Builds the frontend's AppConfig from the manifest and the signed delegations.
  *
  * The scripts drive the very same service layer the panels do, so they need the same
  * config object. It used to be spelled out in each of them — which meant a field added to
- * DemoConfig had to be added twice, with nothing to say so if it was not.
+ * AppConfig had to be added twice, with nothing to say so if it was not.
  *
  * Node-side only: this reads the files from disk, where the app receives them through
  * Vite's glob imports.
@@ -13,8 +13,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Hex } from "viem";
 
-import type { DemoConfig } from "../../src/lib/demo-config";
-import { EDGE_KEY_SEPARATOR } from "../../src/lib/domain-graph";
+import type { AppConfig } from "../../src/lib/config/app-config";
+import { EDGE_KEY_SEPARATOR } from "../../src/lib/graph/domain-graph";
 import { ROLES } from "../../src/lib/roles";
 import { readManifest } from "./network";
 
@@ -22,9 +22,9 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const delegationsPath = join(repoRoot, "data", "delegations.json");
 
 interface SignedDelegations {
-  rootDelegation: DemoConfig["delegations"]["root"];
-  leafDelegation: DemoConfig["delegations"]["leaf"];
-  ownDelegation?: DemoConfig["delegations"]["root"];
+  rootDelegation: AppConfig["delegations"]["root"];
+  leafDelegation: AppConfig["delegations"]["leaf"];
+  ownDelegation?: AppConfig["delegations"]["root"];
   signedAt: string;
   maxDepth: number;
 }
@@ -32,7 +32,7 @@ interface SignedDelegations {
 /** The signed delegations, as saved by `phase3:delegate`. */
 export function readDelegations(): SignedDelegations {
   if (!existsSync(delegationsPath)) {
-    throw new Error("data/delegations.json missing — run `bun run phase3:delegate`");
+    throw new Error("data/delegations.json missing — run `bun run delegate`");
   }
   return JSON.parse(readFileSync(delegationsPath, "utf-8")) as SignedDelegations;
 }
@@ -43,19 +43,19 @@ export function readDelegations(): SignedDelegations {
  * `submitterKey` is what separates a read-only caller from one that writes: pass
  * PRIVATE_KEY to send transactions, omit it for a script that only simulates.
  */
-export function configFromManifest(submitterKey?: string): DemoConfig {
+export function configFromManifest(submitterKey?: string): AppConfig {
   const manifest = readManifest();
   const delegations = readDelegations();
   const { orgAttestor, curveId } = manifest.attestation;
   const accounts = manifest.accounts;
   if (!orgAttestor || !curveId || !accounts) {
-    throw new Error("manifest incomplete — run `bun run seed` and `bun run phase3:setup`");
+    throw new Error("manifest incomplete — run `bun run seed` and `bun run setup`");
   }
 
-  const roleAccounts = {} as DemoConfig["accounts"];
+  const roleAccounts = {} as AppConfig["accounts"];
   for (const role of ROLES) {
     const entry = accounts[role];
-    if (!entry) throw new Error(`manifest has no ${role} account — run \`bun run phase3:setup\``);
+    if (!entry) throw new Error(`manifest has no ${role} account — run \`bun run setup\``);
     roleAccounts[role] = entry;
   }
 

@@ -13,7 +13,7 @@
  */
 import type { Hex } from "viem";
 
-import type { DomainNode, EdgeState, PathResult, PathStep } from "./graph";
+import type { DomainNode, EdgeState, PathResult, PathStep } from "./edges";
 
 /** Root of the governance hierarchy — every domain path climbs to it. */
 export const ROOT_DOMAIN = "governance";

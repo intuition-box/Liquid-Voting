@@ -1,8 +1,8 @@
-import { decodeTerms, type Delegation } from "./delegation";
-import type { DemoConfig } from "./demo-config";
-import type { Role } from "./roles";
+import { decodeTerms, type Delegation } from "./encoding";
+import type { AppConfig } from "../config/app-config";
+import type { Role } from "../roles";
 
-export { ROLES, ROLE_LABELS, ROLE_CLASS, type Role } from "./roles";
+export { ROLES, ROLE_LABELS, ROLE_CLASS, type Role } from "../roles";
 
 /**
  * One signed delegation: who handed what to whom, and whose voice it carries.
@@ -24,7 +24,7 @@ export interface Grant {
 }
 
 /** The delegations the setup scripts signed, expressed as grants. */
-export function baseGrants(config: DemoConfig, rootDisabled: boolean, leafDisabled: boolean): Grant[] {
+export function baseGrants(config: AppConfig, rootDisabled: boolean, leafDisabled: boolean): Grant[] {
   const scopeOf = (delegation: Delegation): string => {
     const caveat = delegation.caveats[0];
     if (!caveat) return "";

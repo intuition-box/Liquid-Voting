@@ -6,7 +6,7 @@
  * args only if it has no code yet, then funded to a small gas target (self-paid user
  * ops, ADR 0010). Every step is re-read from chain before the manifest is updated.
  *
- * Run: bun run phase3:setup
+ * Run: bun run setup
  */
 import { createPublicClient, createWalletClient, formatEther, http, parseEther } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
-import { toHybridAccount } from "../src/lib/smart-accounts";
+import { toHybridAccount } from "../src/lib/chain/smart-accounts";
 import { ROLES, type Role } from "../src/lib/roles";
 
 const SA_GAS_TARGET = parseEther("0.02");

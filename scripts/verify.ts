@@ -11,14 +11,14 @@
 import { createPublicClient, http } from "viem";
 
 import { intuitionTestnet } from "./lib/network";
-import { configFromManifest } from "./lib/demo-config";
-import { isDelegationDisabled } from "../src/lib/delegation";
-import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR } from "../src/lib/demo-actions";
-import { DelegationSet } from "../src/lib/delegation-set";
-import { DomainGraph } from "../src/lib/domain-graph";
-import { baseGrants } from "../src/lib/grants";
-import type { Role } from "../src/lib/demo-config";
-import { readEdgeStates } from "../src/lib/graph";
+import { configFromManifest } from "./lib/config";
+import { isDelegationDisabled } from "../src/lib/delegation/encoding";
+import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR } from "../src/lib/actions";
+import { DelegationSet } from "../src/lib/delegation/delegation-set";
+import { DomainGraph } from "../src/lib/graph/domain-graph";
+import { baseGrants } from "../src/lib/delegation/grant";
+import type { Role } from "../src/lib/config/app-config";
+import { readEdgeStates } from "../src/lib/graph/edges";
 
 
 /**
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   const graph = DomainGraph.from(config.nodes, edges);
   const rootDisabled = await isDelegationDisabled(client, config.delegations.root.hash);
   const leafDisabled = await isDelegationDisabled(client, config.delegations.leaf.hash);
-  if (rootDisabled || leafDisabled) fail(`delegation chain is revoked (root=${rootDisabled} leaf=${leafDisabled}) — re-sign with \`bun run phase3:delegate\``);
+  if (rootDisabled || leafDisabled) fail(`delegation chain is revoked (root=${rootDisabled} leaf=${leafDisabled}) — re-sign with \`bun run delegate\``);
   else console.log(`ok    delegation chain active, signed ${new Date(config.delegations.signedAt).toLocaleString()}`);
 
   const grants = new DelegationSet(baseGrants(config, rootDisabled, leafDisabled), graph);

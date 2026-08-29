@@ -1,24 +1,28 @@
 /**
- * Demo actions — the service layer behind the panels. No React, no DOM: every function
- * takes the config plus its inputs and returns data. Hooks own the lifecycle.
+ * Casting a vote: planning which signed chains carry it, simulating, and submitting.
  */
-import { createWalletClient, encodeFunctionData, http, parseAbiItem, stringToHex, toHex, type Hex, type PublicClient } from "viem";
+import { parseAbiItem, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { ROOT_AUTHORITY } from "@metamask/smart-accounts-kit";
 
-import { delegationManagerAbi, governorAbi, multiVaultAbi } from "./abis";
-import { FRAMEWORK, intuitionTestnet } from "./chain";
+import { governorAbi } from "../chain/abis";
+import { FRAMEWORK } from "../chain/network";
+import { toHybridAccount } from "../chain/smart-accounts";
+import { sendUserOp, type UserOpResult } from "../chain/user-op";
+import type { AppConfig } from "../config/app-config";
+import type { RedeemableChain } from "../delegation/delegation-set";
 import {
-  buildDisableCalldata,
   buildVoteCalldata,
-  encodeTerms,
   preflightRedeem,
   type Delegation,
   type PreflightResult,
-} from "./delegation";
-import type { DemoConfig, Role } from "./demo-config";
-import type { RedeemableChain } from "./delegation-set";
-import { ROLES } from "./grants";
+} from "../delegation/encoding";
+import type { DomainGraph, GraphLimits } from "../graph/domain-graph";
+import type { PathResult } from "../graph/edges";
+import { ROLES, type Role } from "../roles";
+
+import { requireOwnerKey, submitterClient } from "./common";
+
+export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "../delegation/encoding";
 
 /** The governor's vote logs, as parsed items — getLogs infers its arg types from these. */
 const VOTE_CAST = parseAbiItem(
@@ -27,25 +31,7 @@ const VOTE_CAST = parseAbiItem(
 const VOTE_ON_BEHALF = parseAbiItem(
   "event VoteCastOnBehalf(uint256 indexed proposalId, address indexed principal, address indexed representative, uint256 weight)",
 );
-import { DomainGraph, type GraphLimits } from "./domain-graph";
-import { type PathResult } from "./graph";
-import { toHybridAccount } from "./smart-accounts";
-import { sendUserOp, type UserOpResult } from "./user-op";
 
-/**
- * Narrows an owner key at the point of use. Lives here rather than in demo-config so this
- * module stays importable from Node/bun scripts — demo-config is browser-only.
- */
-function requireOwnerKey(config: DemoConfig, role: Role): `0x${string}` {
-  const key = config.ownerKeys[role];
-  if (!key) throw new Error(`no ${role} owner key — this is a read-only build (see ADR 0011)`);
-  return key;
-}
-
-export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "./delegation";
-
-/** Hop cap written into every delegation signed from the UI — deep enough for the demo graph. */
-const DEFAULT_MAX_DEPTH = 3;
 
 export interface VotePlan {
   /** The account that must be `msg.sender` at the DelegationManager, and the recorded voter. */
@@ -75,7 +61,7 @@ export interface VotePlan {
  * rather than hide it behind a spinner.
  */
 export function planVote(
-  config: DemoConfig,
+  config: AppConfig,
   graph: DomainGraph,
   resolved: RedeemableChain,
   domainLabel: string,
@@ -103,7 +89,7 @@ export function planVote(
 
 /** Encodes the redemption of a delegated vote for the given chains and witnesses. */
 function encodeVote(
-  config: DemoConfig,
+  config: AppConfig,
   chains: { chain: Delegation[]; witnesses: Hex[][] }[],
   redeemer: Role,
   principals: Role[],
@@ -132,7 +118,7 @@ function encodeVote(
  * for the real reason instead of the UI refusing to try.
  */
 export function planVoteForcingWitness(
-  config: DemoConfig,
+  config: AppConfig,
   graph: DomainGraph,
   resolved: RedeemableChain,
   domainLabel: string,
@@ -166,24 +152,16 @@ export function planVoteForcingWitness(
 
 export async function preflightVote(
   client: PublicClient,
-  config: DemoConfig,
+  config: AppConfig,
   plan: VotePlan,
 ): Promise<PreflightResult> {
   if (!plan.calldata) return { ok: false, revert: null, raw: plan.blocked ?? "no calldata" };
   return preflightRedeem(client, config.accounts[plan.redeemer].smartAccount, plan.calldata);
 }
 
-function submitterClient(config: DemoConfig) {
-  return createWalletClient({
-    chain: intuitionTestnet,
-    transport: http(config.rpcUrl),
-    account: privateKeyToAccount(config.submitterKey),
-  });
-}
-
 export async function submitVote(
   client: PublicClient,
-  config: DemoConfig,
+  config: AppConfig,
   plan: VotePlan,
 ): Promise<UserOpResult> {
   if (!plan.calldata) throw new Error(plan.blocked ?? "nothing to submit");
@@ -200,7 +178,7 @@ export async function submitVote(
  */
 export async function recordProposal(
   client: PublicClient,
-  config: DemoConfig,
+  config: AppConfig,
   domainLabel: string,
   description: string,
 ): Promise<{ txHash: Hex; proposalId: bigint }> {
@@ -232,152 +210,11 @@ export async function recordProposal(
  * rather than at redemption time.
  *
  * When the signer holds this domain through a delegation of its own, the new grant is
- * chained to it: `authority` carries the upstream hash instead of ROOT_AUTHORITY, which
+ * chained to it: `authority` carries the upstream hash instead of which
  * is what makes the authority derive rather than stand on its own. The consequence is the
  * framework's, not ours — disabling a link kills everything below it, because every hash
  * beneath points at it.
  */
-export async function signDelegation(
-  client: PublicClient,
-  config: DemoConfig,
-  from: Role,
-  to: Role,
-  domainLabel: string,
-  /** The domain and its parents, so the governor can refuse one already covered. */
-  domainPath: Hex[] = [],
-  /** The delegations the signer already holds on this domain, one per voice it carries. */
-  upstream: (Delegation & { hash: Hex })[] = [],
-): Promise<(Delegation & { hash: Hex })[]> {
-  const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
-  if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
-
-  const delegator = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
-  const signerAccount = config.accounts[from].smartAccount;
-
-  // The manager walks a chain leaf to root and requires each link's delegator to be the
-  // next one's delegate, so only an upstream that hands over to this signer can be relayed.
-  const relayable = upstream.filter(
-    (held) => held.delegate.toLowerCase() === signerAccount.toLowerCase(),
-  );
-
-  // One delegation per voice: the signer's own, plus one relaying each voice it was
-  // lent. Bundling them into a single object would tie the signer's own voice to
-  // authority it merely borrowed — revoking upstream would then silence a voice that
-  // was never the upstream's to take back. A voice keeps belonging to whoever cast it.
-  const authorities: Hex[] = [ROOT_AUTHORITY, ...relayable.map((held) => held.hash)];
-
-  const signed: (Delegation & { hash: Hex })[] = [];
-  for (const [index, authority] of authorities.entries()) {
-    const delegation: Delegation = {
-      delegate: config.accounts[to].smartAccount,
-      delegator: signerAccount,
-      authority,
-      caveats: [
-        {
-          enforcer: config.enforcer,
-          terms: encodeTerms({
-            rootDomainId: domainId,
-            predicateId: config.predicate.termId,
-            maxDepth: DEFAULT_MAX_DEPTH,
-            expiry: 0n,
-            attestor: config.attestor,
-          }),
-          args: "0x",
-        },
-      ],
-      // disableDelegation blacklists a hash forever, so every delegation needs its own
-      // salt — including the siblings signed in this same call.
-      salt: toHex(BigInt(Date.now()) * 1000n + BigInt(index)),
-      signature: "0x",
-    };
-    delegation.signature = await delegator.signDelegation({ delegation });
-    const hash = await client.readContract({
-      address: FRAMEWORK.delegationManager,
-      abi: delegationManagerAbi,
-      functionName: "getDelegationHash",
-      args: [{ ...delegation, salt: BigInt(delegation.salt) }],
-    });
-    signed.push({ ...delegation, hash });
-  }
-
-  // The signatures say the delegate MAY vote on this domain; the governor's register says
-  // whose weight it carries. Recording the transfer is what makes the delegator stop
-  // counting on this domain and the delegate count for both. One transfer, however many
-  // voices moved: the register tracks the holder, the signatures track the authority.
-  const op = await sendUserOp(client, submitterClient(config), delegator, [
-    {
-      to: config.governor,
-      value: 0n,
-      data: encodeFunctionData({
-        abi: governorAbi,
-        functionName: "delegateWeight",
-        args: [config.accounts[to].smartAccount, domainId, domainPath],
-      }),
-    },
-  ]);
-  if (!op.success) {
-    throw new Error(op.revert ? `weight transfer reverted: ${op.revert.formatted}` : "weight transfer reverted");
-  }
-
-  return signed;
-}
-
-/**
- * Clears a weight delegation on one domain, so it can be granted elsewhere.
- *
- * A domain has one holder at a time: the governor refuses a second grant while the first
- * stands, which is what stops weight being moved out from under a delegate silently.
- * Revoking is the way back.
- */
-export async function revokeWeight(
-  client: PublicClient,
-  config: DemoConfig,
-  from: Role,
-  domainLabel: string,
-): Promise<UserOpResult> {
-  const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
-  if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
-  const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
-  return sendUserOp(client, submitterClient(config), account, [
-    {
-      to: config.governor,
-      value: 0n,
-      data: encodeFunctionData({
-        abi: governorAbi,
-        functionName: "delegateWeight",
-        args: ["0x0000000000000000000000000000000000000000", domainId, []],
-      }),
-    },
-  ]);
-}
-
-/** The voter disables its root delegation — framework-native, kills the whole chain. */
-export async function revokeRoot(client: PublicClient, config: DemoConfig): Promise<UserOpResult> {
-  const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "voter")));
-  return sendUserOp(client, submitterClient(config), voter, [
-    { to: FRAMEWORK.delegationManager, value: 0n, data: buildDisableCalldata(config.delegations.root) },
-  ]);
-}
-
-/**
- * The governor's own path cap, read rather than copied.
- *
- * The constant stays on chain because that is where it does its work: it bounds the
- * verification loops against a hand-crafted path, and a bound the caller can talk the
- * contract out of is not a bound. Reading it here only lets the UI decline a trip the
- * contract would refuse anyway — the same rule the seeder follows for atom cost and
- * curve id: query, never hardcode.
- */
-export async function readGraphLimits(client: PublicClient, config: DemoConfig): Promise<GraphLimits> {
-  const maxDomainPath = await client.readContract({
-    address: config.governor,
-    abi: governorAbi,
-    functionName: "MAX_DOMAIN_PATH",
-  });
-  return { maxDomainPath: Number(maxDomainPath) };
-}
-
-/** Lifecycle states, in the governor's enum order. */
 export const PROPOSAL_STATES = ["pending", "active", "defeated", "succeeded", "executed"] as const;
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
 
@@ -392,7 +229,7 @@ export interface ProposalRecord {
   abstainVotes: bigint;
 }
 
-export async function readProposals(client: PublicClient, config: DemoConfig, limit = 8): Promise<ProposalRecord[]> {
+export async function readProposals(client: PublicClient, config: AppConfig, limit = 8): Promise<ProposalRecord[]> {
   const gov = { address: config.governor, abi: governorAbi } as const;
   const count = await client.readContract({ ...gov, functionName: "proposalCount" });
   const ids: bigint[] = [];
@@ -445,7 +282,7 @@ export interface Ballot {
  */
 export async function readBallots(
   client: PublicClient,
-  config: DemoConfig,
+  config: AppConfig,
   proposalId: bigint,
 ): Promise<Ballot[]> {
   const roleOf = (address: `0x${string}`): Role | null =>
@@ -494,7 +331,7 @@ export async function readBallots(
  */
 export async function readWeights(
   client: PublicClient,
-  config: DemoConfig,
+  config: AppConfig,
   domainId: Hex,
   domainPath: Hex[] = [],
 ): Promise<Record<Role, bigint>> {
@@ -513,74 +350,20 @@ export async function readWeights(
   return { voter: weights[0] ?? 0n, delegate: weights[1] ?? 0n, executor: weights[2] ?? 0n };
 }
 
-export interface ExtendResult {
-  label: string;
-  atomId: Hex;
-  tripleId: Hex;
-  atomTx: Hex | null;
-  tripleTx: Hex | null;
-  stakeTx: Hex;
-  shares: bigint;
-}
-
 /**
- * The money shot: create a brand-new domain atom, link it under an existing parent, and
- * stake it — after which a delegation signed earlier authorizes a domain that did not
- * exist at signing time. No redeploy, no re-signature. Idempotent per step.
+ * The governor's own path cap, read rather than copied.
+ *
+ * The constant stays on chain because that is where it does its work: it bounds the
+ * verification loops against a hand-crafted path, and a bound the caller can talk the
+ * contract out of is not a bound. Reading it here only lets the UI decline a trip the
+ * contract would refuse anyway — the same rule the seeder follows for atom cost and
+ * curve id: query, never hardcode.
  */
-export async function extendGraph(
-  client: PublicClient,
-  config: DemoConfig,
-  label: string,
-  parentLabel: string,
-  stakeWei: bigint,
-): Promise<ExtendResult> {
-  const parentId = config.nodes.find((node) => node.label === parentLabel)?.termId;
-  if (!parentId) throw new Error(`unknown parent domain “${parentLabel}”`);
-
-  const wallet = submitterClient(config);
-  const vault = { address: config.multiVault, abi: multiVaultAbi } as const;
-  const data = stringToHex(label);
-
-  const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [data] });
-  let atomTx: Hex | null = null;
-  if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] }))) {
-    const atomCost = await client.readContract({ ...vault, functionName: "getAtomCost" });
-    atomTx = await wallet.writeContract({ ...vault, functionName: "createAtoms", args: [[data], [atomCost]], value: atomCost });
-    await client.waitForTransactionReceipt({ hash: atomTx });
-  }
-
-  const tripleId = await client.readContract({
-    ...vault,
-    functionName: "calculateTripleId",
-    args: [atomId, config.predicate.termId, parentId],
+export async function readGraphLimits(client: PublicClient, config: AppConfig): Promise<GraphLimits> {
+  const maxDomainPath = await client.readContract({
+    address: config.governor,
+    abi: governorAbi,
+    functionName: "MAX_DOMAIN_PATH",
   });
-  let tripleTx: Hex | null = null;
-  if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [tripleId] }))) {
-    const tripleCost = await client.readContract({ ...vault, functionName: "getTripleCost" });
-    tripleTx = await wallet.writeContract({
-      ...vault,
-      functionName: "createTriples",
-      args: [[atomId], [config.predicate.termId], [parentId], [tripleCost]],
-      value: tripleCost,
-    });
-    await client.waitForTransactionReceipt({ hash: tripleTx });
-  }
-
-  const stakeTx = await wallet.writeContract({
-    ...vault,
-    functionName: "deposit",
-    args: [config.attestor, tripleId, config.curveId, 0n],
-    value: stakeWei,
-  });
-  await client.waitForTransactionReceipt({ hash: stakeTx });
-
-  const shares = await client.readContract({
-    ...vault,
-    functionName: "getShares",
-    args: [config.attestor, tripleId, config.curveId],
-  });
-  if (shares === 0n) throw new Error("stake did not register — the edge would authorize nothing");
-
-  return { label, atomId, tripleId, atomTx, tripleTx, stakeTx, shares };
+  return { maxDomainPath: Number(maxDomainPath) };
 }

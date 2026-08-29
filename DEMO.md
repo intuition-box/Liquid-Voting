@@ -17,10 +17,10 @@ state."** If any line says FAIL, fix it before presenting:
 | FAIL line | Fix |
 |---|---|
 | `edge … does NOT authorize` | `bun run seed` — the attestor stake is missing |
-| `delegation chain is revoked` | `bun run phase3:delegate` — sign a fresh chain (new salt) |
+| `delegation chain is revoked` | `bun run delegate` — sign a fresh chain (new salt) |
 | `no fresh active proposal on …` | `bun run seed:proposals` — record unvoted proposals |
 
-Have a second terminal with `bun run vote:run` ready but **not** executed — it is the
+Have a second terminal with `bun run votes` ready but **not** executed — it is the
 fallback if the browser misbehaves, proving the same five flows from the CLI in ~40s.
 
 **Rehearsing the live extension without spoiling it:** `bun run rehearse` runs the whole
@@ -139,7 +139,7 @@ Click **for** to show it lands as 1.
 > recomputing the triple id for `legal — is a sub-domain of — design` and finding nothing
 > there."
 
-**If you want the revert on screen:** switch to the terminal and run `bun run vote:run`;
+**If you want the revert on screen:** switch to the terminal and run `bun run votes`;
 case 3 prints `NotATriple(0x4385e3…)` against the live contracts.
 
 ---
@@ -251,6 +251,6 @@ Then the ask: **Mission 11** — see the slide outline.
 
 ## If the whole browser demo fails
 
-Switch to the terminal and run `bun run vote:run`. It executes the same five flows against
+Switch to the terminal and run `bun run votes`. It executes the same five flows against
 the same live contracts and prints them as pass/fail lines with the same revert reasons.
 It takes about 40 seconds and shares `src/lib` with the panels — the same code path.

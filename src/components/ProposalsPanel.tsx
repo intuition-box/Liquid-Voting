@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { PublicClient } from "viem";
 
-import type { DemoConfig, Role } from "../lib/demo-config";
+import type { AppConfig, Role } from "../lib/config/app-config";
 import {
   planVoteForcingWitness,
   readBallots,
@@ -12,11 +12,11 @@ import {
   VOTE_FOR,
   type Ballot,
   type ProposalRecord,
-} from "../lib/demo-actions";
-import type { DelegationSet } from "../lib/delegation-set";
-import type { DomainGraph } from "../lib/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS } from "../lib/grants";
-import { shortHex } from "../lib/chain";
+} from "../lib/actions";
+import type { DelegationSet } from "../lib/delegation/delegation-set";
+import type { DomainGraph } from "../lib/graph/domain-graph";
+import { ROLE_CLASS, ROLE_LABELS } from "../lib/delegation/grant";
+import { shortHex } from "../lib/chain/network";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Feedback {
@@ -58,7 +58,7 @@ export function ProposalsPanel({
   writable,
   onSettled,
 }: {
-  config: DemoConfig;
+  config: AppConfig;
   client: PublicClient;
   graph: DomainGraph;
   /** The grants in force — which signed chain a vote is redeemed through. */

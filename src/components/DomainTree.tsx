@@ -1,6 +1,6 @@
-import type { Role } from "../lib/demo-config";
-import type { DomainGraph, TreeNode } from "../lib/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS } from "../lib/grants";
+import type { Role } from "../lib/config/app-config";
+import type { DomainGraph, TreeNode } from "../lib/graph/domain-graph";
+import { ROLE_CLASS, ROLE_LABELS } from "../lib/delegation/grant";
 
 /** A delegation in force on one domain, and whose voice it carries. */
 export interface Held {

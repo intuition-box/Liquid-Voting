@@ -7,8 +7,8 @@ import {
   type PublicClient,
 } from "viem";
 
-import { delegationManagerAbi, governorAbi, revertAbi } from "./abis";
-import { FRAMEWORK } from "./chain";
+import { delegationManagerAbi, governorAbi, revertAbi } from "../chain/abis";
+import { FRAMEWORK } from "../chain/network";
 
 /** Execution mode: single call, default (non-try) — ERC-7579 encoding. */
 export const SINGLE_DEFAULT_MODE = "0x0000000000000000000000000000000000000000000000000000000000000000" as const;

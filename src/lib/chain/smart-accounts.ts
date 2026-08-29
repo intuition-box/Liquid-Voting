@@ -9,7 +9,7 @@ import { overrideDeployedEnvironment } from "@metamask/smart-accounts-kit/utils"
 import type { PublicClient } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
 
-import { intuitionTestnet } from "./chain";
+import { intuitionTestnet } from "./network";
 
 export type HybridAccount = MetaMaskSmartAccount<Implementation.Hybrid>;
 

@@ -24,15 +24,15 @@
  * enforcer's own revert without burning gas. Both paths go through src/lib, so the
  * frontend and this runner exercise identical code.
  *
- * Run: bun run vote:run
+ * Run: bun run votes
  */
 import { encodeFunctionData, type Hex } from "viem";
 
 import { prepareRunner } from "./lib/runner";
-import { governorAbi } from "../src/lib/abis";
-import { FRAMEWORK } from "../src/lib/chain";
-import { buildVoteCalldata, preflightRedeem, VOTE_FOR, type Delegation } from "../src/lib/delegation";
-import { sendUserOp } from "../src/lib/user-op";
+import { governorAbi } from "../src/lib/chain/abis";
+import { FRAMEWORK } from "../src/lib/chain/network";
+import { buildVoteCalldata, preflightRedeem, VOTE_FOR, type Delegation } from "../src/lib/delegation/encoding";
+import { sendUserOp } from "../src/lib/chain/user-op";
 
 const VOTING_POWER = 1n;
 

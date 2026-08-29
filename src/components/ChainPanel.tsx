@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { PublicClient } from "viem";
 
-import { revokeWeight, signDelegation } from "../lib/demo-actions";
-import type { DemoConfig, Role } from "../lib/demo-config";
-import type { DelegationSet } from "../lib/delegation-set";
-import type { DomainGraph } from "../lib/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS, ROLES, type Grant } from "../lib/grants";
+import { revokeWeight, signDelegation } from "../lib/actions";
+import type { AppConfig, Role } from "../lib/config/app-config";
+import type { DelegationSet } from "../lib/delegation/delegation-set";
+import type { DomainGraph } from "../lib/graph/domain-graph";
+import { ROLE_CLASS, ROLE_LABELS, ROLES, type Grant } from "../lib/delegation/grant";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
@@ -26,7 +26,7 @@ export function ChainPanel({
   onSigned,
   onRevoked,
 }: {
-  config: DemoConfig;
+  config: AppConfig;
   client: PublicClient;
   graph: DomainGraph;
   /** The grants in force — who may still receive this domain, and who holds it. */

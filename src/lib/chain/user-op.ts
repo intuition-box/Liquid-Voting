@@ -18,7 +18,7 @@ import {
 } from "viem";
 
 import { entryPointAbi } from "./abis";
-import { decodeRevert, type DecodedRevert } from "./delegation";
+import { decodeRevert, type DecodedRevert } from "../delegation/encoding";
 import { ensureEnvironment, type HybridAccount } from "./smart-accounts";
 
 /** Gas set generously rather than estimated — there is no bundler to estimate (ADR 0010). */

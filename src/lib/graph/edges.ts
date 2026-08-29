@@ -1,6 +1,6 @@
 import type { PublicClient } from "viem";
 
-import { multiVaultAbi } from "./abis";
+import { multiVaultAbi } from "../chain/abis";
 
 export interface DomainNode {
   label: string;

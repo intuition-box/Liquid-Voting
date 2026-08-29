@@ -18,10 +18,10 @@ import { fileURLToPath } from "node:url";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
-import { governorAbi } from "../src/lib/abis";
-import { toHybridAccount } from "../src/lib/smart-accounts";
+import { governorAbi } from "../src/lib/chain/abis";
+import { toHybridAccount } from "../src/lib/chain/smart-accounts";
 import { ROLES } from "../src/lib/roles";
-import { sendUserOp } from "../src/lib/user-op";
+import { sendUserOp } from "../src/lib/chain/user-op";
 
 /**
  * One proposal per domain the demo votes on, in the order the panels present them.
@@ -44,7 +44,7 @@ const VOTING_POWER = 1n;
 async function main(): Promise<void> {
   const manifest = readManifest();
   const accounts = manifest.accounts;
-  if (!accounts) throw new Error("manifest has no accounts — run `bun run phase3:setup` first");
+  if (!accounts) throw new Error("manifest has no accounts — run `bun run setup` first");
   const key = process.env["PRIVATE_KEY"];
   if (!key) throw new Error("PRIVATE_KEY missing (contracts/.env)");
 
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   const atoms = manifest.vocabulary.atoms as Record<string, Hex>;
 
   const accountsPath = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "accounts.json");
-  if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run `bun run phase3:setup`");
+  if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run `bun run setup`");
   const ownerKeys = (JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, string> }).keys;
 
   console.log(`governor ${gov.address}`);

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { addressUrl, shortHex, txUrl } from "../lib/chain";
+import { addressUrl, shortHex, txUrl } from "../lib/chain/network";
 
 export function Panel({ title, children }: { title?: string; children: ReactNode }) {
   return (

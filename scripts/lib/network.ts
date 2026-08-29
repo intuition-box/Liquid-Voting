@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-export { intuitionTestnet } from "../../src/lib/chain";
+export { intuitionTestnet } from "../../src/lib/chain/network";
 
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");

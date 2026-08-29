@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { useDemo } from "./hooks/useDemo";
-import type { Role } from "./lib/demo-config";
-import { ROLES, ROLE_CLASS, ROLE_LABELS } from "./lib/grants";
+import { useApp } from "./hooks/useApp";
+import type { Role } from "./lib/config/app-config";
+import { ROLES, ROLE_CLASS, ROLE_LABELS } from "./lib/delegation/grant";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
@@ -26,7 +26,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 ];
 
 export function App() {
-  const demo = useDemo();
+  const demo = useApp();
   const [tab, setTab] = useState<TabId>("proposals");
   const [domain, setDomain] = useState("design");
   const [role, setRole] = useState<Role>("delegate");

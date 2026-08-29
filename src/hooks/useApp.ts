@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicClient } from "viem";
 
-import { createChainClient } from "../lib/chain";
-import { isDelegationDisabled } from "../lib/delegation";
+import { createChainClient } from "../lib/chain/network";
+import { isDelegationDisabled } from "../lib/delegation/encoding";
 import {
   canWrite,
   clearSessionDomains,
-  loadDemoConfig,
+  loadAppConfig,
   readSessionDomains,
   readSessionGrants,
   saveSessionDomain,
@@ -14,19 +14,19 @@ import {
   saveSessionGrants,
   withSessionDomains,
   type ConfigResult,
-  type DemoConfig,
+  type AppConfig,
   type Role,
   type SessionDomain,
-} from "../lib/demo-config";
-import { readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/demo-actions";
-import { DelegationSet } from "../lib/delegation-set";
-import { DomainGraph, type GraphLimits } from "../lib/domain-graph";
-import { baseGrants, type Grant } from "../lib/grants";
-import { readEdgeStates, type EdgeState } from "../lib/graph";
+} from "../lib/config/app-config";
+import { readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
+import { DelegationSet } from "../lib/delegation/delegation-set";
+import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
+import { baseGrants, type Grant } from "../lib/delegation/grant";
+import { readEdgeStates, type EdgeState } from "../lib/graph/edges";
 
-export interface DemoState {
+export interface AppState {
   configResult: ConfigResult;
-  config: DemoConfig | null;
+  config: AppConfig | null;
   client: PublicClient | null;
   writable: boolean;
   edges: EdgeState[];
@@ -60,8 +60,8 @@ export interface DemoState {
  * state, and the governor's proposals. One `refresh` re-reads all of it, so any action
  * can settle the UI by calling it.
  */
-export function useDemo(): DemoState {
-  const configResult = useMemo(() => loadDemoConfig(), []);
+export function useApp(): AppState {
+  const configResult = useMemo(() => loadAppConfig(), []);
   const baseConfig = configResult.ok ? configResult.config : null;
 
   const [sessionDomains, setSessionDomains] = useState<SessionDomain[]>(() =>

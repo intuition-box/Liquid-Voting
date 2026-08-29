@@ -158,16 +158,18 @@ executor SA ──user op──▶ EntryPoint ──▶ DelegationManager ──
 The proposal is recorded **in the voter's name** — the governor sees the voter's smart
 account as `msg.sender`. That is what makes it delegation rather than impersonation.
 
-All six flows are verified live (`bun run phase3:run`):
+The delegated-voting flows are verified live (`bun run votes`):
 
 | Flow | Result |
 |---|---|
-| `UX` through the full two-level chain | passes — proposal recorded, proposer = voter SA |
-| `branding` under the `design` root | passes |
-| `legal` under the same delegation | `NotATriple(0x4385e3…)` |
+| B redeems A's delegation and votes on `branding` | passes — recorded as B, weight 2 |
+| B tries the same on `legal` | `NotATriple(0x4385e3…)` — outside the delegated scope |
+| B votes on `legal` for itself | passes — weight 1, A untouched |
 | `branding` through the `UX`-narrowed chain | `NotATriple(0x5b52dc…)` — narrowing |
-| 2-hop `logo` under a `maxDepth = 1` variant | `PathTooLong(2, 1)` |
-| voter revokes the root | executor **and** delegate revert `CannotUseADisabledDelegation` |
+
+The `maxDepth` and revocation paths are covered by the contract tests
+(`contracts/test/unit/`), which exercise them against a stub enforcer rather than
+spending gas to re-prove them on chain.
 
 Revocation is framework-native: `disableDelegation` is checked by the DelegationManager
 before any hook runs. We wrote zero code for it, and the test is green with a stub
@@ -370,8 +372,7 @@ cd contracts && forge test   # 46 tests (unit + fork against live MultiVault)
 ```
 
 From a clean chain: `bun run seed` (vocabulary + attestor stakes) →
-`bun run phase3:setup` (three smart accounts) → `bun run phase3:delegate` (sign the
-chain) → `bun run phase3:run` (the six acceptance flows).
+`bun run setup` (three smart accounts) → `bun run delegate` (sign the chain) → `bun run votes` (the acceptance flows).
 
 Decision record: [`docs/adr/`](docs/adr/) — ADRs 0001–0011, each with the
 alternatives that were rejected and why. Phase gates and the vocabulary audit (with

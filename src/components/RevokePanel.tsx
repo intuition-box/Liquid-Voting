@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { PublicClient } from "viem";
 
-import type { DelegationSet } from "../lib/delegation-set";
-import type { DemoConfig } from "../lib/demo-config";
-import type { DomainGraph } from "../lib/domain-graph";
-import { ROLE_LABELS, ROLES } from "../lib/grants";
-import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/demo-actions";
+import type { DelegationSet } from "../lib/delegation/delegation-set";
+import type { AppConfig } from "../lib/config/app-config";
+import type { DomainGraph } from "../lib/graph/domain-graph";
+import { ROLE_LABELS, ROLES } from "../lib/delegation/grant";
+import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/actions";
 import { Button, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
 interface Outcome {
@@ -33,7 +33,7 @@ export function RevokePanel({
   rootDisabled,
   onSettled,
 }: {
-  config: DemoConfig;
+  config: AppConfig;
   client: PublicClient;
   graph: DomainGraph;
   delegations: DelegationSet;
@@ -111,7 +111,7 @@ export function RevokePanel({
         <Button onClick={() => void revoke()} busy={busy} disabled={!writable || rootDisabled} variant="danger">
           revoke root delegation
         </Button>
-        {rootDisabled ? <span className="muted">already revoked — re-sign with `bun run phase3:delegate`</span> : null}
+        {rootDisabled ? <span className="muted">already revoked — re-sign with `bun run delegate`</span> : null}
       </div>
       {outcome ? (
         <Status verdict={outcome.verdict}>

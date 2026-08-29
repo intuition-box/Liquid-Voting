@@ -11,10 +11,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Delegation } from "../../src/lib/delegation";
+import type { Delegation } from "../../src/lib/delegation/encoding";
 import { ROLES, type Role } from "../../src/lib/roles";
-import type { HybridAccount } from "../../src/lib/smart-accounts";
-import { toHybridAccount } from "../../src/lib/smart-accounts";
+import type { HybridAccount } from "../../src/lib/chain/smart-accounts";
+import { toHybridAccount } from "../../src/lib/chain/smart-accounts";
 import { intuitionTestnet, readManifest, type Manifest } from "./network";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -43,7 +43,7 @@ export interface RunnerContext {
 
 export async function prepareRunner(): Promise<RunnerContext> {
   if (!existsSync(accountsPath) || !existsSync(delegationsPath)) {
-    throw new Error("run phase3:setup and phase3:delegate first");
+    throw new Error("run setup and delegate first");
   }
   const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
   const signed = JSON.parse(readFileSync(delegationsPath, "utf-8")) as SignedDelegations;
@@ -63,7 +63,7 @@ export async function prepareRunner(): Promise<RunnerContext> {
   const accounts = {} as Record<Role, HybridAccount>;
   for (const role of ROLES) {
     const key = stored.keys[role];
-    if (!key) throw new Error(`data/accounts.json has no ${role} key — run \`bun run phase3:setup\``);
+    if (!key) throw new Error(`data/accounts.json has no ${role} key — run \`bun run setup\``);
     accounts[role] = await toHybridAccount(publicClient, privateKeyToAccount(key));
   }
 

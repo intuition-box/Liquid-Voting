@@ -15,19 +15,19 @@ import { createPublicClient, formatEther, http, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { intuitionTestnet } from "./lib/network";
-import { configFromManifest } from "./lib/demo-config";
-import type { DemoConfig } from "../src/lib/demo-config";
+import { configFromManifest } from "./lib/config";
+import type { AppConfig } from "../src/lib/config/app-config";
 import {
   extendGraph,
   planVoteForcingWitness,
   preflightVote,
   recordProposal,
   VOTE_FOR,
-} from "../src/lib/demo-actions";
-import { DelegationSet } from "../src/lib/delegation-set";
-import { DomainGraph } from "../src/lib/domain-graph";
-import { baseGrants } from "../src/lib/grants";
-import { readEdgeStates } from "../src/lib/graph";
+} from "../src/lib/actions";
+import { DelegationSet } from "../src/lib/delegation/delegation-set";
+import { DomainGraph } from "../src/lib/graph/domain-graph";
+import { baseGrants } from "../src/lib/delegation/grant";
+import { readEdgeStates } from "../src/lib/graph/edges";
 
 const STAKE = parseEther("0.005");
 const PARENT = "design";
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const edgesBefore = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
   const graphBefore = DomainGraph.from(config.nodes, edgesBefore);
   const chainBefore = new DelegationSet(baseGrants(config, false, false), graphBefore).chainFor("delegate", PARENT);
-  if (!chainBefore) throw new Error("no signed chain hands the delegate this domain — run `bun run phase3:delegate`");
+  if (!chainBefore) throw new Error("no signed chain hands the delegate this domain — run `bun run delegate`");
   const planBefore = planVoteForcingWitness(config, graphBefore, chainBefore, label, 0n, VOTE_FOR);
   if (!planBefore.blocked) throw new Error(`“${label}” already resolves — pick an unused label`);
   console.log(`  5a  no witness exists yet — ${planBefore.blocked}`);
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   console.log(`      atom tx ${result.atomTx ?? "(existed)"} · triple tx ${result.tripleTx ?? "(existed)"} · deposit ${result.stakeTx}`);
 
   // Step 5c — the UNTOUCHED delegation must now authorize the new domain.
-  const extended: DemoConfig = {
+  const extended: AppConfig = {
     ...config,
     nodes: [...config.nodes, { label, termId: result.atomId }],
     edges: [...config.edges, { child: label, parent: PARENT, tripleId: result.tripleId }],

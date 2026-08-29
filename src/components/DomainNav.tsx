@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { parseEther, type PublicClient } from "viem";
 
-import { extendGraph } from "../lib/demo-actions";
-import type { DemoConfig, Role, SessionDomain } from "../lib/demo-config";
-import type { DomainGraph } from "../lib/domain-graph";
-import type { EdgeState } from "../lib/graph";
+import { extendGraph } from "../lib/actions";
+import type { AppConfig, Role, SessionDomain } from "../lib/config/app-config";
+import type { DomainGraph } from "../lib/graph/domain-graph";
+import type { EdgeState } from "../lib/graph/edges";
 import { DomainTree, type Held } from "./DomainTree";
 import { Button, Empty, Field, Status, TxLink, type Verdict } from "./primitives";
 
@@ -38,7 +38,7 @@ export function DomainNav({
   onRegistered,
   onResetSession,
 }: {
-  config: DemoConfig;
+  config: AppConfig;
   client: PublicClient;
   graph: DomainGraph;
   edges: EdgeState[];

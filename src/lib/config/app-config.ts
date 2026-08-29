@@ -1,8 +1,8 @@
 import type { Hex } from "viem";
 
-import type { DomainEdge, DomainNode } from "./graph";
-import { ROLES, type Role } from "./roles";
-import type { Delegation } from "./delegation";
+import type { DomainEdge, DomainNode } from "../graph/edges";
+import { ROLES, type Role } from "../roles";
+import type { Delegation } from "../delegation/encoding";
 
 declare const __DEMO_SUBMITTER_KEY__: string;
 declare const __DEMO_OWNER_KEYS__: Record<string, string>;
@@ -33,9 +33,9 @@ interface DelegationsFile {
   ownDelegation?: Delegation & { hash: Hex };
 }
 
-export { ROLES, type Role } from "./roles";
+export { ROLES, type Role } from "../roles";
 
-export interface DemoConfig {
+export interface AppConfig {
   multiVault: `0x${string}`;
   enforcer: `0x${string}`;
   governor: `0x${string}`;
@@ -60,7 +60,7 @@ export interface DemoConfig {
   rpcUrl: string | undefined;
 }
 
-export type ConfigResult = { ok: true; config: DemoConfig } | { ok: false; missing: string; hint: string };
+export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missing: string; hint: string };
 
 /**
  * Only non-secret artefacts may be bundled. `data/accounts.json` holds the owner private
@@ -84,7 +84,7 @@ function toGraph(vocabulary: ManifestShape["vocabulary"]): { nodes: DomainNode[]
   return { nodes, edges };
 }
 
-export function loadDemoConfig(): ConfigResult {
+export function loadAppConfig(): ConfigResult {
   const manifestModule = manifestFiles["/manifest/13579.json"];
   if (!manifestModule) {
     return { ok: false, missing: "manifest/13579.json", hint: "deploy the contracts first (Phase 1)" };
@@ -93,7 +93,7 @@ export function loadDemoConfig(): ConfigResult {
 
   const delegationsModule = delegationFiles["/data/delegations.json"];
   if (!delegationsModule) {
-    return { ok: false, missing: "data/delegations.json", hint: "run `bun run phase3:delegate` to sign the chain" };
+    return { ok: false, missing: "data/delegations.json", hint: "run `bun run delegate` to sign the chain" };
   }
   const delegationsFile = delegationsModule.default as DelegationsFile;
 
@@ -104,15 +104,15 @@ export function loadDemoConfig(): ConfigResult {
   }
 
   const manifestAccounts = manifest.accounts;
-  const accounts = {} as DemoConfig["accounts"];
+  const accounts = {} as AppConfig["accounts"];
   for (const role of ROLES) {
     const entry = manifestAccounts?.[role];
-    if (!entry) return { ok: false, missing: `manifest accounts.${role}`, hint: "run `bun run phase3:setup`" };
+    if (!entry) return { ok: false, missing: `manifest accounts.${role}`, hint: "run `bun run setup`" };
     accounts[role] = entry;
   }
 
   // Missing owner keys are normal in a production build; they only gate write actions.
-  const ownerKeys: DemoConfig["ownerKeys"] = {};
+  const ownerKeys: AppConfig["ownerKeys"] = {};
   for (const role of ROLES) {
     const key = __DEMO_OWNER_KEYS__[role];
     if (isHexKey(key)) ownerKeys[role] = key;
@@ -147,7 +147,7 @@ export function loadDemoConfig(): ConfigResult {
 }
 
 /** Write actions need a funded submitter and all three owner keys (dev only, ADR 0011). */
-export function canWrite(config: DemoConfig): boolean {
+export function canWrite(config: AppConfig): boolean {
   return isHexKey(config.submitterKey) && ROLES.every((role) => isHexKey(config.ownerKeys[role]));
 }
 
@@ -247,7 +247,7 @@ export function saveSessionGrant<T extends { delegation: { hash: string } }>(gra
 }
 
 /** Manifest vocabulary + anything minted this session, as one graph. */
-export function withSessionDomains(config: DemoConfig, domains: SessionDomain[]): DemoConfig {
+export function withSessionDomains(config: AppConfig, domains: SessionDomain[]): AppConfig {
   if (domains.length === 0) return config;
   const knownNodes = new Set(config.nodes.map((node) => node.termId.toLowerCase()));
   const knownEdges = new Set(config.edges.map((edge) => edge.tripleId.toLowerCase()));

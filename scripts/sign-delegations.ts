@@ -12,7 +12,7 @@
  * back from each delegator account. Signed payloads go to data/delegations.json
  * (gitignored — never in code).
  *
- * Run: bun run phase3:delegate
+ * Run: bun run delegate
  */
 import { concatHex, createPublicClient, http, keccak256, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -23,9 +23,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
-import { delegationManagerAbi } from "../src/lib/abis";
-import { encodeTerms } from "../src/lib/delegation";
-import { toHybridAccount, ensureEnvironment } from "../src/lib/smart-accounts";
+import { delegationManagerAbi } from "../src/lib/chain/abis";
+import { encodeTerms } from "../src/lib/delegation/encoding";
+import { toHybridAccount, ensureEnvironment } from "../src/lib/chain/smart-accounts";
 
 const EIP1271_MAGIC = "0x1626ba7e";
 const MAX_DEPTH = 3;
@@ -45,7 +45,7 @@ const eip1271Abi = [
 ] as const;
 
 async function main(): Promise<void> {
-  if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run phase3:setup first");
+  if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run setup first");
   const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
   const manifest = readManifest();
   const enforcer = manifest.contracts.GraphDomainCaveatEnforcer.address;
