@@ -28,6 +28,8 @@ interface DelegationsFile {
   attestor: `0x${string}`;
   rootDelegation: Delegation & { hash: Hex };
   leafDelegation: Delegation & { hash: Hex };
+  /** The delegate's own voice, absent from files signed before it was split out. */
+  ownDelegation?: Delegation & { hash: Hex };
 }
 
 export type Role = "voter" | "delegate" | "executor";
@@ -46,7 +48,15 @@ export interface DemoConfig {
   accounts: Record<Role, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
   /** Empty in a production build — writes are disabled there (ADR 0011). */
   ownerKeys: Partial<Record<Role, `0x${string}`>>;
-  delegations: { root: Delegation & { hash: Hex }; leaf: Delegation & { hash: Hex }; signedAt: string; maxDepth: number };
+  delegations: {
+    root: Delegation & { hash: Hex };
+    /** The voice the delegate relays for the voter — chained to `root`. */
+    leaf: Delegation & { hash: Hex };
+    /** The delegate's own voice, standing on its own authority. */
+    own?: Delegation & { hash: Hex };
+    signedAt: string;
+    maxDepth: number;
+  };
   submitterKey: `0x${string}`;
   rpcUrl: string | undefined;
 }
@@ -126,6 +136,7 @@ export function loadDemoConfig(): ConfigResult {
       delegations: {
         root: delegationsFile.rootDelegation,
         leaf: delegationsFile.leafDelegation,
+        ...(delegationsFile.ownDelegation ? { own: delegationsFile.ownDelegation } : {}),
         signedAt: delegationsFile.signedAt,
         maxDepth: delegationsFile.maxDepth,
       },

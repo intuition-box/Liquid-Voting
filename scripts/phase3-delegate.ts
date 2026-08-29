@@ -173,6 +173,33 @@ async function main(): Promise<void> {
   const leafHash = await hashAndVerify(leafDelegation, delegateSA.address);
   console.log(`leaf delegation signed  (delegate -> executor, root=UX)   hash ${leafHash}`);
 
+  // Level 2 again, for the delegate's OWN voice: same pair, same scope, rooted at
+  // ROOT_AUTHORITY instead of chained to level 1.
+  //
+  // The two carry different things. The chained one relays the voice the voter lent the
+  // delegate, and dies with it if the voter revokes. This one is the delegate's own, which
+  // the voter never had any claim on — so it keeps standing. Signing only the chained one
+  // would tie a voice to authority it merely borrowed.
+  const ownDelegation: Delegation = {
+    delegate: executorSA.address,
+    delegator: delegateSA.address,
+    authority: ROOT_AUTHORITY,
+    caveats: [
+      {
+        enforcer,
+        terms: encodeTerms(manifest.vocabulary.atoms["UX"] as `0x${string}`, manifest.vocabulary.predicate.termId, orgAttestor),
+        args: "0x",
+      },
+    ],
+    // A distinct salt: the two differ by authority alone, and disableDelegation
+    // blacklists a hash, so they must not collide.
+    salt: toHex(BigInt(salt) + 1n),
+    signature: "0x",
+  };
+  ownDelegation.signature = await delegateSA.signDelegation({ delegation: ownDelegation });
+  const ownHash = await hashAndVerify(ownDelegation, delegateSA.address);
+  console.log(`own  delegation signed  (delegate -> executor, its own voice) hash ${ownHash}`);
+
   writeFileSync(
     delegationsPath,
     `${JSON.stringify(
@@ -183,6 +210,7 @@ async function main(): Promise<void> {
         attestor: orgAttestor,
         rootDelegation: { ...rootDelegation, hash: rootHash },
         leafDelegation: { ...leafDelegation, hash: leafHash },
+        ownDelegation: { ...ownDelegation, hash: ownHash },
       },
       null,
       2,
