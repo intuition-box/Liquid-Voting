@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import type { Hex } from "viem";
 
 import type { AppConfig } from "../../src/lib/config/app-config";
-import { EDGE_KEY_SEPARATOR } from "../../src/lib/graph/domain-graph";
+import { parseEdgeKey } from "../../src/lib/graph/domain-graph";
 import { ROLES } from "../../src/lib/roles";
 import { readManifest } from "./network";
 
@@ -66,7 +66,7 @@ export function configFromManifest(submitterKey?: string): AppConfig {
     predicate: manifest.vocabulary.predicate,
     nodes: Object.entries(manifest.vocabulary.atoms).map(([label, termId]) => ({ label, termId: termId as Hex })),
     edges: Object.entries(manifest.vocabulary.triples).map(([key, tripleId]) => {
-      const [child = "", parent = ""] = key.split(EDGE_KEY_SEPARATOR);
+      const { child, parent } = parseEdgeKey(key);
       return { child, parent, tripleId: tripleId as Hex };
     }),
     attestor: curator,

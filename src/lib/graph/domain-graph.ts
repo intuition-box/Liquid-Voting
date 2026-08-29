@@ -18,8 +18,22 @@ import type { DomainNode, EdgeState, PathResult, PathStep } from "./edges";
 /** Root of the governance hierarchy — every domain path climbs to it. */
 export const ROOT_DOMAIN = "governance";
 
-/** Separator in the manifest's `child->parent` triple keys. */
-export const EDGE_KEY_SEPARATOR = "->";
+/**
+ * The manifest keys each edge by the triple it stands for, spelled out:
+ * `grants — is a sub-domain of — treasury`. That is the assertion the MultiVault holds —
+ * `calculateTripleId(subject, predicate, object)` — so the file reads as what is on chain
+ * rather than as an abbreviation of it.
+ */
+export const EDGE_KEY_SEPARATOR = " — ";
+
+/** Subject and object of an edge key, ignoring the predicate it spells out. */
+export function parseEdgeKey(key: string): { child: string; parent: string } {
+  const parts = key.split(EDGE_KEY_SEPARATOR);
+  // The predicate sits between them; anything else is a key we did not write.
+  return parts.length === 3
+    ? { child: parts[0] ?? "", parent: parts[2] ?? "" }
+    : { child: "", parent: "" };
+}
 
 /**
  * The governor's own bounds, read from chain rather than copied (see `readGraphLimits`).

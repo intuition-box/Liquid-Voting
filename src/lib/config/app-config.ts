@@ -1,6 +1,7 @@
 import type { Hex } from "viem";
 
 import type { DomainEdge, DomainNode } from "../graph/edges";
+import { parseEdgeKey } from "../graph/domain-graph";
 import { ROLES, type Role } from "../roles";
 import type { Delegation } from "../delegation/encoding";
 
@@ -78,7 +79,7 @@ function isHexKey(value: unknown): value is `0x${string}` {
 function toGraph(vocabulary: ManifestShape["vocabulary"]): { nodes: DomainNode[]; edges: DomainEdge[] } {
   const nodes: DomainNode[] = Object.entries(vocabulary.atoms).map(([label, termId]) => ({ label, termId }));
   const edges: DomainEdge[] = Object.entries(vocabulary.triples).map(([key, tripleId]) => {
-    const [child = "", parent = ""] = key.split("->");
+    const { child, parent } = parseEdgeKey(key);
     return { child, parent, tripleId };
   });
   return { nodes, edges };

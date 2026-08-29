@@ -30,7 +30,7 @@ import { baseGrants } from "../src/lib/delegation/grant";
 import { readEdgeStates } from "../src/lib/graph/edges";
 
 const STAKE = parseEther("0.005");
-const PARENT = "design";
+const PARENT = "treasury";
 
 
 async function main(): Promise<void> {

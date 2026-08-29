@@ -16,6 +16,7 @@ import { privateKeyToAccount } from "viem/accounts";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
 import { multiVaultAbi } from "../src/lib/chain/abis";
+import { parseEdgeKey } from "../src/lib/graph/domain-graph";
 
 const STAKE_PER_TRIPLE = parseEther("0.01");
 
@@ -77,7 +78,7 @@ async function main(): Promise<void> {
   const predicateId = manifest.vocabulary.predicate.termId;
   const tripleEntries = Object.entries(manifest.vocabulary.triples) as Array<[string, `0x${string}`]>;
   for (const [key, expectedId] of tripleEntries) {
-    const [subjectLabel, objectLabel] = key.split("->") as [string, string];
+    const { child: subjectLabel, parent: objectLabel } = parseEdgeKey(key);
     const subjectId = manifest.vocabulary.atoms[subjectLabel];
     const objectId = manifest.vocabulary.atoms[objectLabel];
     if (!subjectId || !objectId) throw new Error(`manifest triple "${key}" references unknown atoms`);
