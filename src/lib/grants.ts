@@ -1,9 +1,8 @@
 import { decodeTerms, type Delegation } from "./delegation";
-import type { DemoConfig, Role } from "./demo-config";
+import type { DemoConfig } from "./demo-config";
+import type { Role } from "./roles";
 
-export const ROLES: Role[] = ["voter", "delegate", "executor"];
-export const ROLE_LABELS: Record<Role, string> = { voter: "A", delegate: "B", executor: "C" };
-export const ROLE_CLASS: Record<Role, string> = { voter: "role-a", delegate: "role-b", executor: "role-c" };
+export { ROLES, ROLE_LABELS, ROLE_CLASS, type Role } from "./roles";
 
 /**
  * One signed delegation: who handed what to whom, and whose voice it carries.

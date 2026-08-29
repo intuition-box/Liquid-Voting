@@ -16,14 +16,14 @@ import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
 import { toHybridAccount } from "../src/lib/smart-accounts";
+import { ROLES, type Role } from "../src/lib/roles";
 
 const SA_GAS_TARGET = parseEther("0.02");
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const accountsPath = join(repoRoot, "data", "accounts.json");
 
-type Role = "voter" | "delegate" | "executor";
-const ROLES: Role[] = ["voter", "delegate", "executor"];
+
 
 interface StoredAccounts {
   note: string;

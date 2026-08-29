@@ -20,6 +20,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { intuitionTestnet, readManifest } from "./lib/network";
 import { governorAbi } from "../src/lib/abis";
 import { toHybridAccount } from "../src/lib/smart-accounts";
+import { ROLES } from "../src/lib/roles";
 import { sendUserOp } from "../src/lib/user-op";
 
 /**
@@ -39,7 +40,6 @@ const DOMAINS: Array<{ domain: string; description: string }> = [
 ];
 
 const VOTING_POWER = 1n;
-const ROLES = ["voter", "delegate", "executor"] as const;
 
 async function main(): Promise<void> {
   const manifest = readManifest();

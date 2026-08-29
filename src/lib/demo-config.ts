@@ -1,6 +1,7 @@
 import type { Hex } from "viem";
 
 import type { DomainEdge, DomainNode } from "./graph";
+import { ROLES, type Role } from "./roles";
 import type { Delegation } from "./delegation";
 
 declare const __DEMO_SUBMITTER_KEY__: string;
@@ -32,9 +33,7 @@ interface DelegationsFile {
   ownDelegation?: Delegation & { hash: Hex };
 }
 
-export type Role = "voter" | "delegate" | "executor";
-
-const ROLES: Role[] = ["voter", "delegate", "executor"];
+export { ROLES, type Role } from "./roles";
 
 export interface DemoConfig {
   multiVault: `0x${string}`;
