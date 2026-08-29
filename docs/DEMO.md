@@ -274,7 +274,7 @@ Then the ask: **Mission 11** — see the slide outline.
 | *Why can B vote on `events` at all?* | Because B has its own vote. Only the delegated weight is scoped — that is the point of scoping by domain rather than all-or-nothing. |
 | *How deep can this go?* | As deep as the graph, capped per delegation by the `maxDepth` its signer chose. The demo tree runs five levels; nothing in the enforcer stops more. |
 | *What if the graph changes after I sign?* | That is the demo you just watched. It is bounded: scope only widens along edges *your* attestor staked. If you are your own attestor, nobody can widen it. |
-| *What does traversal cost at depth 5?* | ~100k gas live, ~14k per hop, strictly linear, bounded by the signed `maxDepth`. Table in WRITEUP.md §3. |
+| *What does traversal cost at depth 5?* | ~100k gas live, ~14k per hop, strictly linear, bounded by the signed `maxDepth`. Table in `docs/WRITEUP.md` §3. |
 | *Why is `isTriple` not enough?* | It returns true for counter-triples — the "against" vault. An enforcer built on it would accept a hop meaning the negation of the edge. We use `getVaultType == 1`, and a fork test proves the trap is real on your deployment. |
 | *Is this audited?* | No — it is a POC. 103 tests including fork tests against the live MultiVault, 100 % coverage on the enforcer, a threat-model review with no code findings, Slither clean. Mission 11 should budget a real audit. |
 | *Why user operations instead of direct calls?* | `DeleGatorCore.execute` is `onlyEntryPoint`, and there is no bundler on 13579 — so we submit `handleOps` ourselves. A public bundler would remove that step for every app on the chain. |

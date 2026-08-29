@@ -72,7 +72,7 @@ trust-layer integration rather than a lookup table.
 
 ## 5 · Demo
 
-Switch to the browser. Follow `DEMO.md`:
+Switch to the browser. Follow `docs/DEMO.md`:
 graph → exact match → one hop → `legal` fails → narrowing blocks `branding` →
 **extend the graph live** → revoke kills the chain.
 
@@ -115,5 +115,5 @@ graph → exact match → one hop → `legal` fails → narrowing blocks `brandi
 - **Compose, don't re-implement** — drop our `expiry` for the audited `TimestampEnforcer`,
   bind `value == 0` or compose `ValueLteEnforcer`, and budget a real audit.
 
-**Close with the ask.** Then: questions — the appendix in `DEMO.md` has the short answers
+**Close with the ask.** Then: questions — the appendix in `docs/DEMO.md` has the short answers
 to the five we expect.

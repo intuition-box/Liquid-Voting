@@ -184,7 +184,7 @@ No Critical, High, or Medium findings. Nothing below requires a contract code ch
   governor. Unreachable via the repo's deploy path (binds `MockGovernor.propose.selector`)
   and the immutable is readable before anyone signs; optional hardening only.
 - **I-4 · Informational (upstream assumptions, for the writeup)** — two verified
-  dependencies on live-vault behavior worth stating in WRITEUP.md: (A1) attestor
+  dependencies on live-vault behavior worth stating in docs/WRITEUP.md: (A1) attestor
   positions cannot be gifted — `deposit` with `receiver != msg.sender` requires the
   receiver's prior approval (probed on 13579, revert `0xd76f6ff8`); if Intuition ever
   relaxed deposit-approval semantics, ADR 0004's "whose stake matters" argument would

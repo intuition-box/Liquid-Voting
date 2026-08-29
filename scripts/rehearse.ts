@@ -1,12 +1,12 @@
 /**
- * Phase 6 rehearsal — DEMO.md step 5, the centrepiece, end to end on live testnet.
+ * Rehearsal — docs/DEMO.md step 5, the centrepiece, end to end on live testnet.
  *
  * Runs the exact `extendGraph` service the panel calls, then re-plans a proposal for the
  * brand-new domain through the UNTOUCHED delegation signed earlier, and confirms it now
  * verifies. That is the bounty's thesis, rehearsed rather than hoped for.
  *
  * Uses a throwaway label (default: `rehearsal <timestamp>`) so the demo's own
- * `motion design` atom stays uncreated for the live run — creating it here would spoil
+ * `audit-fund` atom stays uncreated for the live run — creating it here would spoil
  * step 5a, which shows the domain not existing yet.
  *
  * Run: bun run rehearse            (or: bun run rehearse "some label")
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     `\nrehearsal PASS in ${((Date.now() - started) / 1000).toFixed(1)}s · cost ${formatEther(startBalance - endBalance)} tTRUST · ` +
       `submitter left with ${formatEther(endBalance)} tTRUST`,
   );
-  console.log(`“motion design” is untouched — step 5 of DEMO.md is still fresh for the live run.`);
+  console.log(`“audit-fund” is untouched — step 5 of docs/DEMO.md is still fresh for the live run.`);
 }
 
 main().catch((error: unknown) => {

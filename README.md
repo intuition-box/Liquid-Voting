@@ -21,20 +21,22 @@ The graph is the authority; stake is the trust signal.
 | 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed-graph.ts), org-attestor staked on every edge, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (a domain under the delegated root passes, one outside it reverts) |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | done — the delegated-voting flows verified live on 13579 (`bun run votes`): chain redemption, narrowing, scope rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
-| 5 — Writeup | done — [WRITEUP.md](WRITEUP.md) |
-| 6 — Presentation (demo script, slides, rehearsal) | done — [DEMO.md](DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
+| 5 — Writeup | done — [WRITEUP.md](docs/WRITEUP.md) |
+| 6 — Presentation (demo script, slides, rehearsal) | done — [DEMO.md](docs/DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
 
 ## Layout
 
 ```
-WRITEUP.md             design decisions, gas, limitations, Mission 11 notes
-DEMO.md                ordered demo script with expected output and recovery moves
-docs/adr/              ADRs 0001–0011 — every architectural decision, with rejected alternatives
+docs/WRITEUP.md        design decisions, gas, limitations, Mission 11 notes
+docs/DEMO.md           ordered demo script with expected output and recovery moves
+docs/adr/              ADRs 0001–0016 — every architectural decision, with rejected alternatives
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
+docs/notes/            working notes: the code audit and the refactor plans it produced
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
 contracts/             Foundry project: enforcer, mock governor, unit + fork suites
 scripts/               CLI: seed, account setup, delegation signing, acceptance runner, verify
-src/                   frontend — lib/ services, hooks/, components/ (five panels)
+src/lib/               services by subject — chain/, graph/, delegation/, config/, actions/
+src/components/        panels; src/hooks/ owns the reads they display
 ```
 
 ## Demo quickstart
