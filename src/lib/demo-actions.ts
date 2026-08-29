@@ -227,6 +227,8 @@ export async function signDelegation(
   from: Role,
   to: Role,
   domainLabel: string,
+  /** The domain and its parents, so the governor can refuse one already covered. */
+  domainPath: Hex[] = [],
 ): Promise<Delegation & { hash: Hex }> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
@@ -273,7 +275,7 @@ export async function signDelegation(
       data: encodeFunctionData({
         abi: governorAbi,
         functionName: "delegateWeight",
-        args: [config.accounts[to].smartAccount, domainId],
+        args: [config.accounts[to].smartAccount, domainId, domainPath],
       }),
     },
   ]);
@@ -307,7 +309,7 @@ export async function revokeWeight(
       data: encodeFunctionData({
         abi: governorAbi,
         functionName: "delegateWeight",
-        args: ["0x0000000000000000000000000000000000000000", domainId],
+        args: ["0x0000000000000000000000000000000000000000", domainId, []],
       }),
     },
   ]);

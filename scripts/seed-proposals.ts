@@ -77,9 +77,15 @@ async function main(): Promise<void> {
   // Weight transfers matching the two signed delegations: A hands `design` to B, B hands
   // `UX` to C. The signature says the delegate MAY vote; this register says whose weight
   // it carries, and the delegator stops counting on that domain.
-  const TRANSFERS: Array<{ from: "voter" | "delegate"; to: "delegate" | "executor"; domain: string }> = [
-    { from: "voter", to: "delegate", domain: "design" },
-    { from: "delegate", to: "executor", domain: "UX" },
+  const TRANSFERS: Array<{
+    from: "voter" | "delegate";
+    to: "delegate" | "executor";
+    domain: string;
+    /** The domain and its parents — the governor refuses one already covered by a parent. */
+    path: string[];
+  }> = [
+    { from: "voter", to: "delegate", domain: "design", path: ["design", "governance"] },
+    { from: "delegate", to: "executor", domain: "UX", path: ["UX", "design", "governance"] },
   ];
   for (const transfer of TRANSFERS) {
     const from = accounts[transfer.from]?.smartAccount;
@@ -96,7 +102,11 @@ async function main(): Promise<void> {
       {
         to: gov.address,
         value: 0n,
-        data: encodeFunctionData({ abi: governorAbi, functionName: "delegateWeight", args: [to, domainId] }),
+        data: encodeFunctionData({
+          abi: governorAbi,
+          functionName: "delegateWeight",
+          args: [to, domainId, transfer.path.map((name) => atoms[name] as Hex)],
+        }),
       },
     ]);
     if (!op.success) throw new Error(`weight transfer failed: ${op.revert?.formatted ?? op.revertData}`);

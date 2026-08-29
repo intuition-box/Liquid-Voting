@@ -5,6 +5,7 @@ import { revokeWeight, signDelegation } from "../lib/demo-actions";
 import type { DemoConfig, Role } from "../lib/demo-config";
 import type { EdgeState } from "../lib/graph";
 import { candidatesFor, ROLE_CLASS, ROLE_LABELS, ROLES, upstreamOf, type Grant } from "../lib/grants";
+import { computePath } from "../lib/graph";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
@@ -48,8 +49,32 @@ export function ChainPanel({
 
   const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
   const yours = grants.find((grant) => !grant.revoked && grant.from === role && grant.scope === domain);
+  // Granting a parent gives its children away with it, so a domain under one you already
+  // delegated cannot be granted again — the parent has to come back first.
+  const path = computePath(edges, config.nodes, domain, "governance");
+  const ancestors = path.found ? path.labels.slice(1) : [];
+  const coveredBy = grants.find(
+    (grant) => !grant.revoked && grant.from === role && ancestors.includes(grant.scope),
+  );
+
   // A domain has one holder at a time, so while yours stands the only move is to revoke.
-  const locked = yours !== undefined;
+  const locked = yours !== undefined || coveredBy !== undefined;
+
+  async function revokeParent(): Promise<void> {
+    if (!coveredBy) return;
+    setBusy(true);
+    setOutcome(null);
+    try {
+      const result = await revokeWeight(client, config, role, coveredBy.scope);
+      if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
+      onRevoked(coveredBy.scope);
+      setOutcome({ verdict: "pass", text: `you took “${coveredBy.scope}” back` });
+    } catch (error) {
+      setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function revoke(): Promise<void> {
     setBusy(true);
@@ -71,7 +96,14 @@ export function ChainPanel({
     setBusy(true);
     setOutcome(null);
     try {
-      const signed = await signDelegation(client, config, role, target, domain);
+      const signed = await signDelegation(
+        client,
+        config,
+        role,
+        target,
+        domain,
+        path.found ? path.path : [],
+      );
       onSigned({ from: role, to: target, scope: domain, revoked: false, delegation: signed });
       setOutcome({ verdict: "pass", text: `${ROLE_LABELS[role]} handed “${domain}” to ${ROLE_LABELS[target]}` });
     } catch (error) {
@@ -89,7 +121,11 @@ export function ChainPanel({
           const self = candidate === role;
           const unavailable = self || blocked.has(candidate);
           const chosen = candidate === target && !unavailable;
-          const note = locked
+          const note = coveredBy
+            ? candidate === coveredBy.to
+              ? `holds it, through “${coveredBy.scope}”`
+              : "not yours to give"
+            : locked
             ? held === candidate
               ? "holds it now"
               : "take it back first"
@@ -121,7 +157,11 @@ export function ChainPanel({
       </ul>
 
       <div className="actions">
-        {locked ? (
+        {coveredBy ? (
+          <Button onClick={() => void revokeParent()} busy={busy} disabled={!writable} variant="danger">
+            take “{coveredBy.scope}” back
+          </Button>
+        ) : locked ? (
           <Button onClick={() => void revoke()} busy={busy} disabled={!writable} variant="danger">
             take “{domain}” back
           </Button>
@@ -132,7 +172,12 @@ export function ChainPanel({
         )}
       </div>
 
-      {yours ? (
+      {coveredBy ? (
+        <p className="muted">
+          “{domain}” already went to {ROLE_LABELS[coveredBy.to]} with “{coveredBy.scope}”. Take the parent back to
+          split it out.
+        </p>
+      ) : yours ? (
         <p className="muted">
           “{domain}” is with {ROLE_LABELS[yours.to]}. Take it back before handing it to anyone else.
         </p>

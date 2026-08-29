@@ -152,7 +152,7 @@ contract DelegationChainForkTest is Test {
         // The ERC-7710 delegation says the delegate MAY vote here; the governor's own
         // register says whose weight it carries. Both are needed for a delegated vote.
         vm.prank(voter);
-        governor.delegateWeight(voter_, domainId);
+        governor.delegateWeight(voter_, domainId, new bytes32[](0));
 
         uint256 proposalId = governor.propose(domainId, "fork proposal");
         // Voting opens VOTING_DELAY blocks later; the positive cases execute for real.

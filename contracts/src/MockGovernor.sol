@@ -79,6 +79,8 @@ contract MockGovernor {
     error CircularDelegation(address delegator, address delegate, bytes32 domainId);
     /// @notice This domain is already delegated; revoke before granting it elsewhere.
     error AlreadyDelegated(address delegator, bytes32 domainId, address delegate);
+    /// @notice A parent domain is already delegated, so this one went with it.
+    error CoveredByParent(address delegator, bytes32 parentId, address delegate);
     /// @notice The domain path does not start at the proposal's own domain.
     error DomainPathMismatch(bytes32 pathStart, bytes32 domainId);
     /// @notice The domain path claims an edge the graph does not carry.
@@ -211,17 +213,34 @@ contract MockGovernor {
     ///      A domain has one holder at a time: granting one already given reverts, so the
     ///      weight cannot be moved out from under a delegate silently. Passing the zero
     ///      address revokes, which is the way back.
+    ///      Granting a domain gives away its sub-domains with it, so a domain whose parent
+    ///      is already delegated cannot be granted again — that would hand the same weight
+    ///      to two accounts. The caller supplies the path to the root and every hop of it
+    ///      is verified against the graph, since the governor cannot walk there itself.
     /// @param delegate The account receiving the weight; zero clears the delegation.
     /// @param domainId The domain the transfer applies to.
-    function delegateWeight(address delegate, bytes32 domainId) external {
+    /// @param domainPath The domain and its parents, up the graph; empty for a root domain.
+    function delegateWeight(address delegate, bytes32 domainId, bytes32[] calldata domainPath) external {
         address held_ = _delegatedTo[msg.sender][domainId];
         if (delegate != address(0) && held_ != address(0)) {
             revert AlreadyDelegated(msg.sender, domainId, held_);
         }
         if (delegate == msg.sender) revert CircularDelegation(msg.sender, delegate, domainId);
-        if (delegate != address(0) && _wouldCircle(msg.sender, delegate, domainId)) {
-            revert CircularDelegation(msg.sender, delegate, domainId);
+
+        if (delegate != address(0)) {
+            _verifyPath(domainId, domainPath);
+            // Skip the domain itself: only its ancestors can already carry it away.
+            for (uint256 i_ = 1; i_ < domainPath.length; ++i_) {
+                address parentHolder_ = _delegatedTo[msg.sender][domainPath[i_]];
+                if (parentHolder_ != address(0)) {
+                    revert CoveredByParent(msg.sender, domainPath[i_], parentHolder_);
+                }
+            }
+            if (_wouldCircle(msg.sender, delegate, domainId)) {
+                revert CircularDelegation(msg.sender, delegate, domainId);
+            }
         }
+
         _delegatedTo[msg.sender][domainId] = delegate;
         emit WeightDelegated(msg.sender, delegate, domainId);
     }

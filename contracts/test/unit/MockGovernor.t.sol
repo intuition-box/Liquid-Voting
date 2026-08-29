@@ -244,7 +244,7 @@ contract MockGovernorTest is Test {
         governor.setVotingPower(a, 1);
         governor.setVotingPower(b, 1);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -275,9 +275,9 @@ contract MockGovernorTest is Test {
         governor.setVotingPower(principals[0], 3);
         governor.setVotingPower(principals[1], 4);
         vm.prank(principals[0]);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         vm.prank(principals[1]);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -295,7 +295,7 @@ contract MockGovernorTest is Test {
         governor.castVote(0, uint8(MockGovernor.VoteType.For));
         // Delegating after voting: the weight is already spent on this proposal.
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
 
         address[] memory principals = new address[](1);
         principals[0] = a;
@@ -309,7 +309,7 @@ contract MockGovernorTest is Test {
         principals[0] = address(0xA);
         principals[1] = address(0xA);
         vm.prank(address(0xA));
-        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -321,7 +321,7 @@ contract MockGovernorTest is Test {
     function test_RevertWhen_RepresentativeAlreadyVoted() public {
         address b = address(0xB);
         vm.prank(address(0xA));
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -352,7 +352,7 @@ contract MockGovernorTest is Test {
     function test_DelegateWeight_RecordsAndEmits() public {
         vm.expectEmit(true, true, true, true);
         emit WeightDelegated(address(this), address(0xB), DOMAIN);
-        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
         assertEq(governor.delegatedTo(address(this), DOMAIN), address(0xB));
     }
 
@@ -360,7 +360,7 @@ contract MockGovernorTest is Test {
     function test_RevertWhen_VotingAfterDelegatingTheDomain() public {
         address a = address(0xA);
         vm.prank(a);
-        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -375,7 +375,7 @@ contract MockGovernorTest is Test {
     function test_DelegatingOneDomainLeavesOthers() public {
         address a = address(0xA);
         vm.prank(a);
-        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
         governor.propose(OTHER_DOMAIN, "p");
         _openVoting();
 
@@ -388,7 +388,7 @@ contract MockGovernorTest is Test {
         address a = address(0xA);
         address b = address(0xB);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -407,9 +407,9 @@ contract MockGovernorTest is Test {
         address b = address(0xB);
         address c = address(0xC);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
         vm.prank(b);
-        governor.delegateWeight(c, DOMAIN);
+        governor.delegateWeight(c, DOMAIN, new bytes32[](0));
         governor.propose(DOMAIN, "p");
         _openVoting();
 
@@ -441,7 +441,7 @@ contract MockGovernorTest is Test {
                 MockGovernor.CircularDelegation.selector, address(this), address(this), DOMAIN
             )
         );
-        governor.delegateWeight(address(this), DOMAIN);
+        governor.delegateWeight(address(this), DOMAIN, new bytes32[](0));
     }
 
     /// A -> B, then B -> A on the same domain would send the weight in a circle.
@@ -449,11 +449,11 @@ contract MockGovernorTest is Test {
         address a = address(0xA);
         address b = address(0xB);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
 
         vm.expectRevert(abi.encodeWithSelector(MockGovernor.CircularDelegation.selector, b, a, DOMAIN));
         vm.prank(b);
-        governor.delegateWeight(a, DOMAIN);
+        governor.delegateWeight(a, DOMAIN, new bytes32[](0));
     }
 
     /// The circle check is per domain: a disjoint domain is free to go the other way.
@@ -461,41 +461,83 @@ contract MockGovernorTest is Test {
         address a = address(0xA);
         address b = address(0xB);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
 
         vm.prank(b);
-        governor.delegateWeight(a, OTHER_DOMAIN);
+        governor.delegateWeight(a, OTHER_DOMAIN, new bytes32[](0));
         assertEq(governor.delegatedTo(b, OTHER_DOMAIN), a);
     }
 
     /// One holder at a time: the weight cannot be moved out from under a delegate.
     function test_RevertWhen_DelegatingADomainAlreadyGiven() public {
-        governor.delegateWeight(address(0xB), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
 
         vm.expectRevert(
             abi.encodeWithSelector(MockGovernor.AlreadyDelegated.selector, address(this), DOMAIN, address(0xB))
         );
-        governor.delegateWeight(address(0xC), DOMAIN);
+        governor.delegateWeight(address(0xC), DOMAIN, new bytes32[](0));
     }
 
     /// Revoking first is the way to move it.
     function test_RevokingThenDelegatingElsewhere() public {
-        governor.delegateWeight(address(0xB), DOMAIN);
-        governor.delegateWeight(address(0), DOMAIN);
-        governor.delegateWeight(address(0xC), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
+        governor.delegateWeight(address(0), DOMAIN, new bytes32[](0));
+        governor.delegateWeight(address(0xC), DOMAIN, new bytes32[](0));
         assertEq(governor.delegatedTo(address(this), DOMAIN), address(0xC));
     }
 
     /// The lock is per domain: another domain is still free to be granted.
     function test_DelegatingAnotherDomainStaysOpen() public {
-        governor.delegateWeight(address(0xB), DOMAIN);
-        governor.delegateWeight(address(0xC), OTHER_DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
+        governor.delegateWeight(address(0xC), OTHER_DOMAIN, new bytes32[](0));
         assertEq(governor.delegatedTo(address(this), OTHER_DOMAIN), address(0xC));
     }
 
+    /// Granting a parent gives its children away with it, so a child cannot be granted
+    /// again — that would hand the same weight to two accounts.
+    function test_RevertWhen_DelegatingADomainCoveredByItsParent() public {
+        bytes32 child = vault.createAtom("child");
+        vault.createTriple(child, predicate, DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
+
+        bytes32[] memory path = new bytes32[](2);
+        path[0] = child;
+        path[1] = DOMAIN;
+        vm.expectRevert(
+            abi.encodeWithSelector(MockGovernor.CoveredByParent.selector, address(this), DOMAIN, address(0xB))
+        );
+        governor.delegateWeight(address(0xC), child, path);
+    }
+
+    /// Taking the parent back frees the child again.
+    function test_RevokingTheParentFreesTheChild() public {
+        bytes32 child = vault.createAtom("child2");
+        vault.createTriple(child, predicate, DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
+        governor.delegateWeight(address(0), DOMAIN, new bytes32[](0));
+
+        bytes32[] memory path = new bytes32[](2);
+        path[0] = child;
+        path[1] = DOMAIN;
+        governor.delegateWeight(address(0xC), child, path);
+        assertEq(governor.delegatedTo(address(this), child), address(0xC));
+    }
+
+    /// A child under an undelegated parent is free to be granted on its own.
+    function test_DelegatingAChildWhoseParentIsFree() public {
+        bytes32 child = vault.createAtom("child3");
+        vault.createTriple(child, predicate, DOMAIN);
+
+        bytes32[] memory path = new bytes32[](2);
+        path[0] = child;
+        path[1] = DOMAIN;
+        governor.delegateWeight(address(0xB), child, path);
+        assertEq(governor.delegatedTo(address(this), child), address(0xB));
+    }
+
     function test_DelegateWeight_CanBeCleared() public {
-        governor.delegateWeight(address(0xB), DOMAIN);
-        governor.delegateWeight(address(0), DOMAIN);
+        governor.delegateWeight(address(0xB), DOMAIN, new bytes32[](0));
+        governor.delegateWeight(address(0), DOMAIN, new bytes32[](0));
         assertEq(governor.delegatedTo(address(this), DOMAIN), address(0));
     }
 
@@ -503,7 +545,7 @@ contract MockGovernorTest is Test {
         address a = address(0xA);
         address b = address(0xB);
         vm.prank(a);
-        governor.delegateWeight(b, DOMAIN);
+        governor.delegateWeight(b, DOMAIN, new bytes32[](0));
 
         address[] memory principals = new address[](1);
         principals[0] = a;

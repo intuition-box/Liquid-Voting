@@ -167,7 +167,11 @@ export const governorAbi = [
     type: "function",
     name: "delegateWeight",
     stateMutability: "nonpayable",
-    inputs: [{ name: "delegate", type: "address" }, { name: "domainId", type: "bytes32" }],
+    inputs: [
+      { name: "delegate", type: "address" },
+      { name: "domainId", type: "bytes32" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
     outputs: [],
   },
   {
@@ -234,6 +238,8 @@ export const revertAbi = [
   { type: "error", name: "NoVotingPower", inputs: [{ name: "account", type: "address" }] },
   { type: "error", name: "WeightDelegatedAway", inputs: [{ name: "account", type: "address" }, { name: "domainId", type: "bytes32" }, { name: "delegate", type: "address" }] },
   { type: "error", name: "NotDelegatedToVoter", inputs: [{ name: "principal", type: "address" }, { name: "voter", type: "address" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "AlreadyDelegated", inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }, { name: "delegate", type: "address" }] },
+  { type: "error", name: "CoveredByParent", inputs: [{ name: "delegator", type: "address" }, { name: "parentId", type: "bytes32" }, { name: "delegate", type: "address" }] },
   { type: "error", name: "CircularDelegation", inputs: [{ name: "delegator", type: "address" }, { name: "delegate", type: "address" }, { name: "domainId", type: "bytes32" }] },
   { type: "error", name: "EmptyPath", inputs: [] },
   { type: "error", name: "InvalidTarget", inputs: [{ name: "actual", type: "address" }, { name: "expected", type: "address" }] },
