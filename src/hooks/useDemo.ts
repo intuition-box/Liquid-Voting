@@ -19,8 +19,9 @@ import {
   type SessionDomain,
 } from "../lib/demo-config";
 import { readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
+import { DomainGraph } from "../lib/domain-graph";
 import { baseGrants, type Grant } from "../lib/grants";
-import { computePath, readEdgeStates, type EdgeState } from "../lib/graph";
+import { readEdgeStates, type EdgeState } from "../lib/graph";
 
 export interface DemoState {
   configResult: ConfigResult;
@@ -28,6 +29,8 @@ export interface DemoState {
   client: PublicClient | null;
   writable: boolean;
   edges: EdgeState[];
+  /** The domain hierarchy, indexed once — every parent/child question goes through it. */
+  graph: DomainGraph;
   proposals: ProposalRecord[];
   votingPower: Record<Role, bigint>;
   /** The domain the root delegation is scoped to. */
@@ -136,12 +139,11 @@ export function useDemo(): DemoState {
         // weight. The path lets a grant on a parent domain count here; the governor
         // verifies every hop of it against the graph.
         const domainIds = [...new Set(records.map((record) => record.domainId))];
-        const labelOf = new Map(config.nodes.map((node) => [node.termId.toLowerCase(), node.label]));
+        const fresh = DomainGraph.from(config.nodes, edgeStates);
         const perDomain = await Promise.all(
           domainIds.map((id) => {
-            const label = labelOf.get(id.toLowerCase());
-            const toRoot = label ? computePath(edgeStates, config.nodes, label, "governance") : null;
-            return readWeights(client, config, id, toRoot?.found ? toRoot.path : []);
+            const label = fresh.labelOf(id);
+            return readWeights(client, config, id, label ? fresh.domainPathOf(label) : []);
           }),
         );
         if (cancelled) return;
@@ -159,6 +161,12 @@ export function useDemo(): DemoState {
       cancelled = true;
     };
   }, [config, client, tick]);
+
+  // Indexed once per (nodes, edges) change, so panels ask rather than re-walk.
+  const graph = useMemo(
+    () => DomainGraph.from(config?.nodes ?? [], edges),
+    [config?.nodes, edges],
+  );
 
   // The scopes each level granted: read from the signed terms, not hardcoded.
   const scopeOf = (delegation: Delegation | undefined): string => {
@@ -183,6 +191,7 @@ export function useDemo(): DemoState {
     client,
     writable: config ? canWrite(config) : false,
     edges,
+    graph,
     proposals,
     votingPower,
     rootScope,

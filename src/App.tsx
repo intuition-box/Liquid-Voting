@@ -66,6 +66,7 @@ export function App() {
         <DomainNav
           config={config}
           client={client}
+          graph={demo.graph}
           edges={demo.edges}
           loading={demo.loading}
           writable={demo.writable}

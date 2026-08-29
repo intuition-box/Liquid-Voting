@@ -3,6 +3,7 @@ import { parseEther, type PublicClient } from "viem";
 
 import { extendGraph } from "../lib/demo-actions";
 import type { DemoConfig, Role, SessionDomain } from "../lib/demo-config";
+import type { DomainGraph } from "../lib/domain-graph";
 import type { EdgeState } from "../lib/graph";
 import { DomainTree } from "./DomainTree";
 import { Button, Empty, Field, Status, TxLink, type Verdict } from "./primitives";
@@ -25,6 +26,7 @@ interface Outcome {
 export function DomainNav({
   config,
   client,
+  graph,
   edges,
   loading,
   writable,
@@ -38,6 +40,7 @@ export function DomainNav({
 }: {
   config: DemoConfig;
   client: PublicClient;
+  graph: DomainGraph;
   edges: EdgeState[];
   loading: boolean;
   writable: boolean;
@@ -79,8 +82,7 @@ export function DomainNav({
         <Empty>reading the graph…</Empty>
       ) : (
         <DomainTree
-          config={config}
-          edges={edges}
+          graph={graph}
           selected={selected}
           grantedTo={grantedTo}
           viewer={viewer}

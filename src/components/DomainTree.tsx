@@ -1,12 +1,6 @@
-import type { DemoConfig, Role } from "../lib/demo-config";
-import type { EdgeState } from "../lib/graph";
+import type { Role } from "../lib/demo-config";
+import type { DomainGraph, TreeNode } from "../lib/domain-graph";
 import { ROLE_CLASS, ROLE_LABELS } from "../lib/grants";
-
-interface Node {
-  label: string;
-  children: Node[];
-  usable: boolean;
-}
 
 /** A delegation in force on one domain. */
 export interface Held {
@@ -22,15 +16,13 @@ export interface Held {
  * side: what they gave, what they were given, or a transfer between two other accounts.
  */
 export function DomainTree({
-  config,
-  edges,
+  graph,
   selected,
   grantedTo,
   viewer,
   onSelect,
 }: {
-  config: DemoConfig;
-  edges: EdgeState[];
+  graph: DomainGraph;
   /** The domain currently in scope; its whole subtree is highlighted. */
   selected: string;
   /** Who handed each domain to whom, by domain name. */
@@ -39,28 +31,9 @@ export function DomainTree({
   viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
-  const childrenOf = new Map<string, EdgeState[]>();
-  for (const edge of edges) {
-    childrenOf.set(edge.parent, [...(childrenOf.get(edge.parent) ?? []), edge]);
-  }
-  const hasParent = new Set(edges.map((edge) => edge.child));
-  const roots = [...new Set(edges.map((edge) => edge.parent))].filter((name) => !hasParent.has(name));
-
-  function build(name: string, usable: boolean): Node {
-    return {
-      label: name,
-      usable,
-      children: (childrenOf.get(name) ?? []).map((edge) => build(edge.child, edge.isAuthorizing)),
-    };
-  }
-
-  const linked = new Set(edges.flatMap((edge) => [edge.child, edge.parent]));
-  const orphans = config.nodes.filter((node) => !linked.has(node.label));
-  const tree = [...roots.map((name) => build(name, true)), ...orphans.map((node) => build(node.label, true))];
-
   return (
     <ul className="tree">
-      {tree.map((node) => (
+      {graph.tree().map((node) => (
         <Branch
           key={node.label}
           node={node}
@@ -85,7 +58,7 @@ function Branch({
   viewer,
   onSelect,
 }: {
-  node: Node;
+  node: TreeNode;
   depth: number;
   selected: string;
   /** True once an ancestor is the selected domain — the whole subtree is in scope. */
