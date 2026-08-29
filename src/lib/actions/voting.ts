@@ -350,6 +350,41 @@ export async function readWeights(
 }
 
 /**
+ * Who the governor currently has each account delegating to, per domain.
+ *
+ * The register is the authority on weight: a signed delegation says the delegate MAY
+ * vote, this says whose weight it actually carries. Read for the domains a delegation
+ * could be scoped to, which is all the UI needs to know whether a seeded pair is live.
+ */
+export async function readDelegatedTo(
+  client: PublicClient,
+  config: AppConfig,
+  scopes: string[],
+): Promise<Record<string, Partial<Record<Role, Role>>>> {
+  const addressOf = new Map(ROLES.map((role) => [config.accounts[role].smartAccount.toLowerCase(), role]));
+  const pairs = scopes.flatMap((scope) => ROLES.map((role) => ({ scope, role })));
+  const held = await Promise.all(
+    pairs.map(async ({ scope, role }) => {
+      const domainId = config.nodes.find((node) => node.label === scope)?.termId;
+      if (!domainId) return null;
+      const to = await client.readContract({
+        address: config.governor,
+        abi: governorAbi,
+        functionName: "delegatedTo",
+        args: [config.accounts[role].smartAccount, domainId],
+      });
+      return addressOf.get(to.toLowerCase()) ?? null;
+    }),
+  );
+  const out: Record<string, Partial<Record<Role, Role>>> = {};
+  pairs.forEach(({ scope, role }, index) => {
+    const to = held[index];
+    if (to) (out[scope] ??= {})[role] = to;
+  });
+  return out;
+}
+
+/**
  * The governor's own path cap, read rather than copied.
  *
  * The constant stays on chain because that is where it does its work: it bounds the

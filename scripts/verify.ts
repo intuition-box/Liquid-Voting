@@ -13,7 +13,7 @@ import { createPublicClient, http } from "viem";
 import { intuitionTestnet } from "./lib/network";
 import { configFromManifest } from "./lib/config";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
-import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR } from "../src/lib/actions";
+import { planVoteForcingWitness, preflightVote, readDelegatedTo, readProposals, VOTE_FOR } from "../src/lib/actions";
 import { DelegationSet } from "../src/lib/delegation/delegation-set";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { baseGrants } from "../src/lib/delegation/grant";
@@ -27,11 +27,19 @@ import { readEdgeStates } from "../src/lib/graph/edges";
  * for the failing cases it differs from the domain being voted, which is the point: the
  * chain is real and gets redeemed, and the enforcer is what refuses it.
  */
-const EXPECTATIONS: Array<{ domain: string; voter: Role; heldOn?: string; expect: "pass" | string }> = [
-  { domain: "grants", voter: "C", expect: "pass" },
-  { domain: "payroll", voter: "B", expect: "pass" },
-  // Three hops up to `grants`, the deepest the demo graph reaches — the cap allows it.
-  { domain: "micro-grants", voter: "C", expect: "pass" },
+/**
+ * What the enforcer must still refuse, using the pre-signed pair.
+ *
+ * The demo opens with nothing delegated — the register is empty and every account holds
+ * its own vote — so there is no live chain to test a passing case against. What can still
+ * be checked without touching state is the half that matters: that a scoped delegation
+ * refuses a domain outside its scope, on live contracts, for the stated reason.
+ *
+ * `heldOn` is the domain the pre-signed chain was granted on; `domain` is what it is aimed
+ * at. They differ on purpose — the chain is real and gets redeemed, and the enforcer is
+ * what turns it down.
+ */
+const REFUSALS: Array<{ domain: string; voter: Role; heldOn: string; expect: string }> = [
   { domain: "events", voter: "B", heldOn: "treasury", expect: "NotATriple" },
   { domain: "payroll", voter: "C", heldOn: "grants", expect: "NotATriple" },
 ];
@@ -64,12 +72,14 @@ async function main(): Promise<void> {
   if (rootDisabled || leafDisabled) fail(`delegation chain is revoked (root=${rootDisabled} leaf=${leafDisabled}) — re-sign with \`bun run delegate\``);
   else console.log(`ok    delegation chain active, signed ${new Date(config.delegations.signedAt).toLocaleString()}`);
 
-  const grants = new DelegationSet(baseGrants(config, rootDisabled, leafDisabled), graph);
+  // Read from the signatures alone: these chains are pre-signed but deliberately not
+  // recorded at the governor, which is what lets the app open on a clean slate.
+  const signedChains = new DelegationSet(baseGrants(config, rootDisabled, leafDisabled), graph);
 
   // Panel 3 — each demo claim, simulated on live contracts against real proposals.
   // Newest first, so a domain proposed more than once verifies against its latest.
   const recent = await readProposals(client, config, 40);
-  for (const expectation of EXPECTATIONS) {
+  for (const expectation of REFUSALS) {
     // Each claim needs a proposal on its domain: the enforcer resolves the domain from
     // the governor, so there is nothing to check without one. This script is read-only,
     // so it reuses what the governor already holds.
@@ -87,10 +97,10 @@ async function main(): Promise<void> {
       continue;
     }
     // Resolve the chain on the domain it was granted on, then aim it at the domain under
-    // test: a failing case has to reach the enforcer to be refused by it.
-    const resolved = grants.chainFor(expectation.voter, expectation.heldOn ?? expectation.domain);
+    // test: a refusal has to reach the enforcer to be refused by it.
+    const resolved = signedChains.chainFor(expectation.voter, expectation.heldOn);
     if (!resolved) {
-      fail(`no signed chain lets ${expectation.voter} vote on “${expectation.heldOn ?? expectation.domain}”`);
+      fail(`the pre-signed chain no longer reaches ${expectation.voter} on “${expectation.heldOn}” — run \`bun run delegate\``);
       continue;
     }
     const plan = planVoteForcingWitness(config, graph, resolved, expectation.domain, existing.id, VOTE_FOR);
@@ -99,15 +109,22 @@ async function main(): Promise<void> {
       .map((entry) => (entry.result.found ? entry.result.labels.join(" → ") : `none up to ${entry.rootLabel}`))
       .join(" ; ");
     const label = `vote on ${expectation.domain} as ${expectation.voter} [${witness}]`;
-    if (expectation.expect === "pass") {
-      if (result.ok) console.log(`ok    ${label} passes`);
-      else fail(`${label} should pass but got ${result.revert?.formatted ?? result.raw}`);
-    } else if (!result.ok && result.revert?.name === expectation.expect) {
+    if (!result.ok && result.revert?.name === expectation.expect) {
       console.log(`ok    ${label} rejected with ${result.revert.formatted}`);
     } else {
       fail(`${label} should fail with ${expectation.expect}, got ${result.ok ? "success" : result.revert?.formatted ?? result.raw}`);
     }
   }
+
+  // The demo must open on a clean slate: nothing delegated, everyone holding one vote.
+  // A leftover transfer from a rehearsal is the one thing that makes the opening screen
+  // lie, so it is checked rather than assumed.
+  const register = await readDelegatedTo(client, config, [...new Set(config.nodes.map((node) => node.label))]);
+  const held = Object.entries(register).flatMap(([scope, byRole]) =>
+    Object.entries(byRole).map(([from, to]) => `${from} → ${to} on “${scope}”`),
+  );
+  if (held.length === 0) console.log("ok    nothing delegated — every account opens holding its own vote");
+  else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or re-run \`bun run seed:proposals\``);
 
   const proposals = await readProposals(client, config, 3);
   console.log(`ok    governor holds ${proposals.length > 0 ? `${proposals.length} recent proposal(s), latest #${proposals[0]?.id}` : "no proposals yet"}`);

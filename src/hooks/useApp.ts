@@ -18,10 +18,10 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/config/app-config";
-import { readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
+import { readDelegatedTo, readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
 import { DelegationSet } from "../lib/delegation/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
-import { baseGrants, type Grant } from "../lib/delegation/grant";
+import { baseGrants, grantScope, type Grant } from "../lib/delegation/grant";
 import { readEdgeStates, type EdgeState } from "../lib/graph/edges";
 
 export interface AppState {
@@ -80,6 +80,8 @@ export function useApp(): AppState {
   const [proposals, setProposals] = useState<ProposalRecord[]>([]);
   const [weights, setWeights] = useState<Record<string, Record<Role, bigint>>>({});
   const [limits, setLimits] = useState<GraphLimits | null>(null);
+  /** Who the governor has each account delegating to, per domain — the register, not the signature. */
+  const [delegatedTo, setDelegatedTo] = useState<Record<string, Partial<Record<Role, Role>>>>({});
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,15 @@ export function useApp(): AppState {
         ]);
         if (cancelled) return;
         setLimits(graphLimits);
+
+        // Which seeded pairs the governor actually has on its books. Without this the app
+        // would open showing a chain nobody made in front of the audience.
+        const scopes = [config.delegations.root, config.delegations.leaf]
+          .map((delegation) => grantScope(config, delegation))
+          .filter((scope): scope is string => scope.length > 0);
+        const register = await readDelegatedTo(client, config, [...new Set(scopes)]);
+        if (cancelled) return;
+        setDelegatedTo(register);
         setEdges(edgeStates);
         setProposals(records);
 
@@ -170,12 +181,15 @@ export function useApp(): AppState {
   // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
   const delegations = useMemo(() => {
     const signed = config
-      ? [...baseGrants(config, rootDisabled, leafDisabled), ...sessionGrants].map((grant) =>
+      ? [
+          ...baseGrants(config, rootDisabled, leafDisabled, (from, scope) => delegatedTo[scope]?.[from] ?? null),
+          ...sessionGrants,
+        ].map((grant) =>
           revokedScopes.includes(grant.scope) ? { ...grant, revoked: true } : grant,
         )
       : [];
     return new DelegationSet(signed, graph);
-  }, [config, rootDisabled, leafDisabled, sessionGrants, revokedScopes, graph]);
+  }, [config, rootDisabled, leafDisabled, sessionGrants, revokedScopes, graph, delegatedTo]);
   const grants = delegations.all() as Grant[];
 
   return {

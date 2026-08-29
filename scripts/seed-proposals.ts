@@ -11,17 +11,12 @@
  *
  * Run: bun run seed:proposals
  */
-import { createPublicClient, createWalletClient, encodeFunctionData, http, type Hex } from "viem";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createPublicClient, createWalletClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { intuitionTestnet, readManifest } from "./lib/network";
 import { governorAbi } from "../src/lib/chain/abis";
-import { toHybridAccount } from "../src/lib/chain/smart-accounts";
-import { ROLES, type Role } from "../src/lib/roles";
-import { sendUserOp } from "../src/lib/chain/user-op";
+import { ROLES } from "../src/lib/roles";
 
 /**
  * One proposal per domain the demo votes on, in the order the panels present them.
@@ -65,9 +60,6 @@ async function main(): Promise<void> {
   const gov = { address: manifest.contracts.MockGovernor.address, abi: governorAbi } as const;
   const atoms = manifest.vocabulary.atoms as Record<string, Hex>;
 
-  const accountsPath = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "accounts.json");
-  if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run `bun run setup`");
-  const ownerKeys = (JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, string> }).keys;
 
   console.log(`governor ${gov.address}`);
 
@@ -85,44 +77,9 @@ async function main(): Promise<void> {
     console.log(`  ${role} voting power set to ${VOTING_POWER}`);
   }
 
-  // Weight transfers matching the two signed delegations: A hands `design` to B, B hands
-  // `UX` to C. The signature says the delegate MAY vote; this register says whose weight
-  // it carries, and the delegator stops counting on that domain.
-  const TRANSFERS: Array<{
-    from: Role;
-    to: Role;
-    domain: string;
-    /** The domain and its parents — the governor refuses one already covered by a parent. */
-    path: string[];
-  }> = [
-    { from: "A", to: "B", domain: "treasury", path: ["treasury", "governance"] },
-    { from: "B", to: "C", domain: "grants", path: ["grants", "treasury", "governance"] },
-  ];
-  for (const transfer of TRANSFERS) {
-    const from = accounts[transfer.from]?.smartAccount;
-    const to = accounts[transfer.to]?.smartAccount;
-    const domainId = atoms[transfer.domain];
-    if (!from || !to || !domainId) throw new Error(`manifest incomplete for ${transfer.from} -> ${transfer.to}`);
-    const current = await client.readContract({ ...gov, functionName: "delegatedTo", args: [from, domainId] });
-    if (current.toLowerCase() === to.toLowerCase()) {
-      console.log(`  ${transfer.from} already delegates “${transfer.domain}” to ${transfer.to} — skip`);
-      continue;
-    }
-    const account = await toHybridAccount(client, privateKeyToAccount(ownerKeys[transfer.from] as `0x${string}`));
-    const op = await sendUserOp(client, wallet, account, [
-      {
-        to: gov.address,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: governorAbi,
-          functionName: "delegateWeight",
-          args: [to, domainId, transfer.path.map((name) => atoms[name] as Hex)],
-        }),
-      },
-    ]);
-    if (!op.success) throw new Error(`weight transfer failed: ${op.revert?.formatted ?? op.revertData}`);
-    console.log(`  ${transfer.from} delegates “${transfer.domain}” to ${transfer.to} (tx ${op.txHash})`);
-  }
+  // No weight transfer is seeded. Everyone starts holding their own vote, so the demo
+  // begins from a clean slate and every delegation on screen is one that was made in
+  // front of the audience — the effect is the point, and a pre-wired chain hides it.
 
   // Existing proposals, keyed by domain + title, so a re-run adds nothing twice.
   const count = await client.readContract({ ...gov, functionName: "proposalCount" });
