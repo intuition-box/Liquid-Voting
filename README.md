@@ -1,9 +1,9 @@
 # ERC-7710 Liquid Democracy POC — Intuition Graph Domain Caveats
 
-Intuition Box DAO bounty (Mission 10). A 3-level ERC-7710 delegation chain
-(`voter → delegate → executor`) where voting authority is scoped by *domain*, and the
-scope check is resolved by traversing the Intuition knowledge graph — so that adding
-`micro-grants — is a sub-domain of — builder-grants` to the graph extends every `treasury`-scoped
+Intuition Box DAO bounty (Mission 10). An ERC-7710 delegation chain across three accounts
+(`A → B → C`) over a five-level domain graph, where voting weight is delegated by *domain*
+and the scope check is resolved by traversing the Intuition knowledge graph — so that
+adding `micro-grants — is a sub-domain of — builder-grants` extends every `treasury`-scoped
 delegation, **with no contract redeploy and no re-signature**.
 
 The mechanism: each delegation carries a custom caveat, `GraphDomainCaveatEnforcer`.

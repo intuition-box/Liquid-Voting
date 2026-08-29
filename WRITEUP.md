@@ -1,9 +1,9 @@
 # ERC-7710 Liquid Democracy with Intuition Graph Domain Caveats
 
-**Mission 10 POC — Intuition Box DAO.** A three-level ERC-7710 delegation chain
-(`A → B → C`) where voting weight is delegated by *domain*, and the scope check is
-resolved by traversing the Intuition knowledge graph. Adding
-`micro-grants — is a sub-domain of — builder-grants` to the graph extends every
+**Mission 10 POC — Intuition Box DAO.** An ERC-7710 delegation chain across three
+accounts (`A → B → C`) over a five-level domain graph, where voting weight is delegated
+by *domain* and the scope check is resolved by traversing the Intuition knowledge graph.
+Adding `micro-grants — is a sub-domain of — builder-grants` to the graph extends every
 `treasury`-scoped delegation already signed, with no contract redeploy and no new
 signature.
 
