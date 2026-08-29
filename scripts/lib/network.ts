@@ -1,18 +1,9 @@
-import { defineChain } from "viem";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-/** Intuition testnet (13579) — values pinned in CLAUDE.md / the manifest. */
-export const intuitionTestnet = defineChain({
-  id: 13579,
-  name: "Intuition Testnet",
-  nativeCurrency: { decimals: 18, name: "Test Trust", symbol: "tTRUST" },
-  rpcUrls: { default: { http: ["https://testnet.rpc.intuition.systems/http"] } },
-  blockExplorers: {
-    default: { name: "Intuition Testnet Explorer", url: "https://testnet.explorer.intuition.systems" },
-  },
-});
+export { intuitionTestnet } from "../../src/lib/chain/network";
+
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const manifestPath = join(repoRoot, "manifest", "13579.json");
@@ -43,12 +34,14 @@ export interface Manifest {
     atoms: Record<string, `0x${string}`>;
     triples: Record<string, `0x${string}`>;
   };
-  attestation: {
+  curation: {
     note: string;
-    orgAttestor: `0x${string}` | null;
+    curator: `0x${string}` | null;
     curveId: string | null;
     stakes: Record<string, { shares: string; txHash: `0x${string}` | null }>;
   };
+  /** Phase 3: the three HybridDeleGator accounts (owner EOA + smart account address). */
+  accounts?: Record<string, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
 }
 
 export function readManifest(): Manifest {

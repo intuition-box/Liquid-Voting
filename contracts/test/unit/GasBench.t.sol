@@ -33,12 +33,12 @@ contract GasBenchTest is Test {
 
     function setUp() public {
         vault = new MockMultiVault();
-        governor = new MockGovernor();
+        predicate = vault.createAtom("is a sub-domain of");
+        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
         enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(address(vault)), address(governor), MockGovernor.propose.selector
+            IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
         );
 
-        predicate = vault.createAtom("is a sub-domain of");
         chain[0] = vault.createAtom("d0-root");
         for (uint256 i = 1; i < 6; i++) {
             chain[i] = vault.createAtom(abi.encodePacked("d", i));
@@ -49,7 +49,7 @@ contract GasBenchTest is Test {
         singleMode = ModeLib.encodeSimpleSingle();
     }
 
-    function _measure(uint256 depth) internal view returns (uint256 gasUsed) {
+    function _measure(uint256 depth) internal returns (uint256 gasUsed) {
         bytes memory terms = abi.encode(
             GraphDomainCaveatEnforcer.Terms({
                 rootDomainId: chain[0],
@@ -63,8 +63,15 @@ contract GasBenchTest is Test {
         for (uint256 i = 0; i <= depth; i++) {
             path[i] = chain[depth - i];
         }
+        // Recorded before the measurement so the proposal write stays out of the number.
+        address[] memory principals = new address[](1);
+        principals[0] = delegator;
+        bytes32[] memory noPath = new bytes32[](0);
+        uint256 proposalId = governor.propose(chain[depth], "bench");
         bytes memory exec = abi.encodePacked(
-            address(governor), uint256(0), abi.encodeCall(MockGovernor.propose, (chain[depth], "bench"))
+            address(governor),
+            uint256(0),
+            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals, noPath))
         );
 
         uint256 before = gasleft();
@@ -76,27 +83,27 @@ contract GasBenchTest is Test {
     // measurement pays clean cold-access costs (a shared loop would warm storage
     // between depths and understate the marginal hop cost).
 
-    function test_Gas_Depth0() public view {
+    function test_Gas_Depth0() public {
         console2.log("beforeHook gas at depth 0:", _measure(0));
     }
 
-    function test_Gas_Depth1() public view {
+    function test_Gas_Depth1() public {
         console2.log("beforeHook gas at depth 1:", _measure(1));
     }
 
-    function test_Gas_Depth2() public view {
+    function test_Gas_Depth2() public {
         console2.log("beforeHook gas at depth 2:", _measure(2));
     }
 
-    function test_Gas_Depth3() public view {
+    function test_Gas_Depth3() public {
         console2.log("beforeHook gas at depth 3:", _measure(3));
     }
 
-    function test_Gas_Depth4() public view {
+    function test_Gas_Depth4() public {
         console2.log("beforeHook gas at depth 4:", _measure(4));
     }
 
-    function test_Gas_Depth5() public view {
+    function test_Gas_Depth5() public {
         console2.log("beforeHook gas at depth 5:", _measure(5));
     }
 }

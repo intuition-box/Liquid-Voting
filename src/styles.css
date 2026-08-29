@@ -1,0 +1,1024 @@
+/* Dark-first, typography-driven. Hierarchy from type and space, separation from
+   hairline borders — no shadows, no gradients, no decorative rounding. */
+
+:root {
+  --bg: #0a0b0c;
+  --surface: #111214;
+  --border: #232629;
+  --border-strong: #33373c;
+  --text: #e9eaec;
+  --muted: #878c93;
+  --dim: #7a8088;
+  --ok: #57c98a;
+  --bad: #e0736f;
+  --accent: #d8b26a;
+
+  /* One colour per identity, so a role reads the same everywhere it appears. */
+  --role-a: #e08a4b;
+  --role-b: #5b9dd9;
+  --role-c: #57c98a;
+
+  /* 4px base: every gap below is a step on this scale, never an ad-hoc number. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s7) var(--s6) 96px;
+}
+
+/* ── Masthead ─────────────────────────────────────────────────────────── */
+
+.masthead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s7);
+  margin-bottom: var(--s7);
+  padding-bottom: var(--s5);
+  border-bottom: 1px solid var(--border);
+}
+
+.masthead-text {
+  max-width: 62ch;
+}
+
+.masthead h1 {
+  margin: 0 0 var(--s3);
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.masthead p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+@media (max-width: 1000px) {
+  .shell {
+    padding: 40px 20px 64px;
+  }
+}
+
+/* ── Side-by-side panel content ──────────────────────────────────────── */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+/* ── Delegation depth ────────────────────────────────────────────────── */
+
+/* The cap is signed into the terms, so it is chosen here and fixed afterwards. */
+.depth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.depth-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* ── Delegation wiring ───────────────────────────────────────────────── */
+
+.holders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.holder {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: var(--s3) var(--s4);
+  cursor: pointer;
+}
+
+.holder:hover:not(:disabled) {
+  border-color: currentColor;
+}
+
+.holder-on {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.holder-off {
+  color: var(--dim);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+/* The identity's letter, big enough to be the thing you aim at. */
+.holder-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  font-weight: 600;
+  font-size: 14px;
+  flex: none;
+}
+
+.holder-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.holder-off .holder-note {
+  color: var(--dim);
+}
+
+.holder-check {
+  margin-left: auto;
+  font-size: 14px;
+}
+
+/* ── Identity switcher ───────────────────────────────────────────────── */
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+}
+
+.identity-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-right: var(--s1);
+}
+
+.identity-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+}
+
+.identity-option:hover {
+  color: var(--text);
+}
+
+.identity-on {
+  color: var(--text);
+  border-color: currentColor;
+}
+
+.identity-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.role-a { color: var(--role-a); }
+.role-b { color: var(--role-b); }
+.role-c { color: var(--role-c); }
+
+/* ── Workspace: domain rail + content ────────────────────────────────── */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: var(--s7);
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: var(--s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  padding-right: var(--s5);
+  border-right: 1px solid var(--border);
+}
+
+.rail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+
+.workspace-main {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+  .rail {
+    position: static;
+    padding-right: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: var(--s1);
+  margin-bottom: var(--s6);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 15px;
+  padding: 11px 20px;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s7);
+}
+
+/* ── Panel ────────────────────────────────────────────────────────────── */
+
+.panel {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.panel-head {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.panel-head p {
+  margin: 3px 0 0;
+  font-size: 13px;
+}
+
+.panel-body > * + * {
+  margin-top: var(--s5);
+}
+
+.panel p {
+  margin: 0;
+}
+
+h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.section-label {
+  margin-top: var(--s6);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Text utilities ───────────────────────────────────────────────────── */
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 13px;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 12px;
+}
+
+.empty {
+  color: var(--dim);
+  font-size: 13px;
+  padding: 14px 0;
+}
+
+.link {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.link:hover,
+.link:focus-visible {
+  border-bottom-color: var(--text);
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.tag-ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
+}
+
+.tag-bad {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--border));
+}
+
+/* ── Collapsible proposal rows ───────────────────────────────────────── */
+
+/* Legend and rows share one grid so the numbers sit under their labels. */
+.proposal-legend,
+.proposal-summary {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 96px 56px 56px 56px 56px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+
+.proposal-legend {
+  padding: 0 0 var(--s2);
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.proposal-legend .legend-spacer {
+  grid-column: span 3;
+}
+
+.legend-col {
+  text-align: center;
+}
+
+.proposal-summary {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stat-col {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.proposal-summary .proposal-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proposal-summary:hover .proposal-title {
+  color: var(--accent);
+}
+
+.proposal-caret {
+  font-size: 11px;
+  color: var(--dim);
+  width: 10px;
+}
+
+.proposal-open .proposal-title {
+  white-space: normal;
+}
+
+.proposal-detail {
+  margin-top: var(--s4);
+  padding: var(--s4) 0 var(--s2) var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  border-left: 1px solid var(--border);
+  margin-left: var(--s1);
+}
+
+.vote-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+/* ── Filters + proposal rows ──────────────────────────────────────────── */
+
+.weight-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.weight-badge-full {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Domain tree ──────────────────────────────────────────────────────── */
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-node .tree {
+  margin: 0;
+}
+
+.tree-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  text-align: left;
+  padding-top: var(--s1);
+  padding-bottom: var(--s1);
+  cursor: pointer;
+}
+
+.tree-label:disabled {
+  cursor: default;
+}
+
+.tree-label:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+/* The selected domain and everything beneath it: one delegation reaches all of them. */
+.tree-label-on {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.tree-label-scope {
+  color: var(--accent);
+  border-left-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.tree-label-dead {
+  color: var(--dim);
+}
+
+.tree-name {
+  flex: 1;
+}
+
+/* The pair that moved this domain, written from the viewer's side: what they gave reads
+   loudest, what they were given next, a transfer between others stays quiet. */
+.tree-holder {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--s1);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  opacity: 0.45;
+}
+
+.tree-holder-gave,
+.tree-holder-got {
+  opacity: 1;
+  border-color: var(--border-strong);
+}
+
+.tree-holder-arrow {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.tree-flag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: 2px;
+  padding: 0 5px;
+}
+
+/* ── Delegation levels ────────────────────────────────────────────────── */
+
+.levels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.levels > li + li {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.kv dt {
+  color: var(--dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Forms ────────────────────────────────────────────────────────────── */
+
+/* Single column, labels above inputs (ui.md). */
+.form-row > * + * {
+  margin-top: 16px;
+}
+
+.field {
+  display: block;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dim);
+  margin-bottom: 6px;
+}
+
+input,
+select {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 9px 11px;
+  font-family: var(--sans);
+  font-size: 14px;
+}
+
+input:focus-visible,
+select:focus-visible,
+.button:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 9px 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--text);
+}
+
+.button.primary {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+  color: var(--ok);
+}
+
+.button.danger {
+  border-color: color-mix(in srgb, var(--bad) 55%, var(--border));
+  color: var(--bad);
+}
+
+.button:disabled {
+  color: var(--dim);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* ── Status ───────────────────────────────────────────────────────────── */
+
+.status {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  font-size: 13.5px;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 12px;
+}
+
+.status .dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dim);
+  transform: translateY(-1px);
+}
+
+.status-pass {
+  color: var(--ok);
+  border-left-color: var(--ok);
+}
+
+.status-pass .dot {
+  background: var(--ok);
+}
+
+.status-fail {
+  color: var(--bad);
+  border-left-color: var(--bad);
+}
+
+.status-fail .dot {
+  background: var(--bad);
+}
+
+/* ── Proposals ────────────────────────────────────────────────────────── */
+
+.proposals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.proposal {
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.proposal:last-child {
+  border-bottom: none;
+}
+
+.proposal.selected {
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin-left: -14px;
+}
+
+.proposal-domain {
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.proposal-title {
+  margin: 0 0 9px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.state {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.state-active {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.state-succeeded,
+.state-executed {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.state-defeated {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.note-inline {
+  margin: -4px 0 10px;
+  font-size: 12.5px;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+/* Who voted, and for whom — the split the governor logs, shown back voice by voice. */
+.ballots {
+  margin-top: var(--s4);
+}
+
+.ballot {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ballot-node {
+  border-top: 1px solid var(--border);
+}
+
+/* Carried voices hang under the account that cast them, on the twisty's column. */
+.ballot-node .ballot .ballot-node {
+  border-top: 0;
+  margin-left: 9px;
+  border-left: 1px solid var(--border);
+}
+
+.ballot-row {
+  display: grid;
+  grid-template-columns: 18px 2ch minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  font-size: 13.5px;
+}
+
+/* A lent voice reads as detail, not as a second vote. */
+.ballot-row-nested {
+  padding-left: var(--s2);
+  font-size: 12.5px;
+}
+
+.ballot-who {
+  font-weight: 600;
+}
+
+.ballot-note {
+  font-size: 12px;
+}
+
+/* Delegations in force. A chain gets a line of its own: badges on the tree could not
+   show one without crowding out the domain names they hung off. */
+.grant-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+
+.grant-note {
+  font-size: 12px;
+}
+
+.grant-group {
+  margin-bottom: var(--s5);
+}
+
+.grant-scope {
+  margin: 0 0 var(--s1);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.grant-scope-on {
+  color: var(--accent);
+}
+
+.grant-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* The viewer's own grants sit slightly forward of the rest. */
+.grant-row-yours {
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--s3);
+}
+
+.grant-chain {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.grant-arrow {
+  color: var(--dim);
+  margin: 0 var(--s1);
+}
+
+/* A folding branch, laid out like a file tree: the twisty owns a fixed column so every
+   name lines up whether or not it has children. */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.tree-twisty {
+  flex: 0 0 auto;
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tree-twisty:hover {
+  color: var(--text);
+}
+
+/* Same width, no control — a leaf keeps the column without pretending to fold. */
+.tree-twisty-empty {
+  cursor: default;
+}
+
+/* How many domains a folded branch is hiding. */
+.tree-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+/* What the viewer already cast — kept on screen, since the tally alone does not say
+   whether your own vote is inside it. */
+.voted {
+  margin: var(--s4) 0 0;
+  padding: var(--s3);
+  border-left: 2px solid var(--ok);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.voted strong {
+  color: var(--text);
+}

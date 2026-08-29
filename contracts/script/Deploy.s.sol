@@ -20,6 +20,8 @@ contract Deploy is Script {
     error WrongChain(uint256 chainId);
 
     address internal constant MULTIVAULT = 0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91;
+    /// @dev "is a sub-domain of" — the predicate the demo graph is wired with (ADR 0008).
+    bytes32 internal constant SUB_DOMAIN = 0x9c2e2f2018dbfaa74fd3fd86cd54a62b16e771936f5d342e3751db8d0c046f80;
     uint256 internal constant INTUITION_TESTNET_CHAIN_ID = 13579;
 
     /// @notice Runs the deployment and logs the addresses to record in the manifest.
@@ -29,10 +31,9 @@ contract Deploy is Script {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerKey);
-        MockGovernor governor = new MockGovernor();
-        GraphDomainCaveatEnforcer enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(MULTIVAULT), address(governor), MockGovernor.propose.selector
-        );
+        MockGovernor governor = new MockGovernor(IMultiVault(MULTIVAULT), SUB_DOMAIN);
+        GraphDomainCaveatEnforcer enforcer =
+            new GraphDomainCaveatEnforcer(IMultiVault(MULTIVAULT), address(governor), MockGovernor.castVoteFor.selector);
         vm.stopBroadcast();
 
         console2.log("MockGovernor:              ", address(governor));

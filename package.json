@@ -3,14 +3,30 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "seed": "bun --env-file=contracts/.env scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "seed": "bun --env-file=contracts/.env scripts/seed-graph.ts",
+    "typecheck": "tsc --noEmit",
+    "setup": "bun --env-file=contracts/.env scripts/setup-accounts.ts",
+    "delegate": "bun --env-file=contracts/.env scripts/sign-delegations.ts",
+    "seed:proposals": "bun --env-file=contracts/.env scripts/seed-proposals.ts",
+    "votes": "bun --env-file=contracts/.env scripts/acceptance-votes.ts",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "verify": "bun --env-file=contracts/.env scripts/verify.ts",
+    "rehearse": "bun --env-file=contracts/.env scripts/rehearse.ts"
   },
   "dependencies": {
+    "@metamask/smart-accounts-kit": "0.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
-    "typescript": "^5.5.0"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^5.5.0",
+    "vite": "^8.2.1"
   }
 }
