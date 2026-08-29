@@ -8,7 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
 import { ProposalsPanel } from "./components/ProposalsPanel";
 import { RevokePanel } from "./components/RevokePanel";
-import { GrantList, VoiceSummary } from "./components/GrantList";
+import { GrantList } from "./components/GrantList";
 import { AddressLink, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations";
@@ -105,8 +105,7 @@ export function App() {
 
             {tab === "delegations" ? (
               <div className="stack">
-                <Panel title="In force">
-                  <VoiceSummary delegations={demo.delegations} domain={domain} />
+                <Panel title={`Who holds “${domain}”`}>
                   <GrantList delegations={demo.delegations} viewer={role} domain={domain} />
                 </Panel>
                 <ChainPanel

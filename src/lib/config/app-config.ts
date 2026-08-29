@@ -210,6 +210,9 @@ function isSessionGrant(value: unknown): boolean {
   return (
     typeof candidate["from"] === "string" &&
     typeof candidate["to"] === "string" &&
+    // Grants stored before voices were split out carry no principal. They would render
+    // as a chain starting nowhere, so they are dropped rather than half-read.
+    typeof candidate["principal"] === "string" &&
     typeof candidate["scope"] === "string" &&
     typeof delegation === "object" &&
     delegation !== null &&
