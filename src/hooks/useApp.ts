@@ -92,9 +92,16 @@ export function useApp(): AppState {
   const registerDomain = useCallback((domain: SessionDomain) => {
     setSessionDomains(saveSessionDomain(domain));
   }, []);
-  const addGrant = useCallback((grant: Grant) => {
-    setSessionGrants(saveSessionGrant(grant));
-  }, []);
+  // Signing a grant also records the weight transfer at the governor, so the weights on
+  // screen are stale until they are read again. Without this the panel keeps showing what
+  // everyone could cast before the delegation existed.
+  const addGrant = useCallback(
+    (grant: Grant) => {
+      setSessionGrants(saveSessionGrant(grant));
+      refresh();
+    },
+    [refresh],
+  );
   // The seeded pair lives in a file, so a revocation of one is remembered here instead.
   /**
    * Grants taken back this session, keyed `signer|domain`.
@@ -114,7 +121,8 @@ export function useApp(): AppState {
       return next;
     });
     setRevokedGrants((current) => (current.includes(key) ? current : [...current, key]));
-  }, []);
+    refresh();
+  }, [refresh]);
   const resetSessionDomains = useCallback(() => {
     clearSessionDomains();
     setSessionDomains([]);
