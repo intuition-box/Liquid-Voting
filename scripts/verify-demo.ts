@@ -8,23 +8,18 @@
  *
  * Run: bun run verify
  */
-import { createPublicClient, http, type Hex } from "viem";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createPublicClient, http } from "viem";
 
-import { intuitionTestnet, readManifest } from "./lib/network";
+import { intuitionTestnet } from "./lib/network";
+import { configFromManifest } from "./lib/demo-config";
 import { isDelegationDisabled } from "../src/lib/delegation";
 import { planVoteForcingWitness, preflightVote, readProposals, VOTE_FOR } from "../src/lib/demo-actions";
 import { DelegationSet } from "../src/lib/delegation-set";
 import { DomainGraph } from "../src/lib/domain-graph";
 import { baseGrants } from "../src/lib/grants";
 import type { Role } from "../src/lib/demo-config";
-import type { DemoConfig } from "../src/lib/demo-config";
 import { readEdgeStates } from "../src/lib/graph";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const delegationsPath = join(repoRoot, "data", "delegations.json");
 
 /**
  * The demo script's claims, as assertions: who votes, on which domain, and what the
@@ -41,51 +36,11 @@ const EXPECTATIONS: Array<{ domain: string; voter: Role; heldOn?: string; expect
 ];
 
 async function main(): Promise<void> {
-  if (!existsSync(delegationsPath)) throw new Error("data/delegations.json missing — run `bun run phase3:delegate`");
-  const manifest = readManifest();
-  const delegations = JSON.parse(readFileSync(delegationsPath, "utf-8")) as {
-    rootDelegation: DemoConfig["delegations"]["root"];
-    leafDelegation: DemoConfig["delegations"]["leaf"];
-    signedAt: string;
-    maxDepth: number;
-  };
-  const attestor = manifest.attestation.orgAttestor;
-  const curveId = manifest.attestation.curveId;
-  const accounts = manifest.accounts;
-  if (!attestor || !curveId || !accounts) throw new Error("manifest incomplete — run `bun run seed` and `bun run phase3:setup`");
-
+  const config = configFromManifest();
   const client = createPublicClient({
     chain: intuitionTestnet,
     transport: http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]),
   });
-
-  const config: DemoConfig = {
-    multiVault: manifest.multiVault,
-    enforcer: manifest.contracts.GraphDomainCaveatEnforcer.address,
-    governor: manifest.contracts.MockGovernor.address,
-    predicate: manifest.vocabulary.predicate,
-    nodes: Object.entries(manifest.vocabulary.atoms).map(([label, termId]) => ({ label, termId: termId as Hex })),
-    edges: Object.entries(manifest.vocabulary.triples).map(([key, tripleId]) => {
-      const [child = "", parent = ""] = key.split("->");
-      return { child, parent, tripleId: tripleId as Hex };
-    }),
-    attestor,
-    curveId: BigInt(curveId),
-    accounts: {
-      voter: accounts["voter"] as DemoConfig["accounts"]["voter"],
-      delegate: accounts["delegate"] as DemoConfig["accounts"]["delegate"],
-      executor: accounts["executor"] as DemoConfig["accounts"]["executor"],
-    },
-    ownerKeys: { voter: "0x", delegate: "0x", executor: "0x" },
-    delegations: {
-      root: delegations.rootDelegation,
-      leaf: delegations.leafDelegation,
-      signedAt: delegations.signedAt,
-      maxDepth: delegations.maxDepth,
-    },
-    submitterKey: "0x",
-    rpcUrl: process.env["INTUITION_TESTNET_RPC"],
-  };
 
   let failures = 0;
   const fail = (line: string): void => {

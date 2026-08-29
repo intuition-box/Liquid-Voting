@@ -11,13 +11,12 @@
  *
  * Run: bun run rehearse            (or: bun run rehearse "some label")
  */
-import { createPublicClient, formatEther, http, parseEther, type Hex } from "viem";
+import { createPublicClient, formatEther, http, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { intuitionTestnet, readManifest } from "./lib/network";
+import { intuitionTestnet } from "./lib/network";
+import { configFromManifest } from "./lib/demo-config";
+import type { DemoConfig } from "../src/lib/demo-config";
 import {
   extendGraph,
   planVoteForcingWitness,
@@ -25,7 +24,6 @@ import {
   recordProposal,
   VOTE_FOR,
 } from "../src/lib/demo-actions";
-import type { DemoConfig } from "../src/lib/demo-config";
 import { DelegationSet } from "../src/lib/delegation-set";
 import { DomainGraph } from "../src/lib/domain-graph";
 import { baseGrants } from "../src/lib/grants";
@@ -34,58 +32,16 @@ import { readEdgeStates } from "../src/lib/graph";
 const STAKE = parseEther("0.005");
 const PARENT = "design";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const delegationsPath = join(repoRoot, "data", "delegations.json");
 
 async function main(): Promise<void> {
   const label = process.argv[2] ?? `rehearsal ${new Date().toISOString().slice(0, 16)}`;
-  if (!existsSync(delegationsPath)) throw new Error("data/delegations.json missing — run `bun run phase3:delegate`");
-  const delegations = JSON.parse(readFileSync(delegationsPath, "utf-8")) as {
-    rootDelegation: DemoConfig["delegations"]["root"];
-    leafDelegation: DemoConfig["delegations"]["leaf"];
-    signedAt: string;
-    maxDepth: number;
-  };
-  const manifest = readManifest();
-  const attestor = manifest.attestation.orgAttestor;
-  const curveId = manifest.attestation.curveId;
-  const accounts = manifest.accounts;
   const submitterKey = process.env["PRIVATE_KEY"];
-  if (!attestor || !curveId || !accounts) throw new Error("manifest incomplete — run `bun run seed` / `phase3:setup`");
   if (!submitterKey) throw new Error("PRIVATE_KEY missing (contracts/.env)");
-
+  const config = configFromManifest(submitterKey);
   const client = createPublicClient({
     chain: intuitionTestnet,
     transport: http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]),
   });
-
-  const config: DemoConfig = {
-    multiVault: manifest.multiVault,
-    enforcer: manifest.contracts.GraphDomainCaveatEnforcer.address,
-    governor: manifest.contracts.MockGovernor.address,
-    predicate: manifest.vocabulary.predicate,
-    nodes: Object.entries(manifest.vocabulary.atoms).map(([name, termId]) => ({ label: name, termId: termId as Hex })),
-    edges: Object.entries(manifest.vocabulary.triples).map(([key, tripleId]) => {
-      const [child = "", parent = ""] = key.split("->");
-      return { child, parent, tripleId: tripleId as Hex };
-    }),
-    attestor,
-    curveId: BigInt(curveId),
-    accounts: {
-      voter: accounts["voter"] as DemoConfig["accounts"]["voter"],
-      delegate: accounts["delegate"] as DemoConfig["accounts"]["delegate"],
-      executor: accounts["executor"] as DemoConfig["accounts"]["executor"],
-    },
-    ownerKeys: { voter: "0x", delegate: "0x", executor: "0x" },
-    delegations: {
-      root: delegations.rootDelegation,
-      leaf: delegations.leafDelegation,
-      signedAt: delegations.signedAt,
-      maxDepth: delegations.maxDepth,
-    },
-    submitterKey: submitterKey as `0x${string}`,
-    rpcUrl: process.env["INTUITION_TESTNET_RPC"],
-  };
 
   const submitter = privateKeyToAccount(config.submitterKey);
   const startBalance = await client.getBalance({ address: submitter.address });
