@@ -5,7 +5,7 @@ import { extendGraph } from "../lib/demo-actions";
 import type { DemoConfig, Role, SessionDomain } from "../lib/demo-config";
 import type { DomainGraph } from "../lib/domain-graph";
 import type { EdgeState } from "../lib/graph";
-import { DomainTree } from "./DomainTree";
+import { DomainTree, type Held } from "./DomainTree";
 import { Button, Empty, Field, Status, TxLink, type Verdict } from "./primitives";
 
 const STAKE = parseEther("0.005");
@@ -47,7 +47,7 @@ export function DomainNav({
   /** The domain scoping the centre; its whole subtree reads as covered. */
   selected: string;
   /** Who handed each domain to whom, drawn as a badge on the row. */
-  grantedTo?: Map<string, { from: Role; to: Role }>;
+  grantedTo?: Map<string, Held[]>;
   /** Who the viewer is acting as; the badges are written from their side. */
   viewer: Role;
   sessionDomainCount: number;

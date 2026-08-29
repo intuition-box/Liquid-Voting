@@ -2,10 +2,12 @@ import type { Role } from "../lib/demo-config";
 import type { DomainGraph, TreeNode } from "../lib/domain-graph";
 import { ROLE_CLASS, ROLE_LABELS } from "../lib/grants";
 
-/** A delegation in force on one domain. */
+/** A delegation in force on one domain, and whose voice it carries. */
 export interface Held {
   from: Role;
   to: Role;
+  /** Whose voice travels through it — `from` itself unless the grant relays someone. */
+  principal: Role;
 }
 
 /**
@@ -25,8 +27,8 @@ export function DomainTree({
   graph: DomainGraph;
   /** The domain currently in scope; its whole subtree is highlighted. */
   selected: string;
-  /** Who handed each domain to whom, by domain name. */
-  grantedTo?: Map<string, Held>;
+  /** Every grant in force, by domain name — one entry per voice handed on. */
+  grantedTo?: Map<string, Held[]>;
   /** Who the viewer is acting as. */
   viewer?: Role;
   onSelect?: (domain: string) => void;
@@ -63,14 +65,13 @@ function Branch({
   selected: string;
   /** True once an ancestor is the selected domain — the whole subtree is in scope. */
   inScope: boolean;
-  grantedTo?: Map<string, Held>;
+  grantedTo?: Map<string, Held[]>;
   viewer?: Role;
   onSelect?: (domain: string) => void;
 }) {
   const isSelected = node.label === selected;
   const covered = inScope || isSelected;
-  const grant = grantedTo?.get(node.label);
-  const side = grant ? (grant.from === viewer ? "gave" : grant.to === viewer ? "got" : "other") : null;
+  const held = grantedTo?.get(node.label) ?? [];
 
   return (
     <li className="tree-node">
@@ -89,16 +90,33 @@ function Branch({
         disabled={!onSelect}
       >
         <span className="tree-name">{node.label}</span>
-        {grant ? (
-          <span
-            className={`tree-holder tree-holder-${side}`}
-            title={`${ROLE_LABELS[grant.from]} delegated this domain to ${ROLE_LABELS[grant.to]}`}
-          >
-            <span className={ROLE_CLASS[grant.from]}>{ROLE_LABELS[grant.from]}</span>
-            <span className="tree-holder-arrow">→</span>
-            <span className={ROLE_CLASS[grant.to]}>{ROLE_LABELS[grant.to]}</span>
-          </span>
-        ) : null}
+        {held.map((grant) => {
+          const side = grant.from === viewer ? "gave" : grant.to === viewer ? "got" : "other";
+          // A relayed voice shows where it started, so a chain reads A → B → C on the row
+          // rather than as two badges nobody can connect.
+          const relayed = grant.principal !== grant.from;
+          return (
+            <span
+              key={`${grant.principal}-${grant.from}-${grant.to}`}
+              className={`tree-holder tree-holder-${side}`}
+              title={
+                relayed
+                  ? `${ROLE_LABELS[grant.from]} passed on ${ROLE_LABELS[grant.principal]}'s vote to ${ROLE_LABELS[grant.to]}`
+                  : `${ROLE_LABELS[grant.from]} delegated its own vote to ${ROLE_LABELS[grant.to]}`
+              }
+            >
+              {relayed ? (
+                <>
+                  <span className={ROLE_CLASS[grant.principal]}>{ROLE_LABELS[grant.principal]}</span>
+                  <span className="tree-holder-arrow">→</span>
+                </>
+              ) : null}
+              <span className={ROLE_CLASS[grant.from]}>{ROLE_LABELS[grant.from]}</span>
+              <span className="tree-holder-arrow">→</span>
+              <span className={ROLE_CLASS[grant.to]}>{ROLE_LABELS[grant.to]}</span>
+            </span>
+          );
+        })}
         {node.usable ? null : <span className="tree-flag">unusable</span>}
       </button>
       {node.children.length > 0 ? (

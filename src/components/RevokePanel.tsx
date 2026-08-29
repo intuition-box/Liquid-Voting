@@ -16,8 +16,12 @@ interface Outcome {
 
 /**
  * Revocation is framework-native: the voter calls `disableDelegation` and the
- * DelegationManager refuses the whole downstream chain. We wrote no code for it — this
- * panel proves it by re-simulating both levels afterwards.
+ * DelegationManager refuses every chain whose authority derives from that hash. We wrote
+ * no code for it — this panel proves it by re-simulating each chain afterwards.
+ *
+ * What dies is what was borrowed. A delegation relaying the voter's voice is chained to
+ * this hash and goes with it; one an account signed on its own authority is untouched, so
+ * the delegate keeps handing on its own vote. Taking a voice back is not a mute button.
  */
 export function RevokePanel({
   config,
@@ -76,7 +80,7 @@ export function RevokePanel({
       setOutcome({
         verdict: allDead ? "pass" : "fail",
         message: allDead
-          ? `every downstream account is dead — ${detail}`
+          ? `every chain relaying this voice is dead — ${detail}`
           : `unexpected — ${detail}`,
         txHash: result.txHash,
       });
@@ -91,8 +95,9 @@ export function RevokePanel({
   return (
     <Panel title="Revoke">
       <p>
-        The voter disables its root delegation at the DelegationManager. The delegate's authority derives from that hash,
-        so both the delegate and the executor stop working in the same transaction.
+        The voter disables its root delegation at the DelegationManager. Every delegation relaying that voice derives
+        from this hash, so all of them stop in the same transaction — and any grant an account signed on its own
+        authority keeps standing. You take back what you lent, not what others gave.
       </p>
       <dl className="kv">
         <dt>root hash</dt>

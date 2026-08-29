@@ -114,6 +114,13 @@ Click **for**.
 > "Recorded as B's vote, weighted by mine. B pressed the button; my weight travelled with
 > the delegation I signed yesterday."
 
+**Expect:** a **who voted** list appears under the tallies — two lines, `B · own voice · 1`
+and `A · carried by B · 1`.
+
+> "And the two are not merged into one number. The governor logs a line per voice, so a
+> delegated vote can be read back to whose it was. Two here: B's own, and mine that B
+> carried."
+
 ---
 
 ## 4 · What the scope refuses (2 min)
@@ -192,6 +199,15 @@ Click **take "design" back**, then switch to **Proposals** and look at a `brandi
 **Expect:** A is back to `1`, B down to `1`.
 
 > "Revocation is one call, and the weight comes home."
+
+If C had been given `design` by B in the meantime, add this — it is the part people ask
+about:
+
+> "And notice what did *not* die. B handed C two things: my voice, which it was only
+> holding, and its own. Taking mine back kills the first — the delegation carrying it is
+> chained to the one I just disabled — and leaves the second standing. C keeps what B gave
+> it, because that was never mine to take back. A voice belongs to whoever cast it, all
+> the way down."
 
 **To reset for a second run:** the `reset` button under the tree clears session domains and
 grants.
