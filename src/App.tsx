@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { useApp } from "./hooks/useApp";
 import type { Role } from "./lib/config/app-config";
-import { ROLES, ROLE_CLASS, ROLE_LABELS } from "./lib/delegation/grant";
+import { ROLES, ROLE_CLASS } from "./lib/delegation/grant";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
@@ -16,7 +16,7 @@ type TabId = "proposals" | "delegations";
 /** The three demo identities. Each carries one colour, used everywhere the role appears. */
 const IDENTITIES = ROLES.map((role) => ({
   role,
-  label: ROLE_LABELS[role],
+  label: role,
   className: ROLE_CLASS[role],
 }));
 
@@ -29,7 +29,7 @@ export function App() {
   const demo = useApp();
   const [tab, setTab] = useState<TabId>("proposals");
   const [domain, setDomain] = useState("design");
-  const [role, setRole] = useState<Role>("delegate");
+  const [role, setRole] = useState<Role>("B");
   const { config, client } = demo;
 
   if (!demo.configResult.ok || !config || !client) {

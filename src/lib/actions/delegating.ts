@@ -134,9 +134,9 @@ export async function revokeWeight(
   ]);
 }
 
-/** The voter disables its root delegation — framework-native, kills the whole chain. */
+/** A disables its root delegation — framework-native, kills every chain relaying it. */
 export async function revokeRoot(client: PublicClient, config: AppConfig): Promise<UserOpResult> {
-  const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "voter")));
+  const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "A")));
   return sendUserOp(client, submitterClient(config), voter, [
     { to: FRAMEWORK.delegationManager, value: 0n, data: buildDisableCalldata(config.delegations.root) },
   ]);

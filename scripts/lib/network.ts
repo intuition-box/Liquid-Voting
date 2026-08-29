@@ -34,9 +34,9 @@ export interface Manifest {
     atoms: Record<string, `0x${string}`>;
     triples: Record<string, `0x${string}`>;
   };
-  attestation: {
+  curation: {
     note: string;
-    orgAttestor: `0x${string}` | null;
+    curator: `0x${string}` | null;
     curveId: string | null;
     stakes: Record<string, { shares: string; txHash: `0x${string}` | null }>;
   };

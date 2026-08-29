@@ -335,10 +335,9 @@ export async function readWeights(
   domainId: Hex,
   domainPath: Hex[] = [],
 ): Promise<Record<Role, bigint>> {
-  const roles: Role[] = ["voter", "delegate", "executor"];
-  const all = roles.map((role) => config.accounts[role].smartAccount);
+  const all = ROLES.map((role) => config.accounts[role].smartAccount);
   const weights = await Promise.all(
-    roles.map((role) =>
+    ROLES.map((role) =>
       client.readContract({
         address: config.governor,
         abi: governorAbi,
@@ -347,7 +346,7 @@ export async function readWeights(
       }),
     ),
   );
-  return { voter: weights[0] ?? 0n, delegate: weights[1] ?? 0n, executor: weights[2] ?? 0n };
+  return Object.fromEntries(ROLES.map((role, index) => [role, weights[index] ?? 0n])) as Record<Role, bigint>;
 }
 
 /**

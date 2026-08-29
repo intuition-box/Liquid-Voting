@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     if (held > 0n) {
       console.log(`stake on "${key}" already held (${held} shares) — skip`);
       // Preserve the recorded deposit tx from a previous run — skips must not erase history.
-      stakes[key] = { shares: held.toString(), txHash: manifest.attestation.stakes[key]?.txHash ?? null };
+      stakes[key] = { shares: held.toString(), txHash: manifest.curation.stakes[key]?.txHash ?? null };
       continue;
     }
     console.log(`depositing ${formatEther(STAKE_PER_TRIPLE)} tTRUST on "${key}"`);
@@ -146,9 +146,9 @@ async function main(): Promise<void> {
   }
 
   // 4. Manifest update — the single source of truth for tests and frontend.
-  manifest.attestation = {
+  manifest.curation = {
     note: "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
-    orgAttestor: account.address,
+    curator: account.address,
     curveId: curveId.toString(),
     stakes,
   };

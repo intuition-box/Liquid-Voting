@@ -20,7 +20,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { intuitionTestnet, readManifest } from "./lib/network";
 import { governorAbi } from "../src/lib/chain/abis";
 import { toHybridAccount } from "../src/lib/chain/smart-accounts";
-import { ROLES } from "../src/lib/roles";
+import { ROLES, type Role } from "../src/lib/roles";
 import { sendUserOp } from "../src/lib/chain/user-op";
 
 /**
@@ -89,14 +89,14 @@ async function main(): Promise<void> {
   // `UX` to C. The signature says the delegate MAY vote; this register says whose weight
   // it carries, and the delegator stops counting on that domain.
   const TRANSFERS: Array<{
-    from: "voter" | "delegate";
-    to: "delegate" | "executor";
+    from: Role;
+    to: Role;
     domain: string;
     /** The domain and its parents — the governor refuses one already covered by a parent. */
     path: string[];
   }> = [
-    { from: "voter", to: "delegate", domain: "treasury", path: ["treasury", "governance"] },
-    { from: "delegate", to: "executor", domain: "grants", path: ["grants", "treasury", "governance"] },
+    { from: "A", to: "B", domain: "treasury", path: ["treasury", "governance"] },
+    { from: "B", to: "C", domain: "grants", path: ["grants", "treasury", "governance"] },
   ];
   for (const transfer of TRANSFERS) {
     const from = accounts[transfer.from]?.smartAccount;

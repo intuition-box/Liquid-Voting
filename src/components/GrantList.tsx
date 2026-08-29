@@ -1,6 +1,6 @@
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import { decodeTerms } from "../lib/delegation/encoding";
-import { ROLE_CLASS, ROLE_LABELS, type Grant } from "../lib/delegation/grant";
+import { ROLE_CLASS, type Grant } from "../lib/delegation/grant";
 import type { Role } from "../lib/roles";
 import { Empty, Mono } from "./primitives";
 
@@ -78,14 +78,14 @@ function GrantRow({ grant, viewer, showScope }: { grant: Grant; viewer: Role; sh
         {hops.map((role, index) => (
           <span key={`${role}-${index}`}>
             {index > 0 ? <span className="grant-arrow">→</span> : null}
-            <span className={`grant-role ${ROLE_CLASS[role]}`}>{ROLE_LABELS[role]}</span>
+            <span className={`grant-role ${ROLE_CLASS[role]}`}>{role}</span>
           </span>
         ))}
       </span>
       <span className="grant-note muted">
         {relayed
-          ? `${ROLE_LABELS[grant.from]} passes on ${ROLE_LABELS[grant.principal]}’s vote`
-          : `${ROLE_LABELS[grant.from]}’s own vote`}
+          ? `${grant.from} passes on ${grant.principal}’s vote`
+          : `${grant.from}’s own vote`}
         {showScope ? ` · granted on “${grant.scope}”` : ""}
         {` · ${reachLabel(grant)}`}
       </span>

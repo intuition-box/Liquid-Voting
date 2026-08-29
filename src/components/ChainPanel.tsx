@@ -5,7 +5,7 @@ import { DEFAULT_MAX_DEPTH, revokeWeight, signDelegation } from "../lib/actions"
 import type { AppConfig, Role } from "../lib/config/app-config";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import type { DomainGraph } from "../lib/graph/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS, ROLES, type Grant } from "../lib/delegation/grant";
+import { ROLE_CLASS, ROLES, type Grant } from "../lib/delegation/grant";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
 /**
@@ -125,7 +125,7 @@ export function ChainPanel({
           delegation,
         });
       });
-      setOutcome({ verdict: "pass", text: `${ROLE_LABELS[role]} handed “${domain}” to ${ROLE_LABELS[target]}` });
+      setOutcome({ verdict: "pass", text: `${role} handed “${domain}” to ${target}` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -167,7 +167,7 @@ export function ChainPanel({
                   .join(" ")}
                 onClick={() => setTo(candidate)}
               >
-                <span className="holder-badge">{ROLE_LABELS[candidate]}</span>
+                <span className="holder-badge">{candidate}</span>
                 <span className="holder-note">{note}</span>
                 {held === candidate ? <span className="holder-check">✓</span> : null}
               </button>
@@ -200,19 +200,19 @@ export function ChainPanel({
           </Button>
         ) : (
           <Button onClick={() => void grant()} busy={busy} disabled={!writable || !target} variant="primary">
-            {target ? `hand it to ${ROLE_LABELS[target]}` : "no one available"}
+            {target ? `hand it to ${target}` : "no one available"}
           </Button>
         )}
       </div>
 
       {coveredBy ? (
         <p className="muted">
-          “{domain}” already went to {ROLE_LABELS[coveredBy.to]} with “{coveredBy.scope}”. Take the parent back to
+          “{domain}” already went to {coveredBy.to} with “{coveredBy.scope}”. Take the parent back to
           split it out.
         </p>
       ) : yours ? (
         <p className="muted">
-          “{domain}” is with {ROLE_LABELS[yours.to]}. Take it back before handing it to anyone else.
+          “{domain}” is with {yours.to}. Take it back before handing it to anyone else.
         </p>
       ) : null}
       {!writable ? <p className="muted">read-only build</p> : null}

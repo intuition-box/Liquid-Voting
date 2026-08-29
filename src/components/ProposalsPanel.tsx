@@ -15,7 +15,7 @@ import {
 } from "../lib/actions";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import type { DomainGraph } from "../lib/graph/domain-graph";
-import { ROLE_CLASS, ROLE_LABELS } from "../lib/delegation/grant";
+import { ROLE_CLASS } from "../lib/delegation/grant";
 import { shortHex } from "../lib/chain/network";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
@@ -317,8 +317,8 @@ function Ballots({ entries }: { entries?: Ballot[] }) {
       {entries.map((ballot, index) => (
         <ul key={index} className="ballot">
           {ballot.entries.map((entry) => {
-            const name = entry.principal ? ROLE_LABELS[entry.principal] : shortHex(entry.principalAddress);
-            const carrier = entry.carriedBy ? ROLE_LABELS[entry.carriedBy] : shortHex(entry.carriedByAddress);
+            const name = entry.principal ? entry.principal : shortHex(entry.principalAddress);
+            const carrier = entry.carriedBy ? entry.carriedBy : shortHex(entry.carriedByAddress);
             const relayed = entry.principal !== entry.carriedBy;
             return (
               <li key={entry.principalAddress} className="ballot-row">

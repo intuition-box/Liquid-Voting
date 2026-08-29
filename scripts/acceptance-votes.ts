@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   const branding = atoms["branding"] as Hex;
   const ux = atoms["UX"] as Hex;
   const legal = atoms["legal"] as Hex;
-  const { voter: voterSA, delegate: delegateSA, executor: executorSA } = accounts;
+  const { A: voterSA, B: delegateSA, C: executorSA } = accounts;
   const root: Delegation = { ...signed.rootDelegation };
   const leaf: Delegation = { ...signed.leafDelegation };
   const manager = FRAMEWORK.delegationManager;

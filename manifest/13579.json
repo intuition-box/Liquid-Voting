@@ -72,9 +72,22 @@
       "content->community": "0x6778defd7e1064953120b963b31e5870ed9c211004783b45526b14cc8df9d7ab"
     }
   },
-  "attestation": {
-    "note": "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
-    "orgAttestor": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A",
+  "accounts": {
+    "A": {
+      "owner": "0xA1e260B33788b89FfBfD79C3D6e3946cFF810D15",
+      "smartAccount": "0x446FF798aC90133543eec03AeF31807C3DD4417B"
+    },
+    "B": {
+      "owner": "0xC6E43fD934442dA24906aDA2dC49E0e6967a1CBa",
+      "smartAccount": "0xd99c420dfB29ba0af8EE9b7c45CE7Aa657226fa4"
+    },
+    "C": {
+      "owner": "0xAc1175cC545Ec5b24eDB9826Da5251e16D98e3Ed",
+      "smartAccount": "0x91C69d593583010C20F83932c779cE966D15A5b2"
+    }
+  },
+  "curation": {
+    "note": "Org-curator stakes per ADR 0004; a hop only authorizes while the curator holds a position on it.",
     "curveId": "1",
     "stakes": {
       "treasury->governance": {
@@ -141,20 +154,7 @@
         "shares": "9900000000000000",
         "txHash": "0x1fb64df1519e206ff99ab03c995974c0c4b27954d1a4425d4e3cd434b5d37761"
       }
-    }
-  },
-  "accounts": {
-    "voter": {
-      "owner": "0xA1e260B33788b89FfBfD79C3D6e3946cFF810D15",
-      "smartAccount": "0x446FF798aC90133543eec03AeF31807C3DD4417B"
     },
-    "delegate": {
-      "owner": "0xC6E43fD934442dA24906aDA2dC49E0e6967a1CBa",
-      "smartAccount": "0xd99c420dfB29ba0af8EE9b7c45CE7Aa657226fa4"
-    },
-    "executor": {
-      "owner": "0xAc1175cC545Ec5b24eDB9826Da5251e16D98e3Ed",
-      "smartAccount": "0x91C69d593583010C20F83932c779cE966D15A5b2"
-    }
+    "curator": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A"
   }
 }

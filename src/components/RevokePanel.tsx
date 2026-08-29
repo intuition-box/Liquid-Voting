@@ -4,7 +4,7 @@ import type { PublicClient } from "viem";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import type { AppConfig } from "../lib/config/app-config";
 import type { DomainGraph } from "../lib/graph/domain-graph";
-import { ROLE_LABELS, ROLES } from "../lib/delegation/grant";
+import { ROLES } from "../lib/delegation/grant";
 import { planVoteForcingWitness, preflightVote, revokeRoot, VOTE_FOR } from "../lib/actions";
 import { Button, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
 
@@ -76,7 +76,7 @@ export function RevokePanel({
         }),
       );
       const allDead = probes.every((probe) => !probe.ok);
-      const detail = probes.map((probe) => `${ROLE_LABELS[probe.holder]}: ${probe.reason}`).join(", ");
+      const detail = probes.map((probe) => `${probe.holder}: ${probe.reason}`).join(", ");
       setOutcome({
         verdict: allDead ? "pass" : "fail",
         message: allDead

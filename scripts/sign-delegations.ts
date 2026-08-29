@@ -51,11 +51,11 @@ async function main(): Promise<void> {
   const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
   const manifest = readManifest();
   const enforcer = manifest.contracts.GraphDomainCaveatEnforcer.address;
-  const orgAttestor = manifest.attestation.orgAttestor;
-  if (!orgAttestor) throw new Error("manifest attestation.orgAttestor missing — run seed first");
-  const voterKey = stored.keys["voter"];
-  const delegateKey = stored.keys["delegate"];
-  const executorKey = stored.keys["executor"];
+  const curator = manifest.curation.curator;
+  if (!curator) throw new Error("manifest curation.curator missing — run seed first");
+  const voterKey = stored.keys["A"];
+  const delegateKey = stored.keys["B"];
+  const executorKey = stored.keys["C"];
   if (!voterKey || !delegateKey || !executorKey) throw new Error("accounts.json is missing a role key");
 
   const transport = http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]);
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
-          attestor: orgAttestor,
+          attestor: curator,
         }),
         args: "0x",
       },
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
-          attestor: orgAttestor,
+          attestor: curator,
         }),
         args: "0x",
       },
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
           predicateId: manifest.vocabulary.predicate.termId,
           maxDepth: MAX_DEPTH,
           expiry: 0n,
-          attestor: orgAttestor,
+          attestor: curator,
         }),
         args: "0x",
       },
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
         note: "EIP-712-signed delegations for the Phase 3 chain. Testnet-only. NEVER commit.",
         signedAt: new Date().toISOString(),
         maxDepth: MAX_DEPTH,
-        attestor: orgAttestor,
+        attestor: curator,
         rootDelegation: { ...rootDelegation, hash: rootHash },
         leafDelegation: { ...leafDelegation, hash: leafHash },
         ownDelegation: { ...ownDelegation, hash: ownHash },

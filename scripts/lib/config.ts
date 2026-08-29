@@ -46,9 +46,9 @@ export function readDelegations(): SignedDelegations {
 export function configFromManifest(submitterKey?: string): AppConfig {
   const manifest = readManifest();
   const delegations = readDelegations();
-  const { orgAttestor, curveId } = manifest.attestation;
+  const { curator, curveId } = manifest.curation;
   const accounts = manifest.accounts;
-  if (!orgAttestor || !curveId || !accounts) {
+  if (!curator || !curveId || !accounts) {
     throw new Error("manifest incomplete — run `bun run seed` and `bun run setup`");
   }
 
@@ -69,7 +69,7 @@ export function configFromManifest(submitterKey?: string): AppConfig {
       const [child = "", parent = ""] = key.split(EDGE_KEY_SEPARATOR);
       return { child, parent, tripleId: tripleId as Hex };
     }),
-    attestor: orgAttestor,
+    attestor: curator,
     curveId: BigInt(curveId),
     accounts: roleAccounts,
     // Scripts sign with the keys they load themselves; the app's owner keys are a

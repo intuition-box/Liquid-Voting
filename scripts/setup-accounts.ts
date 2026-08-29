@@ -43,9 +43,9 @@ function loadOrCreateKeys(): StoredAccounts {
   const stored: StoredAccounts = {
     note: "Demo EOA owner keys for the three HybridDeleGator accounts. Testnet-only. NEVER commit.",
     keys: {
-      voter: generatePrivateKey(),
-      delegate: generatePrivateKey(),
-      executor: generatePrivateKey(),
+      A: generatePrivateKey(),
+      B: generatePrivateKey(),
+      C: generatePrivateKey(),
     },
   };
   mkdirSync(dirname(accountsPath), { recursive: true });

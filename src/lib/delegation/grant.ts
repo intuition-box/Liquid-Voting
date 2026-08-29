@@ -2,7 +2,7 @@ import { decodeTerms, type Delegation } from "./encoding";
 import type { AppConfig } from "../config/app-config";
 import type { Role } from "../roles";
 
-export { ROLES, ROLE_LABELS, ROLE_CLASS, type Role } from "../roles";
+export { ROLES, ROLE_CLASS, type Role } from "../roles";
 
 /**
  * One signed delegation: who handed what to whom, and whose voice it carries.
@@ -33,19 +33,19 @@ export function baseGrants(config: AppConfig, rootDisabled: boolean, leafDisable
   };
   return [
     {
-      from: "voter",
-      to: "delegate",
-      principal: "voter",
+      from: "A",
+      to: "B",
+      principal: "A",
       scope: scopeOf(config.delegations.root),
       revoked: rootDisabled,
       delegation: config.delegations.root,
     },
     {
-      from: "delegate",
-      to: "executor",
+      from: "B",
+      to: "C",
       // The seeded leaf is chained to the root, so what it carries is A's voice relayed
       // by B — B's own voice never had a grant of its own in the seeded pair.
-      principal: "voter",
+      principal: "A",
       scope: scopeOf(config.delegations.leaf),
       // Only its own disabled state: DelegationSet settles the cascade from the signed
       // authority links, so a root revocation reaches this one without being spelled out.

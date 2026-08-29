@@ -19,7 +19,7 @@ interface ManifestShape {
     atoms: Record<string, Hex>;
     triples: Record<string, Hex>;
   };
-  attestation: { orgAttestor: `0x${string}` | null; curveId: string | null };
+  curation: { curator: `0x${string}` | null; curveId: string | null };
   accounts?: Record<string, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
 }
 
@@ -97,10 +97,10 @@ export function loadAppConfig(): ConfigResult {
   }
   const delegationsFile = delegationsModule.default as DelegationsFile;
 
-  const attestor = manifest.attestation.orgAttestor;
-  const curveId = manifest.attestation.curveId;
+  const attestor = manifest.curation.curator;
+  const curveId = manifest.curation.curveId;
   if (!attestor || !curveId) {
-    return { ok: false, missing: "manifest attestation", hint: "run `bun run seed` to stake the graph edges" };
+    return { ok: false, missing: "manifest curation", hint: "run `bun run seed` to stake the graph edges" };
   }
 
   const manifestAccounts = manifest.accounts;
