@@ -513,25 +513,6 @@ export async function readWeights(
   return { voter: weights[0] ?? 0n, delegate: weights[1] ?? 0n, executor: weights[2] ?? 0n };
 }
 
-/** Voting power per demo role, read live — the weights a delegated vote carries. */
-export async function readVotingPower(
-  client: PublicClient,
-  config: DemoConfig,
-): Promise<Record<Role, bigint>> {
-  const roles: Role[] = ["voter", "delegate", "executor"];
-  const powers = await Promise.all(
-    roles.map((role) =>
-      client.readContract({
-        address: config.governor,
-        abi: governorAbi,
-        functionName: "votingPower",
-        args: [config.accounts[role].smartAccount],
-      }),
-    ),
-  );
-  return { voter: powers[0] ?? 0n, delegate: powers[1] ?? 0n, executor: powers[2] ?? 0n };
-}
-
 export interface ExtendResult {
   label: string;
   atomId: Hex;

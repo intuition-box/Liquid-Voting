@@ -96,34 +96,14 @@ body {
   align-items: start;
 }
 
-.split-side {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-left: 32px;
-  border-left: 1px solid var(--border);
-}
-
 @media (max-width: 900px) {
   .split {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
-  .split-side {
-    padding-left: 0;
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding-top: 20px;
-  }
 }
 
 /* ── Delegation wiring ───────────────────────────────────────────────── */
-
-.wiring-side {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
 
 .holders {
   list-style: none;
@@ -240,21 +220,6 @@ body {
 .role-a { color: var(--role-a); }
 .role-b { color: var(--role-b); }
 .role-c { color: var(--role-c); }
-
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.role-badge::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
 
 /* ── Workspace: domain rail + content ────────────────────────────────── */
 
@@ -545,37 +510,6 @@ code {
 
 /* ── Filters + proposal rows ──────────────────────────────────────────── */
 
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 12.5px;
-  padding: 4px 11px;
-  cursor: pointer;
-}
-
-.chip:hover {
-  color: var(--text);
-  border-color: var(--text);
-}
-
-.chip-on {
-  color: var(--bg);
-  background: var(--text);
-  border-color: var(--text);
-}
-
-.proposal-pick:hover .proposal-title {
-  color: var(--accent);
-}
-
 .weight-badge {
   font-family: var(--mono);
   font-size: 11px;
@@ -644,12 +578,6 @@ code {
   border-left-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-.tree-tick {
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
 .tree-label-dead {
   color: var(--dim);
 }
@@ -696,11 +624,6 @@ code {
   padding: 0 5px;
 }
 
-.level-scope {
-  margin: 0 0 4px;
-  font-size: 14px;
-}
-
 /* ── Delegation levels ────────────────────────────────────────────────── */
 
 .levels {
@@ -713,19 +636,6 @@ code {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-}
-
-.level-dead {
-  border-left: 2px solid var(--bad);
-  padding-left: 14px;
-}
-
-.level-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
 }
 
 .kv {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicClient } from "viem";
 
 import { createChainClient } from "../lib/chain";
-import { decodeTerms, isDelegationDisabled, type Delegation } from "../lib/delegation";
+import { isDelegationDisabled } from "../lib/delegation";
 import {
   canWrite,
   clearSessionDomains,
@@ -18,7 +18,7 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/demo-config";
-import { readGraphLimits, readProposals, readVotingPower, readWeights, type ProposalRecord } from "../lib/demo-actions";
+import { readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/demo-actions";
 import { DelegationSet } from "../lib/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/domain-graph";
 import { baseGrants, type Grant } from "../lib/grants";
@@ -33,11 +33,6 @@ export interface DemoState {
   /** The domain hierarchy, indexed once — every parent/child question goes through it. */
   graph: DomainGraph;
   proposals: ProposalRecord[];
-  votingPower: Record<Role, bigint>;
-  /** The domain the root delegation is scoped to. */
-  rootScope: string;
-  /** The domain the leaf delegation narrows to. */
-  leafScope: string;
   rootDisabled: boolean;
   leafDisabled: boolean;
   loading: boolean;
@@ -83,7 +78,6 @@ export function useDemo(): DemoState {
 
   const [edges, setEdges] = useState<EdgeState[]>([]);
   const [proposals, setProposals] = useState<ProposalRecord[]>([]);
-  const [votingPower, setVotingPower] = useState<Record<Role, bigint>>({ voter: 0n, delegate: 0n, executor: 0n });
   const [weights, setWeights] = useState<Record<string, Record<Role, bigint>>>({});
   const [limits, setLimits] = useState<GraphLimits | null>(null);
   const [rootDisabled, setRootDisabled] = useState(false);
@@ -127,10 +121,9 @@ export function useDemo(): DemoState {
 
     void (async () => {
       try {
-        const [edgeStates, records, powers, root, leaf, graphLimits] = await Promise.all([
+        const [edgeStates, records, root, leaf, graphLimits] = await Promise.all([
           readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId),
           readProposals(client, config, 40),
-          readVotingPower(client, config),
           isDelegationDisabled(client, config.delegations.root.hash),
           isDelegationDisabled(client, config.delegations.leaf.hash),
           readGraphLimits(client, config),
@@ -139,7 +132,6 @@ export function useDemo(): DemoState {
         setLimits(graphLimits);
         setEdges(edgeStates);
         setProposals(records);
-        setVotingPower(powers);
 
         // One read per domain that has a proposal — the governor is the authority on
         // weight. The path lets a grant on a parent domain count here; the governor
@@ -174,16 +166,6 @@ export function useDemo(): DemoState {
     [config?.nodes, edges, limits],
   );
 
-  // The scopes each level granted: read from the signed terms, not hardcoded.
-  const scopeOf = (delegation: Delegation | undefined): string => {
-    const caveat = delegation?.caveats[0];
-    if (!config || !caveat) return "";
-    const termId = decodeTerms(caveat.terms).rootDomainId.toLowerCase();
-    return config.nodes.find((node) => node.termId.toLowerCase() === termId)?.label ?? "";
-  };
-  const rootScope = scopeOf(config?.delegations.root);
-  const leafScope = scopeOf(config?.delegations.leaf);
-
   // The seeded pair carries its on-chain revoked state; session grants are always live.
   // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
   const delegations = useMemo(() => {
@@ -204,9 +186,6 @@ export function useDemo(): DemoState {
     edges,
     graph,
     proposals,
-    votingPower,
-    rootScope,
-    leafScope,
     rootDisabled,
     leafDisabled,
     loading,
