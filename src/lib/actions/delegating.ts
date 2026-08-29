@@ -117,11 +117,21 @@ export async function revokeWeight(
   config: AppConfig,
   from: Role,
   domainLabel: string,
+  /** Delegations to disable alongside the transfer — everything the signer granted here. */
+  signatures: (Delegation & { hash: Hex })[] = [],
 ): Promise<UserOpResult> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, from)));
+  // One user operation for both halves. Clearing the register alone would leave the
+  // signature usable, and disabling the signature alone would leave the weight parked
+  // with the delegate — taking a domain back means both, so they travel together.
   return sendUserOp(client, submitterClient(config), account, [
+    ...signatures.map((delegation) => ({
+      to: FRAMEWORK.delegationManager,
+      value: 0n,
+      data: buildDisableCalldata(delegation),
+    })),
     {
       to: config.governor,
       value: 0n,
@@ -134,13 +144,6 @@ export async function revokeWeight(
   ]);
 }
 
-/** A disables its root delegation — framework-native, kills every chain relaying it. */
-export async function revokeRoot(client: PublicClient, config: AppConfig): Promise<UserOpResult> {
-  const voter = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, "A")));
-  return sendUserOp(client, submitterClient(config), voter, [
-    { to: FRAMEWORK.delegationManager, value: 0n, data: buildDisableCalldata(config.delegations.root) },
-  ]);
-}
 
 
 /** Lifecycle states, in the governor's enum order. */

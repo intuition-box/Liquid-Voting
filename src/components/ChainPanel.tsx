@@ -65,7 +65,13 @@ export function ChainPanel({
     setBusy(true);
     setOutcome(null);
     try {
-      const result = await revokeWeight(client, config, role, coveredBy.scope);
+      // Every grant the signer made on that domain goes with the weight — its own voice
+      // and any it was relaying — so nothing is left signed but unusable.
+      const signed = delegations
+        .all()
+        .filter((grant) => !grant.revoked && grant.from === role && grant.scope === coveredBy.scope)
+        .map((grant) => grant.delegation);
+      const result = await revokeWeight(client, config, role, coveredBy.scope, signed);
       if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
       onRevoked(role, coveredBy.scope);
       setOutcome({ verdict: "pass", text: `you took “${coveredBy.scope}” back` });
@@ -80,7 +86,11 @@ export function ChainPanel({
     setBusy(true);
     setOutcome(null);
     try {
-      const result = await revokeWeight(client, config, role, domain);
+      const signed = delegations
+        .all()
+        .filter((grant) => !grant.revoked && grant.from === role && grant.scope === domain)
+        .map((grant) => grant.delegation);
+      const result = await revokeWeight(client, config, role, domain, signed);
       if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
       onRevoked(role, domain);
       setOutcome({ verdict: "pass", text: `you took “${domain}” back` });

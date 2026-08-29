@@ -7,7 +7,6 @@ import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
 import { ProposalsPanel } from "./components/ProposalsPanel";
-import { RevokePanel } from "./components/RevokePanel";
 import { GrantList } from "./components/GrantList";
 import { AddressLink, Panel } from "./components/primitives";
 
@@ -119,16 +118,6 @@ export function App() {
                   domain={domain}
                   onSigned={demo.addGrant}
                   onRevoked={demo.revokeGrant}
-                />
-                <RevokePanel
-                  config={config}
-                  client={client}
-                  graph={demo.graph}
-                  delegations={demo.delegations}
-                  domain={domain}
-                  writable={demo.writable}
-                  rootDisabled={demo.rootDisabled}
-                  onSettled={demo.refresh}
                 />
               </div>
             ) : null}
