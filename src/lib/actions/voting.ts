@@ -1,7 +1,7 @@
 /**
  * Casting a vote: planning which signed chains carry it, simulating, and submitting.
  */
-import { parseAbiItem, type Hex, type PublicClient } from "viem";
+import { encodeFunctionData, parseAbiItem, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { governorAbi } from "../chain/abis";
@@ -45,6 +45,31 @@ export interface VotePlan {
   calldata: Hex | null;
   /** Set when a link could not produce a witness — nothing to submit. */
   blocked: string | null;
+}
+
+/**
+ * Casts a vote for yourself, with no delegation involved.
+ *
+ * Nobody has to have delegated anything for an account to vote: it holds its own voice
+ * whatever else is going on. This calls the governor directly rather than redeeming
+ * through the DelegationManager, since there is no delegation to redeem and the caveat
+ * has nothing to check.
+ */
+export async function submitOwnVote(
+  client: PublicClient,
+  config: AppConfig,
+  role: Role,
+  proposalId: bigint,
+  support: number,
+): Promise<UserOpResult> {
+  const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, role)));
+  return sendUserOp(client, submitterClient(config), account, [
+    {
+      to: config.governor,
+      value: 0n,
+      data: encodeFunctionData({ abi: governorAbi, functionName: "castVote", args: [proposalId, support] }),
+    },
+  ]);
 }
 
 /**

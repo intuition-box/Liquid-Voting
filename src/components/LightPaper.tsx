@@ -133,11 +133,6 @@ export function LightPaper() {
             only what we lent.
           </p>
         </div>
-
-        <p>
-          Put that way it sounds obvious. It is nonetheless the part that took the most
-          thought: in our first version, taking my voice back erased yours too.
-        </p>
       </section>
 
       <section className="paper-section">

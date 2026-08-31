@@ -6,6 +6,7 @@ import {
   planVoteForcingWitness,
   readAllBallots,
   recordProposal,
+  submitOwnVote,
   submitVote,
   VOTE_ABSTAIN,
   VOTE_AGAINST,
@@ -144,12 +145,19 @@ export function ProposalsPanel({
     setBusy(key);
     setFeedback((current) => ({ ...current, [key]: { verdict: "pass", text: "voting…" } }));
     try {
-      // The chain comes from the grants actually signed, so whoever the viewer is acting
-      // as redeems in its own name — with whatever weight was delegated to it, or alone.
+      // Two ways to vote, and which one applies is not a choice the viewer makes.
+      //
+      // With a delegation in hand, the vote is redeemed through the signed chain and
+      // carries the voices lent along with it. With none, the account still holds its own
+      // voice: it votes directly, and there is no delegation for the caveat to check.
       const resolved = delegations.chainFor(role, domain);
-      if (!resolved) throw new Error(`nobody delegated “${domain}” to ${role}. Vote as yourself instead.`);
-      const plan = planVoteForcingWitness(config, graph, resolved, domain, proposal.id, support);
-      const result = await submitVote(client, config, plan);
+      const result = resolved
+        ? await submitVote(
+            client,
+            config,
+            planVoteForcingWitness(config, graph, resolved, domain, proposal.id, support),
+          )
+        : await submitOwnVote(client, config, role, proposal.id, support);
       setFeedback((current) => ({
         ...current,
         [key]: result.success
