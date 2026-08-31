@@ -31,25 +31,15 @@ export function LightPaper() {
       </section>
 
       <section className="paper-section">
-        <h2>Why nobody has done it</h2>
+        <h2>What we did</h2>
         <p>
-          Because “the treasury” is not a simple thing to write into a rule. It is a domain
-          with parts inside it: the grants programme, which contains developer grants, which
-          contains micro-grants. And that structure moves, because an organisation starts a
-          new programme every quarter.
+          The obvious fix is to list the permitted subjects when you sign. It does not hold:
+          an organisation starts a new programme every quarter, and a list written today is
+          wrong within three months.
         </p>
         <p>
-          You could list the permitted subjects when you sign. But every new programme would
-          then force everyone to sign again. A delegation frozen inside a living organisation
-          is wrong within three months.
-        </p>
-      </section>
-
-      <section className="paper-section">
-        <h2>What we did instead</h2>
-        <p>
-          An organisation already describes its own structure somewhere. What we do is make
-          that description the authority. The delegation stops listing subjects and asks a
+          So we stopped listing. An organisation already describes its own structure
+          somewhere, and we made that description the authority. The delegation asks a
           question instead.
         </p>
 
@@ -111,19 +101,10 @@ export function LightPaper() {
           In the second case you are not silenced: you still vote with <em>your</em> voice. It
           is mine that stays with me, because that is not what I handed over.
         </p>
-      </section>
-
-      <section className="paper-section">
-        <h2>The safeguard this needed</h2>
         <p>
-          An objection comes up immediately: if the scope follows what the structure says, then
-          writing one line into it widens your own mandate. Writing “events belong to the
-          treasury” would cost a fraction of a cent.
-        </p>
-        <p>
-          So a claim only counts once the organisation has <strong>staked money behind it</strong>.
-          Writing stays free and open to anyone. It simply achieves nothing. Talking is free;
-          committing costs something.
+          One detail makes this hold. A line in the structure only counts once the
+          organisation has staked money behind it, so nobody can widen their own mandate by
+          writing themselves a new one. Talking is free; committing costs something.
         </p>
       </section>
 
