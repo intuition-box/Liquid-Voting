@@ -62,6 +62,9 @@ export default defineConfig(({ command }) => {
   else clearEnvLocal();
   return {
     root: repoRoot,
+    // GitHub Pages serves the repo under /Liquid-demo/, so the asset URLs have to be
+    // relative to it. Dev keeps the root, where the paths are absolute.
+    base: isDev ? "/" : "/Liquid-demo/",
     plugins: [react()],
     /**
      * Secrets reach the app through a generated, gitignored `.env.local` rather than
