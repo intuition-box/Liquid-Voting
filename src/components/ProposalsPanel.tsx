@@ -147,7 +147,7 @@ export function ProposalsPanel({
       // The chain comes from the grants actually signed, so whoever the viewer is acting
       // as redeems in its own name — with whatever weight was delegated to it, or alone.
       const resolved = delegations.chainFor(role, domain);
-      if (!resolved) throw new Error(`nobody delegated “${domain}” to ${role} — vote as yourself instead`);
+      if (!resolved) throw new Error(`nobody delegated “${domain}” to ${role}. Vote as yourself instead.`);
       const plan = planVoteForcingWitness(config, graph, resolved, domain, proposal.id, support);
       const result = await submitVote(client, config, plan);
       setFeedback((current) => ({
@@ -262,12 +262,12 @@ export function ProposalsPanel({
                         <Mono>{weight.toString()}</Mono>{" "}
                         <span className="muted">
                           {mine
-                            ? "— already cast on this proposal"
+                            ? "already cast on this proposal"
                             : weight === 0n
-                              ? `— you delegated “${domain}” away`
+                              ? `you delegated “${domain}” away`
                               : weight === 1n
-                                ? "— your own vote"
-                                : "— yours plus what was delegated to you"}
+                                ? "your own vote"
+                                : "yours plus what was delegated to you"}
                         </span>
                       </dd>
                       <dt>votes</dt>
@@ -286,7 +286,7 @@ export function ProposalsPanel({
                       <p className="voted">
                         You voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here, weighing{" "}
                         <Mono>{mine.weight.toString()}</Mono>
-                        {mine.carried.length > 0 ? ` — yours plus ${mine.carried.join(" and ")}` : " — your own voice"}
+                        {mine.carried.length > 0 ? `, yours plus ${mine.carried.join(" and ")}` : ", your own voice"}
                         . The governor counts an account once per proposal, so it cannot be changed.
                       </p>
                     ) : null}

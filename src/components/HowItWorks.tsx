@@ -14,13 +14,13 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       where: "off chain",
       kind: "sign",
       what: "A signs a delegation to B, scoped to a domain",
-      how: "An EIP-712 object. Nothing is sent — a signature and nothing else.",
+      how: "An EIP-712 object. Nothing is sent, only a signature.",
     },
     {
       where: "governor",
       kind: "gov",
       what: "The weight transfer is recorded",
-      how: "delegateWeight(B, domain) — A stops counting there, B counts for both.",
+      how: "delegateWeight(B, domain). A stops counting there, and B counts for both.",
     },
     {
       where: "browser",
@@ -32,19 +32,19 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       where: "framework",
       kind: "sign",
       what: "The DelegationManager validates the chain",
-      how: "Signatures, links, revocation. Inherited code — we wrote none of it.",
+      how: "Signatures, links, revocation. Inherited code, and we wrote none of it.",
     },
     {
       where: "our caveat",
       kind: "graph",
       what: "GraphDomainScope checks every hop",
-      how: "Recomputes each triple id and demands both a positive link and the curator's stake. The supplied path proves nothing — it says where to look.",
+      how: "Recomputes each triple id and demands both a positive link and the curator's stake. The supplied path proves nothing. It says where to look.",
     },
     {
       where: "governor",
       kind: "gov",
       what: "The vote is recorded as B's, carrying A's weight",
-      how: "One VoteCastOnBehalf per principal — the split stays auditable.",
+      how: "One VoteCastOnBehalf per principal, so the split stays auditable.",
     },
   ];
 
@@ -79,7 +79,7 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       <header className="howto-head">
         <h1>How it works</h1>
         <p className="howto-standfirst">
-          What happens between signing a delegation and a vote being counted — and which part
+          What happens between signing a delegation and a vote being counted, and which part
           of it we wrote.
         </p>
       </header>
@@ -134,8 +134,8 @@ export function HowItWorks({ config }: { config: AppConfig }) {
             already signed covers it.
           </li>
           <li>
-            The graph cannot be walked from a contract — there is no reverse index. The voter
-            announces the path; the contract <strong>rechecks every hop</strong>.
+            The graph cannot be walked from a contract, because there is no reverse index. The
+            voter announces the path; the contract <strong>rechecks every hop</strong>.
           </li>
           <li>
             Writing a claim costs a fraction of a cent, so authorization follows the{" "}
@@ -150,7 +150,7 @@ export function HowItWorks({ config }: { config: AppConfig }) {
         <p>
           The caveat is bound to a domain resolver, not to a governor. The same scheme runs on
           an unmodified OpenZeppelin Governor: the audited contracts are inherited as
-          published, and one method is overridden — <code>_getVotes</code>, which{" "}
+          published, and one method is overridden. That method is <code>_getVotes</code>, which{" "}
           <code>Governor</code> declares virtual for exactly this. Weight still comes from an{" "}
           <code>ERC20Votes</code> snapshot; the domain register only decides who may exercise
           it where.
@@ -174,7 +174,7 @@ export function HowItWorks({ config }: { config: AppConfig }) {
             is what decides whose voice a vote carries.
           </li>
           <li>
-            <strong>The revocation</strong> is on chain too, at the DelegationManager — which is
+            <strong>The revocation</strong> is on chain too, at the DelegationManager, which is
             what makes it binding on everyone.
           </li>
         </ul>

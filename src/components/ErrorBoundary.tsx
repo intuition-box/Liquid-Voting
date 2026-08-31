@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <section className="panel">
         <h2>Something threw while rendering</h2>
-        <p className="muted">Reload the page. If it repeats, run `bun run verify` — it names the broken assumption.</p>
+        <p className="muted">Reload the page. If it repeats, run `bun run verify`, which names the broken assumption.</p>
         <pre className="mono dim">{this.state.message}</pre>
       </section>
     );

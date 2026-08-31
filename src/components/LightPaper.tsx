@@ -1,9 +1,9 @@
 /**
  * The argument, for someone who governs but does not build.
  *
- * No chain vocabulary anywhere on this page — not "on-chain", not "contract", not
- * "graph". Someone who runs a DAO recognises delegation and mandates; the technical
- * shape is what the other tab is for.
+ * No chain vocabulary anywhere on this page. Not "on-chain", not "contract", not
+ * "graph". Someone who runs a DAO recognises delegation and mandates already, and the
+ * technical shape is what the other tab is for.
  */
 export function LightPaper() {
   return (
@@ -35,8 +35,8 @@ export function LightPaper() {
         <p>
           Because “the treasury” is not a simple thing to write into a rule. It is a domain
           with parts inside it: the grants programme, which contains developer grants, which
-          contains micro-grants. And that structure moves — an organisation starts a new
-          programme every quarter.
+          contains micro-grants. And that structure moves, because an organisation starts a
+          new programme every quarter.
         </p>
         <p>
           You could list the permitted subjects when you sign. But every new programme would
@@ -57,7 +57,7 @@ export function LightPaper() {
 
         <p>
           The difference matters. Start a new grants programme tomorrow, and every delegation
-          already signed covers it — without anyone signing anything again. The scope follows
+          already signed covers it, without anyone signing anything again. The scope follows
           the organisation because it <em>is</em> the organisation.
         </p>
 
@@ -77,7 +77,7 @@ export function LightPaper() {
         </pre>
 
         <p>
-          Hand me <strong>the treasury</strong>, and I vote on everything beneath it —
+          Hand me <strong>the treasury</strong>, and I vote on everything beneath it,
           micro-grants included, four levels down. But nothing on the protocol or the
           community: those are other branches.
         </p>
@@ -122,7 +122,7 @@ export function LightPaper() {
         </p>
         <p>
           So a claim only counts once the organisation has <strong>staked money behind it</strong>.
-          Writing stays free and open to anyone — it simply achieves nothing. Talking is free;
+          Writing stays free and open to anyone. It simply achieves nothing. Talking is free;
           committing costs something.
         </p>
       </section>
@@ -131,14 +131,14 @@ export function LightPaper() {
         <h2>Taking back what you lent</h2>
         <p>
           A chain forms naturally: I hand you the treasury, and you pass the grants programme
-          to someone closer to it. That person now carries three voices — their own, yours,
+          to someone closer to it. That person now carries three voices: their own, yours,
           and mine.
         </p>
 
         <div className="paper-scene">
           <span className="paper-scene-label">What happens when I take my voice back</span>
           <div className="paper-beat paper-beat-no">
-            <span className="paper-beat-mark">—</span>
+            <span className="paper-beat-mark">−</span>
             <span>Mine is withdrawn. It was only ever lent, and only for that subject.</span>
           </div>
           <div className="paper-beat paper-beat-yes">
@@ -169,7 +169,7 @@ export function LightPaper() {
         </p>
         <p>
           And the delegation stays alive: as the organisation changes, the scope follows,
-          because it was never a list — only a question put to a structure the organisation
+          because it was never a list, only a question put to a structure the organisation
           already keeps current.
         </p>
       </section>
