@@ -21,7 +21,7 @@ import {
 import { readDelegatedTo, readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
 import { DelegationSet } from "../lib/delegation/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
-import { baseGrants, grantScope, type Grant } from "../lib/delegation/grant";
+import { baseGrants, type Grant } from "../lib/delegation/grant";
 import { readEdgeStates, type EdgeState } from "../lib/graph/edges";
 
 export interface AppState {
@@ -151,12 +151,10 @@ export function useApp(): AppState {
         if (cancelled) return;
         setLimits(graphLimits);
 
-        // Which seeded pairs the governor actually has on its books. Without this the app
-        // would open showing a chain nobody made in front of the audience.
-        const scopes = [config.delegations.root, config.delegations.leaf]
-          .map((delegation) => grantScope(config, delegation))
-          .filter((scope): scope is string => scope.length > 0);
-        const register = await readDelegatedTo(client, config, [...new Set(scopes)]);
+        // What the governor actually has on its books. Read for every domain, not just
+        // the seeded pair's: a grant signed in the browser is checked against this too, so
+        // a domain missing from the query would hide a delegation that is genuinely live.
+        const register = await readDelegatedTo(client, config, config.nodes.map((node) => node.label));
         if (cancelled) return;
         setDelegatedTo(register);
         setEdges(edgeStates);
@@ -198,12 +196,18 @@ export function useApp(): AppState {
   // The seeded pair carries its on-chain revoked state; session grants are always live.
   // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
   const delegations = useMemo(() => {
+    // A grant counts while the governor's register agrees, whichever list it came from.
+    // Session grants used to skip this check, so one signed in the browser survived being
+    // taken back on chain — and showed up beside the seeded pair as a second A → B.
+    const inForce = (grant: Grant): boolean => delegatedTo[grant.scope]?.[grant.from] === grant.to;
     const signed = config
       ? [
           ...baseGrants(config, rootDisabled, leafDisabled, (from, scope) => delegatedTo[scope]?.[from] ?? null),
           ...sessionGrants,
         ].map((grant) =>
-          revokedGrants.includes(`${grant.from}|${grant.scope}`) ? { ...grant, revoked: true } : grant,
+          revokedGrants.includes(`${grant.from}|${grant.scope}`) || !inForce(grant)
+            ? { ...grant, revoked: true }
+            : grant,
         )
       : [];
     return new DelegationSet(signed, graph);
