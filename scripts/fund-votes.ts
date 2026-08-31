@@ -6,9 +6,10 @@
  * a token it never self-delegated votes with zero, which is a miserable thing to diagnose
  * from the outside, so both steps happen here together.
  *
- * The three amounts differ on purpose. Equal balances make every sum ambiguous: 1 and 1
- * arriving at 2 could be either account's, whereas 12 landing on 30 is unmistakably A's.
- * They stay small enough to read at a glance and to add up in your head on stage.
+ * Everyone starts with the same hundred. An equal footing is what a demo about delegation
+ * wants to show: what differs between accounts should be what they lent and to whom, not
+ * an endowment nobody chose. A hundred divides into readable parts, so lending a quarter
+ * is 25 rather than a rounding, and any total says how many voices it carries at a glance.
  *
  * Run: bun run fund
  */
@@ -26,8 +27,8 @@ import { sendUserOp } from "../src/lib/chain/user-op";
 import { ROLES } from "../src/lib/roles";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-/** Distinct amounts so any total says plainly who contributed to it. */
-const HOLDINGS: Record<string, bigint> = { A: 12n, B: 30n, C: 7n };
+/** The same footing for everyone. What differs is what they lend, not what they were given. */
+const HOLDING = 100n;
 
 async function main(): Promise<void> {
   const submitterKey = process.env["PRIVATE_KEY"] as `0x${string}` | undefined;
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
   // Minting is open on this testnet token, so the submitter can hand them out directly.
   for (const role of ROLES) {
     const to = config.accounts[role].smartAccount;
-    const want = HOLDINGS[role] ?? 0n;
+    const want = HOLDING;
     const held = await client.readContract({
       address: config.votesToken,
       abi: votesTokenAbi,
@@ -100,7 +101,7 @@ async function main(): Promise<void> {
     console.log(`${role} self-delegated${result.success ? "" : " — failed"}`);
   }
 
-  console.log("\nA holds 12, B holds 30, C holds 7, and each counts its own.");
+  console.log(`\nEvery account holds ${HOLDING} and counts its own.`);
 }
 
 main().catch((error: unknown) => {

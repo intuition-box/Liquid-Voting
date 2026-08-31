@@ -48,9 +48,9 @@ and still decides how much weight the announced principals carry. Scope and weig
 two questions, answered in two places: the caveat says whether the voice may be used here,
 the governor says how much it is worth.
 
-Holdings differ on purpose: A holds 12, B holds 30, C holds 7. Equal balances make every
-total ambiguous, since 1 and 1 arriving at 2 could be either account's, whereas 12 landing
-on 30 is unmistakably A's.
+Every account holds the same hundred. Amounts differed at first, to keep a total from
+being ambiguous about who contributed to it, but naming the lent amount answered that
+question directly and left the unequal endowment doing nothing but distract. See ADR 0019.
 
 ## Alternatives considered
 

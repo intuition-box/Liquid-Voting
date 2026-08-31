@@ -63,8 +63,11 @@ always add up to the number the governor counted.
 **Neutral (worth knowing):**
 - `DemoGovernor` keeps the all-or-nothing signature. It is no longer what the app talks to,
   and changing it would mean redeploying a contract nothing points at.
-- The demo balances are 12, 30 and 7. Partial lending is invisible at one token each, and
-  equal balances make every total ambiguous.
+- Every account starts with the same hundred. Unequal balances were how a total used to
+  say who contributed to it, and naming the amount says that outright, so the endowment
+  went back to being equal. An equal footing is also the honest opening for a demo about
+  delegation: what should differ between accounts is what they lent, not what they were
+  handed. A hundred divides into readable parts, so a quarter is 25 rather than a rounding.
 
 ## References
 
