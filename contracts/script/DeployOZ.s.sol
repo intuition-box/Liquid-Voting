@@ -38,7 +38,7 @@ contract DeployOZ is Script {
         vm.startBroadcast(deployerKey);
         DemoVotes token = new DemoVotes();
         ProposalDomains resolver = new ProposalDomains();
-        OZGovernor governor = new OZGovernor(IVotes(address(token)), IMultiVault(MULTIVAULT), SUB_DOMAIN, resolver);
+        OZGovernor governor = new OZGovernor(IVotes(address(token)), IMultiVault(MULTIVAULT), SUB_DOMAIN, resolver, false);
         // The enforcer allows one selector on one governor. Votes that carry delegated
         // weight go through castVoteWithReasonAndParams, since that is the entry point
         // OZ routes `params` through.

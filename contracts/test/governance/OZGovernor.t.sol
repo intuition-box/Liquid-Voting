@@ -53,7 +53,7 @@ contract DomainScopedGovernorTest is Test {
         token = new VoteToken();
         vault = new MockMultiVault();
         resolver = new ProposalDomains();
-        governor = new OZGovernor(IVotes(address(token)), vault, PREDICATE, resolver);
+        governor = new OZGovernor(IVotes(address(token)), vault, PREDICATE, resolver, false);
 
         // grants sits under treasury; community does not.
         vault.createTriple(GRANTS, PREDICATE, TREASURY);
@@ -169,6 +169,27 @@ contract DomainScopedGovernorTest is Test {
         justCommunity[0] = COMMUNITY;
         uint256 weight = governor.castVoteWithReasonAndParams(id, 1, "", _params(id, justCommunity, none));
         assertEq(weight, 1, "giving treasury away leaves community alone");
+    }
+
+    /// @dev The reason this governor reads weight live rather than at the snapshot.
+    ///
+    ///      Stock OpenZeppelin reads an account's balance as it stood when the proposal was
+    ///      created, so a delegation made afterwards counts for nothing on it. Delegating is
+    ///      supposed to take effect now, which would otherwise mean recreating every open
+    ///      proposal after each handover.
+    function test_DelegationAppliesToAProposalAlreadyOpen() public {
+        // The proposal is created and opens with nothing delegated.
+        uint256 id = _propose(GRANTS);
+
+        // Only now does alice hand the treasury over, well after that snapshot was taken.
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY);
+
+        vm.prank(bob);
+        uint256 weight = governor.castVoteWithReasonAndParams(
+            id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
+        );
+        assertEq(weight, 2, "a delegation made after the proposal opened still counts on it");
     }
 
     function test_ResolverRecordsADomainOnce() public {

@@ -29,16 +29,20 @@ contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
     /// @param multiVault_ The Intuition MultiVault (graph authority).
     /// @param subDomainPredicate_ Term id of the "is a sub-domain of" predicate.
     /// @param resolver_ Where each proposal's domain is recorded.
+    /// @param snapshotWeight_ True to read weight at the proposal's snapshot, as stock
+    ///        OpenZeppelin does; false to read it live, so a delegation made after a
+    ///        proposal opened still counts on it.
     constructor(
         IVotes token_,
         IMultiVault multiVault_,
         bytes32 subDomainPredicate_,
-        IDomainResolver resolver_
+        IDomainResolver resolver_,
+        bool snapshotWeight_
     )
         Governor("OZGovernor")
         GovernorSettings(1, 30_000, 0)
         GovernorVotes(token_)
-        DomainVotes(multiVault_, subDomainPredicate_, resolver_)
+        DomainVotes(multiVault_, subDomainPredicate_, resolver_, snapshotWeight_)
     { }
 
     /// @inheritdoc Governor

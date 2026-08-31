@@ -34,6 +34,18 @@ abstract contract DomainVotes is GovernorVotes {
     /// @notice Where a proposal's domain is recorded, since OZ proposals carry no domain.
     IDomainResolver public immutable DOMAIN_RESOLVER;
 
+    /// @notice Whether weight is read at the proposal's snapshot or at the current block.
+    /// @dev OpenZeppelin reads an account's balance as it stood when the proposal was
+    ///      created. That is what makes a flash loan pointless: the past balance is already
+    ///      written, so borrowing now cannot change it.
+    ///
+    ///      It also means weight moved after a proposal opened does not count on it, which
+    ///      is wrong for delegation that is meant to take effect immediately. Set false and
+    ///      weight is read live, so handing a domain over applies to proposals already
+    ///      open. Fixed at construction: a governor that could switch this mid-life would
+    ///      let anyone change the rules under a vote in progress.
+    bool public immutable SNAPSHOT_WEIGHT;
+
     /// @notice The account delegated this domain away, so it cannot vote on it itself.
     error WeightDelegatedAway(address account, bytes32 domainId, address delegate);
     /// @notice This domain is already delegated; take it back before granting it elsewhere.
@@ -53,10 +65,23 @@ abstract contract DomainVotes is GovernorVotes {
     /// @dev Who an account handed its weight to, per domain. Zero means it kept it.
     mapping(address delegator => mapping(bytes32 domainId => address delegate)) private _delegatedTo;
 
-    constructor(IMultiVault multiVault_, bytes32 subDomainPredicate_, IDomainResolver resolver_) {
+    constructor(
+        IMultiVault multiVault_,
+        bytes32 subDomainPredicate_,
+        IDomainResolver resolver_,
+        bool snapshotWeight_
+    ) {
         MULTI_VAULT = multiVault_;
         SUB_DOMAIN_PREDICATE = subDomainPredicate_;
         DOMAIN_RESOLVER = resolver_;
+        SNAPSHOT_WEIGHT = snapshotWeight_;
+    }
+
+    /// @dev The timepoint weight is read at. The proposal's snapshot when that is what the
+    ///      deployment wants, otherwise the last completed block, which is the most recent
+    ///      one the token can answer for.
+    function _weightAt(uint256 snapshot) private view returns (uint256) {
+        return SNAPSHOT_WEIGHT ? snapshot : clock() - 1;
     }
 
     /// @notice Hands the caller's weight on one domain to another account.
@@ -93,7 +118,8 @@ abstract contract DomainVotes is GovernorVotes {
         uint256 timepoint,
         bytes memory params
     ) internal view virtual override returns (uint256) {
-        uint256 own_ = super._getVotes(account, timepoint, "");
+        uint256 at_ = _weightAt(timepoint);
+        uint256 own_ = super._getVotes(account, at_, "");
         if (params.length == 0) return own_;
 
         (uint256 proposalId_, bytes32[] memory domainPath_, address[] memory principals_) =
@@ -116,7 +142,7 @@ abstract contract DomainVotes is GovernorVotes {
             // Only weight actually routed to this account counts — the claim is checked,
             // not believed.
             if (_delegatedAny(principals_[i_], domains_) == account) {
-                total_ += super._getVotes(principals_[i_], timepoint, "");
+                total_ += super._getVotes(principals_[i_], at_, "");
             }
         }
         return total_;
