@@ -1022,3 +1022,279 @@ select:focus-visible,
 .voted strong {
   color: var(--text);
 }
+
+/* ── Top navigation ────────────────────────────────────────────────────────────
+   Above the masthead, because two of these tabs are documents rather than views
+   of the demo — they are not scoped by the domain rail. */
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s5);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s6);
+  border-bottom: 1px solid var(--border);
+}
+
+.topnav-tab {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  padding-bottom: var(--s1);
+}
+
+.topnav-tab:hover { color: var(--text); }
+
+.topnav-tab-on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* A document fills the width — there is no rail beside it. */
+.workspace-reading { display: block; }
+
+/* ── Reading pages ─────────────────────────────────────────────────────────────
+   Set for continuous reading rather than scanning: a single measured column,
+   larger type, and no panel chrome. */
+.paper,
+.howto {
+  max-width: 660px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s7);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.paper-head,
+.howto-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.paper h1,
+.howto h1 {
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.paper-standfirst,
+.howto-standfirst {
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}
+
+.paper-section,
+.howto-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.paper h2,
+.howto h2 {
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.paper p,
+.howto p { margin: 0; }
+
+.howto-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: var(--s2) 0 calc(-1 * var(--s2));
+}
+
+.paper-pull {
+  font-size: 21px;
+  line-height: 1.4;
+  color: var(--text);
+  border-left: 2px solid var(--accent);
+  padding-left: var(--s5);
+  text-wrap: balance;
+}
+
+.paper-tree {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.9;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: var(--s5);
+  margin: 0;
+  overflow-x: auto;
+  color: var(--muted);
+}
+
+/* Allowed and refused are the page's only colours — they carry the meaning. */
+.paper-verdicts { display: flex; flex-direction: column; gap: var(--s2); }
+
+.paper-verdict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s4);
+  align-items: baseline;
+  padding: var(--s3) var(--s4);
+  border-radius: 3px;
+  font-size: 15px;
+  background: var(--surface);
+}
+
+.paper-verdict-out { font-weight: 600; white-space: nowrap; }
+.paper-verdict-yes { border-left: 2px solid var(--ok); }
+.paper-verdict-yes .paper-verdict-out { color: var(--ok); }
+.paper-verdict-no { border-left: 2px solid var(--bad); }
+.paper-verdict-no .paper-verdict-out { color: var(--bad); }
+
+.paper-scene {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.paper-scene-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.paper-beat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: baseline;
+  font-size: 15px;
+}
+.paper-beat-mark { font-family: var(--mono); }
+.paper-beat-yes .paper-beat-mark { color: var(--ok); }
+.paper-beat-no .paper-beat-mark { color: var(--bad); }
+
+.paper-close {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: var(--s5);
+}
+
+/* ── How it works ──────────────────────────────────────────────────────────── */
+.flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  counter-reset: flowstep;
+}
+
+.flow-step {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.flow-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px var(--s2);
+  border-radius: 2px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+/* Our own step is the only one that carries the accent. */
+.flow-tag-graph { color: var(--accent); }
+
+.flow-body { display: flex; flex-direction: column; gap: 2px; }
+.flow-what { font-weight: 600; font-size: 15px; }
+.flow-how { font-size: 13.5px; color: var(--muted); }
+
+.contracts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.contract {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s2) var(--s4);
+  align-items: baseline;
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.contract-name {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contract-role {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.claims {
+  margin: 0;
+  padding-left: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  font-size: 15.5px;
+}
+
+.storage {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  font-size: 15px;
+}
+
+.storage li {
+  padding-left: var(--s4);
+  border-left: 1px solid var(--border);
+  color: var(--muted);
+}
+.storage strong { color: var(--text); }
