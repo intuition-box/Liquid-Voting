@@ -1,10 +1,18 @@
 /**
  * Casting a vote: planning which signed chains carry it, simulating, and submitting.
  */
-import { encodeFunctionData, parseAbiItem, type Hex, type PublicClient } from "viem";
+import {
+  decodeAbiParameters,
+  decodeEventLog,
+  encodeAbiParameters,
+  encodeFunctionData,
+  parseAbiItem,
+  type Hex,
+  type PublicClient,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { governorAbi } from "../chain/abis";
+import { governorAbi, ozGovernorAbi, proposalDomainsAbi, votesTokenAbi } from "../chain/abis";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
@@ -25,11 +33,21 @@ import { requireOwnerKey, submitterClient } from "./common";
 export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "../delegation/encoding";
 
 /** The governor's vote logs, as parsed items — getLogs infers its arg types from these. */
+/**
+ * OpenZeppelin's vote events. A vote that carries params emits the second one, which is
+ * every delegated vote here, so both have to be read to see the whole tally. Note the
+ * indexing: OZ indexes the voter, not the proposal, so these cannot be filtered by
+ * proposal at the node and are grouped client-side instead.
+ */
 const VOTE_CAST = parseAbiItem(
-  "event VoteCast(uint256 indexed proposalId, address indexed voter, uint8 support, uint256 weight, address[] principals)",
+  "event VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)",
 );
-const VOTE_ON_BEHALF = parseAbiItem(
-  "event VoteCastOnBehalf(uint256 indexed proposalId, address indexed principal, address indexed representative, uint256 weight)",
+const VOTE_CAST_WITH_PARAMS = parseAbiItem(
+  "event VoteCastWithParams(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason, bytes params)",
+);
+/** OZ does not index proposalId, so the id comes out of the event data. */
+const PROPOSAL_CREATED = parseAbiItem(
+  "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)",
 );
 
 
@@ -62,12 +80,43 @@ export async function submitOwnVote(
   proposalId: bigint,
   support: number,
 ): Promise<UserOpResult> {
+  return castOnGovernor(client, config, role, proposalId, support, [], []);
+}
+
+/**
+ * Casts a vote on the OpenZeppelin governor, carrying whatever weight is claimed.
+ *
+ * OZ has one vote entry point that takes extra data, `castVoteWithReasonAndParams`, and
+ * that is the channel the domain register reads: the params carry the proposal id, the
+ * domain path and the principals whose weight is being claimed. The governor verifies the
+ * path against the graph and ignores any principal that did not actually delegate, so an
+ * over-claim costs nothing rather than succeeding.
+ *
+ * With no principals and no path, this is a plain vote for oneself.
+ */
+export async function castOnGovernor(
+  client: PublicClient,
+  config: AppConfig,
+  role: Role,
+  proposalId: bigint,
+  support: number,
+  principals: Role[],
+  domainPath: Hex[],
+): Promise<UserOpResult> {
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, role)));
+  const params = encodeAbiParameters(
+    [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
+    [proposalId, domainPath, principals.map((principal) => config.accounts[principal].smartAccount)],
+  );
   return sendUserOp(client, submitterClient(config), account, [
     {
       to: config.governor,
       value: 0n,
-      data: encodeFunctionData({ abi: governorAbi, functionName: "castVote", args: [proposalId, support] }),
+      data: encodeFunctionData({
+        abi: ozGovernorAbi,
+        functionName: "castVoteWithReasonAndParams",
+        args: [proposalId, support, "", params],
+      }),
     },
   ]);
 }
@@ -209,14 +258,43 @@ export async function recordProposal(
 ): Promise<{ txHash: Hex; proposalId: bigint }> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
-  const gov = { address: config.governor, abi: governorAbi } as const;
-  const proposalId = await client.readContract({ ...gov, functionName: "proposalCount" });
   const wallet = submitterClient(config);
-  const txHash = await wallet.writeContract({ ...gov, functionName: "propose", args: [domainId, description] });
-  await client.waitForTransactionReceipt({ hash: txHash });
+  const gov = { address: config.governor, abi: ozGovernorAbi } as const;
 
-  // Voting opens VOTING_DELAY blocks after the proposal, so a fresh proposal is Pending
-  // and cannot be voted on yet. Mine empty blocks until it turns Active.
+  // OpenZeppelin proposes a call to execute, not a subject. The call here is inert — the
+  // demo is about who may vote, not about what a passed proposal does — so it targets the
+  // governor with empty calldata, which is the smallest well-formed proposal.
+  const txHash = await wallet.writeContract({
+    ...gov,
+    functionName: "propose",
+    args: [[config.governor], [0n], ["0x"], description],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+
+  // The id is a hash of that call, and OZ does not index it, so it comes back in the event.
+  const created = receipt.logs
+    .map((log) => {
+      try {
+        return decodeEventLog({ abi: [PROPOSAL_CREATED], data: log.data, topics: log.topics });
+      } catch {
+        return null;
+      }
+    })
+    .find((entry) => entry !== null);
+  const proposalId = (created?.args as { proposalId?: bigint } | undefined)?.proposalId;
+  if (proposalId === undefined) throw new Error("the governor accepted the proposal but logged no id");
+
+  // The domain lives beside the governor, because an OZ proposal has nowhere to keep it.
+  const scoped = await wallet.writeContract({
+    address: config.resolver,
+    abi: proposalDomainsAbi,
+    functionName: "scopeProposal",
+    args: [proposalId, domainId],
+  });
+  await client.waitForTransactionReceipt({ hash: scoped });
+
+  // Voting opens after a delay, so a fresh proposal is Pending and cannot be voted on
+  // yet. Mine empty blocks until it turns Active.
   for (let attempt = 0; attempt < 20; attempt++) {
     const state = await client.readContract({ ...gov, functionName: "state", args: [proposalId] });
     if (state !== 0) break;
@@ -240,7 +318,50 @@ export async function recordProposal(
  * framework's, not ours — disabling a link kills everything below it, because every hash
  * beneath points at it.
  */
+/**
+ * What each identity holds of the governance token.
+ *
+ * On this governor weight is not assigned, it is held: `getVotes` reads the balance the
+ * token will actually count, which stays zero until an account delegates to itself. The
+ * two are reported apart because a balance that counts for nothing is a real state, and
+ * one worth seeing rather than debugging.
+ */
+export async function readTokenHoldings(
+  client: PublicClient,
+  config: AppConfig,
+): Promise<Record<Role, { balance: bigint; votes: bigint }>> {
+  const entries = await Promise.all(
+    ROLES.map(async (role) => {
+      const account = config.accounts[role].smartAccount;
+      const [balance, votes] = await Promise.all([
+        client.readContract({ address: config.votesToken, abi: votesTokenAbi, functionName: "balanceOf", args: [account] }),
+        client.readContract({ address: config.votesToken, abi: votesTokenAbi, functionName: "getVotes", args: [account] }),
+      ]);
+      return [role, { balance, votes }] as const;
+    }),
+  );
+  return Object.fromEntries(entries) as Record<Role, { balance: bigint; votes: bigint }>;
+}
+
 export const PROPOSAL_STATES = ["pending", "active", "defeated", "succeeded", "executed"] as const;
+
+/**
+ * OpenZeppelin's ProposalState, mapped onto the states this app shows.
+ *
+ * Its enum is Pending, Active, Canceled, Defeated, Succeeded, Queued, Expired, Executed —
+ * wider than ours, and in a different order. Canceled, Queued and Expired have no panel of
+ * their own, so they read as the nearest thing the UI already knows how to draw.
+ */
+const OZ_PROPOSAL_STATES: ProposalState[] = [
+  "pending",
+  "active",
+  "defeated", // Canceled
+  "defeated",
+  "succeeded",
+  "succeeded", // Queued
+  "defeated", // Expired
+  "executed",
+];
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
 
 export interface ProposalRecord {
@@ -255,28 +376,35 @@ export interface ProposalRecord {
 }
 
 export async function readProposals(client: PublicClient, config: AppConfig, limit = 8): Promise<ProposalRecord[]> {
-  const gov = { address: config.governor, abi: governorAbi } as const;
-  const count = await client.readContract({ ...gov, functionName: "proposalCount" });
-  const ids: bigint[] = [];
-  for (let id = count - 1n; id >= 0n && ids.length < limit; id--) ids.push(id);
-  return Promise.all(
-    ids.map(async (id) => {
-      const [proposal, state] = await Promise.all([
-        client.readContract({ ...gov, functionName: "getProposal", args: [id] }),
-        client.readContract({ ...gov, functionName: "state", args: [id] }),
+  // OpenZeppelin has no proposal counter and stores no struct: an id is a hash of the
+  // call it would execute, and the details live in the event. So the list comes from
+  // ProposalCreated, newest first, and the domain from the resolver beside the governor.
+  const created = await client.getLogs({ address: config.governor, event: PROPOSAL_CREATED, fromBlock: "earliest" });
+  const recent = created.slice(-limit).reverse();
+
+  const records = await Promise.all(
+    recent.map(async (log) => {
+      const { proposalId, proposer, description } = log.args;
+      if (proposalId === undefined || !proposer || description === undefined) return null;
+      const [state, votes, domainId] = await Promise.all([
+        client.readContract({ address: config.governor, abi: ozGovernorAbi, functionName: "state", args: [proposalId] }),
+        client.readContract({ address: config.governor, abi: ozGovernorAbi, functionName: "proposalVotes", args: [proposalId] }),
+        client.readContract({ address: config.resolver, abi: proposalDomainsAbi, functionName: "proposalDomain", args: [proposalId] }),
       ]);
+      const [againstVotes, forVotes, abstainVotes] = votes;
       return {
-        id,
-        domainId: proposal.domainId,
-        proposer: proposal.proposer,
-        description: proposal.description,
-        state: PROPOSAL_STATES[state] ?? "pending",
-        forVotes: proposal.forVotes,
-        againstVotes: proposal.againstVotes,
-        abstainVotes: proposal.abstainVotes,
-      };
+        id: proposalId,
+        domainId,
+        proposer,
+        description,
+        state: OZ_PROPOSAL_STATES[state] ?? "pending",
+        forVotes,
+        againstVotes,
+        abstainVotes,
+      } satisfies ProposalRecord;
     }),
   );
+  return records.filter((record): record is ProposalRecord => record !== null);
 }
 
 /** One account's weight inside a vote, and who actually carried it to the governor. */
@@ -312,92 +440,82 @@ export async function readAllBallots(
   const roleOf = (address: `0x${string}`): Role | null =>
     ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
 
-  const [cast, onBehalf] = await Promise.all([
+  const [plain, withParams] = await Promise.all([
     client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: "earliest" }),
-    client.getLogs({ address: config.governor, event: VOTE_ON_BEHALF, fromBlock: "earliest" }),
+    client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock: "earliest" }),
   ]);
 
   const out: Record<string, Ballot[]> = {};
-  for (const log of cast) {
-    const { proposalId, voter, support, weight } = log.args;
-    if (proposalId === undefined || !voter || support === undefined || weight === undefined) continue;
+  for (const log of [...plain, ...withParams]) {
+    const { voter, proposalId, support, weight } = log.args;
+    if (!voter || proposalId === undefined || support === undefined || weight === undefined) continue;
 
-    const carried = onBehalf
-      .map((entry) => entry.args)
-      .filter(
-        (entry): entry is { proposalId: bigint; principal: `0x${string}`; representative: `0x${string}`; weight: bigint } =>
-          entry.proposalId === proposalId &&
-          entry.principal !== undefined &&
-          entry.weight !== undefined &&
-          entry.representative?.toLowerCase() === voter.toLowerCase(),
-      );
-    const own = weight - carried.reduce((sum, entry) => sum + entry.weight, 0n);
+    // The params say whose weight was claimed. The governor only counts a principal that
+    // actually delegated, so the split is derived from the weight rather than the claim:
+    // the voter's own is what one account holds, the rest rode along.
+    const own = await client.readContract({
+      address: config.votesToken,
+      abi: votesTokenAbi,
+      functionName: "getVotes",
+      args: [voter],
+    });
+    const carriedWeight = weight > own ? weight - own : 0n;
 
     const entries: BallotEntry[] = [
       { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
-      ...carried.map((entry) => ({
-        principal: roleOf(entry.principal),
-        principalAddress: entry.principal,
-        carriedBy: roleOf(voter),
-        carriedByAddress: voter,
-        weight: entry.weight,
-      })),
     ];
-    const key = proposalId.toString();
-    (out[key] ??= []).push({ support: Number(support), entries, total: weight });
+    if (carriedWeight > 0n) {
+      const principals = "params" in log.args ? decodeClaimedPrincipals(log.args.params as Hex) : [];
+      for (const principal of principals) {
+        if (principal.toLowerCase() === voter.toLowerCase()) continue;
+        const share = await client.readContract({
+          address: config.votesToken,
+          abi: votesTokenAbi,
+          functionName: "getVotes",
+          args: [principal],
+        });
+        if (share === 0n) continue;
+        entries.push({
+          principal: roleOf(principal),
+          principalAddress: principal,
+          carriedBy: roleOf(voter),
+          carriedByAddress: voter,
+          weight: share,
+        });
+      }
+    }
+    (out[proposalId.toString()] ??= []).push({ support: Number(support), entries, total: weight });
   }
   return out;
 }
 
+/** The principals a vote claimed, out of the params it carried. */
+function decodeClaimedPrincipals(params: Hex): `0x${string}`[] {
+  try {
+    const [, , principals] = decodeAbiParameters(
+      [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
+      params,
+    );
+    return [...principals];
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Who voted on a proposal, and for whom.
+ * Who voted on one proposal, and for whom.
  *
- * Read from the governor's own logs rather than reconstructed: `VoteCast` carries the
- * total and the accounts represented, and one `VoteCastOnBehalf` per principal says whose
- * voice each share was. The contract already records the split, so a delegated vote can
- * be read back voice by voice instead of appearing as one larger number.
+ * OpenZeppelin indexes the voter rather than the proposal, so its vote logs cannot be
+ * filtered by proposal at the node. This reads them all and keeps the one asked for,
+ * which is why a page showing many rows should call `readAllBallots` once instead.
  */
 export async function readBallots(
   client: PublicClient,
   config: AppConfig,
   proposalId: bigint,
 ): Promise<Ballot[]> {
-  const roleOf = (address: `0x${string}`): Role | null =>
-    ROLES.find(
-      (role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase(),
-    ) ?? null;
-
-  const [cast, onBehalf] = await Promise.all([
-    client.getLogs({ address: config.governor, event: VOTE_CAST, args: { proposalId }, fromBlock: "earliest" }),
-    client.getLogs({ address: config.governor, event: VOTE_ON_BEHALF, args: { proposalId }, fromBlock: "earliest" }),
-  ]);
-
-  return cast.flatMap((log) => {
-    const { voter, support, weight } = log.args;
-    if (!voter || support === undefined || weight === undefined) return [];
-    // The delegated shares are logged separately; what is left is the voter's own.
-    const carried = onBehalf
-      .map((entry) => entry.args)
-      .filter(
-        (entry): entry is { principal: `0x${string}`; representative: `0x${string}`; weight: bigint } =>
-          entry.principal !== undefined &&
-          entry.weight !== undefined &&
-          entry.representative?.toLowerCase() === voter.toLowerCase(),
-      );
-    const own = weight - carried.reduce((sum, entry) => sum + entry.weight, 0n);
-
-    const entries: BallotEntry[] = [
-      { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
-      ...carried.map((entry) => ({
-        principal: roleOf(entry.principal),
-        principalAddress: entry.principal,
-        carriedBy: roleOf(voter),
-        carriedByAddress: voter,
-        weight: entry.weight,
-      })),
-    ];
-    return [{ support: Number(support), entries, total: weight }];
-  });
+  const all = await readAllBallots(client, config);
+  return all[proposalId.toString()] ?? [];
 }
 
 /**
@@ -417,7 +535,7 @@ export async function readWeights(
     ROLES.map((role) =>
       client.readContract({
         address: config.governor,
-        abi: governorAbi,
+        abi: ozGovernorAbi,
         functionName: "weightFor",
         args: [config.accounts[role].smartAccount, domainId, all, domainPath],
       }),

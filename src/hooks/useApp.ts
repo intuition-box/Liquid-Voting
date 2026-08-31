@@ -18,7 +18,14 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/config/app-config";
-import { readDelegatedTo, readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
+import {
+  readDelegatedTo,
+  readGraphLimits,
+  readProposals,
+  readTokenHoldings,
+  readWeights,
+  type ProposalRecord,
+} from "../lib/actions";
 import { DelegationSet } from "../lib/delegation/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
 import { baseGrants, type Grant } from "../lib/delegation/grant";
@@ -32,6 +39,8 @@ export interface AppState {
   edges: EdgeState[];
   /** The domain hierarchy, indexed once — every parent/child question goes through it. */
   graph: DomainGraph;
+  /** What each identity holds of the governance token, and how much of it votes. */
+  holdings: Record<Role, { balance: bigint; votes: bigint }>;
   proposals: ProposalRecord[];
   rootDisabled: boolean;
   leafDisabled: boolean;
@@ -82,6 +91,11 @@ export function useApp(): AppState {
   const [limits, setLimits] = useState<GraphLimits | null>(null);
   /** Who the governor has each account delegating to, per domain — the register, not the signature. */
   const [delegatedTo, setDelegatedTo] = useState<Record<string, Partial<Record<Role, Role>>>>({});
+  const [holdings, setHoldings] = useState<Record<Role, { balance: bigint; votes: bigint }>>({
+    A: { balance: 0n, votes: 0n },
+    B: { balance: 0n, votes: 0n },
+    C: { balance: 0n, votes: 0n },
+  });
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -154,7 +168,12 @@ export function useApp(): AppState {
         // What the governor actually has on its books. Read for every domain, not just
         // the seeded pair's: a grant signed in the browser is checked against this too, so
         // a domain missing from the query would hide a delegation that is genuinely live.
-        const register = await readDelegatedTo(client, config, config.nodes.map((node) => node.label));
+        const [register, tokens] = await Promise.all([
+          readDelegatedTo(client, config, config.nodes.map((node) => node.label)),
+          readTokenHoldings(client, config),
+        ]);
+        if (cancelled) return;
+        setHoldings(tokens);
         if (cancelled) return;
         setDelegatedTo(register);
         setEdges(edgeStates);
@@ -234,6 +253,7 @@ export function useApp(): AppState {
     writable: config ? canWrite(config) : false,
     edges,
     graph,
+    holdings,
     proposals,
     rootDisabled,
     leafDisabled,

@@ -10,7 +10,7 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
-import { AddressLink, Panel } from "./components/primitives";
+import { AddressLink, Mono, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations" | "paper" | "how";
 
@@ -74,7 +74,7 @@ export function App() {
         ))}
       </nav>
 
-      <Masthead role={role} onRole={setRole} />
+      <Masthead role={role} onRole={setRole} holdings={demo.holdings} />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
 
@@ -120,7 +120,6 @@ export function App() {
                 <ChainPanel
                   config={config}
                   client={client}
-                  graph={demo.graph}
                   delegations={demo.delegations}
                   writable={demo.writable}
                   role={role}
@@ -154,7 +153,16 @@ export function App() {
   );
 }
 
-function Masthead({ role, onRole }: { role: Role; onRole: (role: Role) => void }) {
+function Masthead({
+  role,
+  onRole,
+  holdings,
+}: {
+  role: Role;
+  onRole: (role: Role) => void;
+  /** What each identity holds of the governance token, when the chain has answered. */
+  holdings?: Record<Role, { balance: bigint; votes: bigint }>;
+}) {
   return (
     <header className="masthead">
       <div className="masthead-text">
@@ -181,6 +189,25 @@ function Masthead({ role, onRole }: { role: Role; onRole: (role: Role) => void }
           </button>
         ))}
       </div>
+
+      {holdings ? (
+        <div className="holdings">
+          <span className="holdings-label">governance token</span>
+          {IDENTITIES.map((entry) => {
+            const held = holdings[entry.role];
+            // A balance that is not self-delegated counts for nothing, which is a real
+            // state on an ERC20Votes and worth showing rather than debugging.
+            const dormant = held.balance > 0n && held.votes === 0n;
+            return (
+              <span key={entry.role} className="holding">
+                <span className={`holding-who ${entry.className}`}>{entry.label}</span>
+                <Mono>{held.balance.toString()}</Mono>
+                {dormant ? <span className="holding-note">not self-delegated</span> : null}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
     </header>
   );
 }

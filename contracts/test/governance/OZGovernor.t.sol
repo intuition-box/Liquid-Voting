@@ -192,6 +192,19 @@ contract DomainScopedGovernorTest is Test {
         assertEq(weight, 2, "a delegation made after the proposal opened still counts on it");
     }
 
+    /// @dev What the UI reads to show each identity's weight on a domain.
+    function test_WeightForReflectsTheRegister() public {
+        bytes32[] memory path = _path(GRANTS, TREASURY);
+        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 1, "bob alone before any handover");
+
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY);
+
+        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 2, "bob carries alice's too");
+        address[] memory none = new address[](0);
+        assertEq(governor.weightFor(alice, GRANTS, none, path), 0, "alice handed this domain away");
+    }
+
     function test_ResolverRecordsADomainOnce() public {
         uint256 id = _propose(GRANTS);
         vm.expectRevert(abi.encodeWithSelector(ProposalDomains.DomainAlreadySet.selector, id, GRANTS));

@@ -26,6 +26,10 @@ export interface Manifest {
       constructorArgs: { multiVault: `0x${string}`; governor: `0x${string}`; allowedSelector: `0x${string}` };
     };
     DemoGovernor: DeployedContract;
+    OZGovernor: DeployedContract;
+    OZGraphDomainScope: DeployedContract;
+    ProposalDomains: DeployedContract;
+    DemoVotes: DeployedContract;
   };
   framework: Record<string, string>;
   multiVault: `0x${string}`;

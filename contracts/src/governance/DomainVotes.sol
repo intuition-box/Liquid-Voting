@@ -98,6 +98,36 @@ abstract contract DomainVotes is GovernorVotes {
         emit WeightDelegated(msg.sender, delegate, domainId);
     }
 
+    /// @notice The weight an account would cast on a domain, given who delegated to whom.
+    /// @dev What the UI displays, read from the same state the vote path enforces. Zero
+    ///      once the account has handed the domain away; otherwise its own weight plus
+    ///      every principal whose weight routes to it.
+    /// @param account The prospective voter.
+    /// @param domainId The domain in question.
+    /// @param principals The accounts the voter would name.
+    /// @param domainPath The domain and its parents, verified against the graph.
+    function weightFor(
+        address account,
+        bytes32 domainId,
+        address[] calldata principals,
+        bytes32[] calldata domainPath
+    ) external view returns (uint256 weight_) {
+        _verifyPath(domainId, domainPath);
+        bytes32[] memory domains_ = _domainsFor(domainId, domainPath);
+        if (_delegatedAny(account, domains_) != address(0)) return 0;
+
+        // The last completed block, which is the most recent one the token can answer
+        // for. A display never asks about a proposal, so there is no snapshot to honour.
+        uint256 at_ = clock() - 1;
+        weight_ = super._getVotes(account, at_, "");
+        uint256 count_ = principals.length;
+        for (uint256 i_; i_ < count_; ++i_) {
+            if (_delegatedAny(principals[i_], domains_) == account) {
+                weight_ += super._getVotes(principals[i_], at_, "");
+            }
+        }
+    }
+
     /// @notice Who an account handed its weight to on a domain.
     function delegatedTo(address delegator, bytes32 domainId) public view returns (address delegate_) {
         delegate_ = _delegatedTo[delegator][domainId];

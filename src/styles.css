@@ -1304,3 +1304,37 @@ select:focus-visible,
   color: var(--ok);
   border-color: var(--ok);
 }
+
+/* What each identity holds of the governance token.
+   On this governor weight is not assigned, it is held, so the balance is worth seeing. */
+.holdings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s4);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.holdings-label {
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.holding {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.holding-who { font-weight: 600; }
+
+/* A balance nobody self-delegated counts for nothing, and should say so. */
+.holding-note {
+  color: var(--bad);
+  font-size: 10px;
+}

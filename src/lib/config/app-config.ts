@@ -25,6 +25,10 @@ interface ManifestShape {
   contracts: {
     GraphDomainScope: { address: `0x${string}` };
     DemoGovernor: { address: `0x${string}` };
+    OZGovernor: { address: `0x${string}` };
+    OZGraphDomainScope: { address: `0x${string}` };
+    ProposalDomains: { address: `0x${string}` };
+    DemoVotes: { address: `0x${string}` };
   };
   vocabulary: {
     predicate: { label: string; termId: Hex };
@@ -51,6 +55,10 @@ export interface AppConfig {
   multiVault: `0x${string}`;
   enforcer: `0x${string}`;
   governor: `0x${string}`;
+  /** Where a proposal's domain is recorded, since an OZ proposal carries none. */
+  resolver: `0x${string}`;
+  /** The ERC20Votes the governor reads weight from. */
+  votesToken: `0x${string}`;
   predicate: { label: string; termId: Hex };
   nodes: DomainNode[];
   edges: DomainEdge[];
@@ -135,8 +143,10 @@ export function loadAppConfig(): ConfigResult {
     ok: true,
     config: {
       multiVault: manifest.multiVault,
-      enforcer: manifest.contracts.GraphDomainScope.address,
-      governor: manifest.contracts.DemoGovernor.address,
+      enforcer: manifest.contracts.OZGraphDomainScope.address,
+      governor: manifest.contracts.OZGovernor.address,
+      resolver: manifest.contracts.ProposalDomains.address,
+      votesToken: manifest.contracts.DemoVotes.address,
       predicate: manifest.vocabulary.predicate,
       nodes,
       edges,

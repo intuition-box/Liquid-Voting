@@ -4,7 +4,6 @@ import type { PublicClient } from "viem";
 import { DEFAULT_MAX_DEPTH, revokeWeight, signDelegation } from "../lib/actions";
 import type { AppConfig, Role } from "../lib/config/app-config";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
-import type { DomainGraph } from "../lib/graph/domain-graph";
 import { ROLE_CLASS, ROLES, type Grant } from "../lib/delegation/grant";
 import { Button, Panel, Status, type Verdict } from "./primitives";
 
@@ -17,7 +16,6 @@ import { Button, Panel, Status, type Verdict } from "./primitives";
 export function ChainPanel({
   config,
   client,
-  graph,
   delegations,
   writable,
   role,
@@ -28,7 +26,6 @@ export function ChainPanel({
 }: {
   config: AppConfig;
   client: PublicClient;
-  graph: DomainGraph;
   /** The grants in force — who may still receive this domain, and who holds it. */
   delegations: DelegationSet;
   writable: boolean;
@@ -115,7 +112,6 @@ export function ChainPanel({
         role,
         target,
         domain,
-        graph.domainPathOf(domain),
         held?.voices.map((voice) => voice.chain[0]!) ?? [],
         depth,
       );

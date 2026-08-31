@@ -68,9 +68,22 @@ async function main(): Promise<void> {
 
   const needed = labels.filter((label) => !untouched.has(label));
   if (needed.length === 0) console.log("every domain already has an unvoted proposal");
+  // One domain at a time, and a failure on one does not abandon the rest. Recording a
+  // proposal is three round trips and the public RPC drops one now and again, which used
+  // to leave the reset half done with no indication of where it stopped.
+  const failed: string[] = [];
   for (const label of needed) {
-    const { proposalId } = await recordProposal(client, config, label, `Decide the next step for ${label}`);
-    console.log(`  “${label}” gets a fresh proposal #${proposalId}`);
+    try {
+      const { proposalId } = await recordProposal(client, config, label, `Decide the next step for ${label}`);
+      console.log(`  “${label}” gets a fresh proposal #${proposalId}`);
+    } catch (error) {
+      failed.push(label);
+      const reason = error instanceof Error ? error.message.split("\n")[0] : String(error);
+      console.log(`  “${label}” failed: ${reason}`);
+    }
+  }
+  if (failed.length > 0) {
+    console.log(`\n${failed.length} domain(s) still bare: ${failed.join(", ")}. Run this again.`);
   }
 
   console.log("\nBack to the opening state. Run `bun run verify` to confirm it.");

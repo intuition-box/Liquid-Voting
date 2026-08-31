@@ -6,7 +6,7 @@ import { encodeFunctionData, toHex, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY } from "@metamask/smart-accounts-kit";
 
-import { delegationManagerAbi, governorAbi } from "../chain/abis";
+import { delegationManagerAbi, ozGovernorAbi } from "../chain/abis";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
@@ -22,8 +22,6 @@ export async function signDelegation(
   from: Role,
   to: Role,
   domainLabel: string,
-  /** The domain and its parents, so the governor can refuse one already covered. */
-  domainPath: Hex[] = [],
   /** The delegations the signer already holds on this domain, one per voice it carries. */
   upstream: (Delegation & { hash: Hex })[] = [],
   /** How many hops below the domain the grant reaches. Signed into the terms, so it is
@@ -92,9 +90,9 @@ export async function signDelegation(
       to: config.governor,
       value: 0n,
       data: encodeFunctionData({
-        abi: governorAbi,
+        abi: ozGovernorAbi,
         functionName: "delegateWeight",
-        args: [config.accounts[to].smartAccount, domainId, domainPath],
+        args: [config.accounts[to].smartAccount, domainId],
       }),
     },
   ]);
@@ -136,9 +134,9 @@ export async function revokeWeight(
       to: config.governor,
       value: 0n,
       data: encodeFunctionData({
-        abi: governorAbi,
+        abi: ozGovernorAbi,
         functionName: "delegateWeight",
-        args: ["0x0000000000000000000000000000000000000000", domainId, []],
+        args: ["0x0000000000000000000000000000000000000000", domainId],
       }),
     },
   ]);

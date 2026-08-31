@@ -61,8 +61,10 @@ export function configFromManifest(submitterKey?: string): AppConfig {
 
   return {
     multiVault: manifest.multiVault,
-    enforcer: manifest.contracts.GraphDomainScope.address,
-    governor: manifest.contracts.DemoGovernor.address,
+    enforcer: manifest.contracts.OZGraphDomainScope.address,
+    governor: manifest.contracts.OZGovernor.address,
+    resolver: manifest.contracts.ProposalDomains.address,
+    votesToken: manifest.contracts.DemoVotes.address,
     predicate: manifest.vocabulary.predicate,
     nodes: Object.entries(manifest.vocabulary.atoms).map(([label, termId]) => ({ label, termId: termId as Hex })),
     edges: Object.entries(manifest.vocabulary.triples).map(([key, tripleId]) => {

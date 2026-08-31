@@ -21,22 +21,22 @@
       "verified": true
     },
     "DemoVotes": {
-      "address": "0xf9b9E11bC40807939ab595f099310F9523D22b50",
+      "address": "0x8FeaACD3C686d5Fc86545229B02AFD1bED8E0db1",
       "deployedAt": "2026-08-29",
       "verified": false
     },
     "ProposalDomains": {
-      "address": "0x6D96C81F82b62707ecE5083e4089334dF3e30686",
+      "address": "0xF203605Fa334e45Be57F75c76981EC9943Ec6189",
       "deployedAt": "2026-08-29",
       "verified": false
     },
     "OZGovernor": {
-      "address": "0x39B446e16368003f2a9bDfff3bA476167F2E32E9",
+      "address": "0x128a187ac177172DA3EE082055352131Fd9e0016",
       "deployedAt": "2026-08-29",
       "verified": false
     },
     "OZGraphDomainScope": {
-      "address": "0x5D9fb94EA78f06Fb58E8Bf55Cc1Aa9285958E9Ed",
+      "address": "0x5904F62Fb07f2533D402744a5C47dF2b8CfA72d7",
       "deployedAt": "2026-08-29",
       "verified": false
     }

@@ -3,11 +3,9 @@ import type { PublicClient } from "viem";
 
 import type { AppConfig, Role } from "../lib/config/app-config";
 import {
-  planVoteForcingWitness,
   readAllBallots,
   recordProposal,
-  submitOwnVote,
-  submitVote,
+  castOnGovernor,
   VOTE_ABSTAIN,
   VOTE_AGAINST,
   VOTE_FOR,
@@ -145,19 +143,21 @@ export function ProposalsPanel({
     setBusy(key);
     setFeedback((current) => ({ ...current, [key]: { verdict: "pass", text: "voting…" } }));
     try {
-      // Two ways to vote, and which one applies is not a choice the viewer makes.
-      //
-      // With a delegation in hand, the vote is redeemed through the signed chain and
-      // carries the voices lent along with it. With none, the account still holds its own
-      // voice: it votes directly, and there is no delegation for the caveat to check.
-      const resolved = delegations.chainFor(role, domain);
-      const result = resolved
-        ? await submitVote(
-            client,
-            config,
-            planVoteForcingWitness(config, graph, resolved, domain, proposal.id, support),
-          )
-        : await submitOwnVote(client, config, role, proposal.id, support);
+      // One call covers both cases here. The principals are whoever delegated this domain
+      // to the voter, and the path is what proves the domain sits under what they granted;
+      // with neither, the same call is a plain vote for oneself. The governor checks the
+      // path against the graph and ignores a principal that did not actually delegate, so
+      // claiming more than you hold gains nothing.
+      const carried = delegations.chainFor(role, domain);
+      const result = await castOnGovernor(
+        client,
+        config,
+        role,
+        proposal.id,
+        support,
+        carried?.principals ?? [],
+        carried ? graph.domainPathOf(domain) : [],
+      );
       setFeedback((current) => ({
         ...current,
         [key]: result.success
