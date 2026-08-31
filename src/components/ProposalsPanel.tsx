@@ -4,7 +4,7 @@ import type { PublicClient } from "viem";
 import type { AppConfig, Role } from "../lib/config/app-config";
 import {
   planVoteForcingWitness,
-  readBallots,
+  readAllBallots,
   recordProposal,
   submitVote,
   VOTE_ABSTAIN,
@@ -102,15 +102,17 @@ export function ProposalsPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [ballots, setBallots] = useState<Record<string, Ballot[]>>({});
 
-  // Read the open row's ballots from the governor's logs. Only the open one: the list is
-  // detail, and a read per row would cost a round-trip each on a page that shows many.
+  // Every row's ballots, in one read of the governor's log.
+  //
+  // Reading only the open row was not enough: whether you may vote is decided per
+  // proposal, so a row has to know its own ballots before it is opened. One query for the
+  // page costs about the same as one for a single row.
   useEffect(() => {
-    if (expanded === null) return;
     let cancelled = false;
     void (async () => {
       try {
-        const entries = await readBallots(client, config, BigInt(expanded));
-        if (!cancelled) setBallots((current) => ({ ...current, [expanded]: entries }));
+        const all = await readAllBallots(client, config);
+        if (!cancelled) setBallots(all);
       } catch {
         // A log read that fails leaves the tallies on screen; it is detail, not the vote.
       }
@@ -118,7 +120,7 @@ export function ProposalsPanel({
     return () => {
       cancelled = true;
     };
-  }, [expanded, client, config, feedback]);
+  }, [client, config, feedback]);
 
   // A proposal on a domain the graph no longer carries has nothing to be scoped against,
   // so it is left out rather than shown against a name nobody recognises.
@@ -130,7 +132,12 @@ export function ProposalsPanel({
 
   // A domain covers everything beneath it, which is exactly what a delegation on it
   // reaches — so the rail's selection lists the subtree, not one node.
-  const shown = rows.filter((row) => graph.isDescendantOf(row.domain, domain));
+  //
+  // Defeated proposals are left out: their voting window has closed, so they are a record
+  // rather than something to act on, and they crowd out the ones that can still be voted.
+  const shown = rows.filter(
+    (row) => graph.isDescendantOf(row.domain, domain) && row.proposal.state !== "defeated",
+  );
 
   async function vote(proposal: ProposalRecord, domain: string, support: number): Promise<void> {
     const key = proposal.id.toString();
@@ -225,9 +232,17 @@ export function ProposalsPanel({
                     <Mono>{proposal.abstainVotes.toString()}</Mono>
                   </span>
                   <span className="stat-col">
-                    <span className={weight > 1n ? "weight-badge weight-badge-full" : "weight-badge"}>
-                      <Mono>{weight.toString()}</Mono>
-                    </span>
+                    {/* Your weight is per domain; whether it is still spendable is per
+                        proposal. Once you have voted here, this row reads as cast. */}
+                    {mine ? (
+                      <span className="weight-badge weight-badge-cast" title={`you voted ${SUPPORT_LABELS[mine.support] ?? ""}`}>
+                        <Mono>voted</Mono>
+                      </span>
+                    ) : (
+                      <span className={weight > 1n ? "weight-badge weight-badge-full" : "weight-badge"}>
+                        <Mono>{weight.toString()}</Mono>
+                      </span>
+                    )}
                   </span>
                 </button>
 
@@ -246,11 +261,13 @@ export function ProposalsPanel({
                       <dd>
                         <Mono>{weight.toString()}</Mono>{" "}
                         <span className="muted">
-                          {weight === 0n
-                            ? `— you delegated “${domain}” away`
-                            : weight === 1n
-                              ? "— your own vote"
-                              : "— yours plus what was delegated to you"}
+                          {mine
+                            ? "— already cast on this proposal"
+                            : weight === 0n
+                              ? `— you delegated “${domain}” away`
+                              : weight === 1n
+                                ? "— your own vote"
+                                : "— yours plus what was delegated to you"}
                         </span>
                       </dd>
                       <dt>votes</dt>
@@ -280,8 +297,13 @@ export function ProposalsPanel({
                           key={option.label}
                           onClick={() => void vote(proposal, domain, option.support)}
                           busy={busy === key}
+                          // Voting is decided per proposal: your weight on the domain, and
+                          // whether you have already voted on this one. What anyone else
+                          // did here does not stop you.
                           disabled={!writable || proposal.state !== "active" || weight === 0n || mine !== null}
-                          variant={option.support === VOTE_FOR ? "primary" : undefined}
+                          // The accent marks the option you chose, not a default. Before
+                          // you vote, no button is singled out.
+                          variant={mine?.support === option.support ? "primary" : undefined}
                         >
                           {option.label}
                         </Button>

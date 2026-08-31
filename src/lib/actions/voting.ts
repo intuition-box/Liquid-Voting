@@ -273,6 +273,58 @@ export interface Ballot {
 }
 
 /**
+ * Who voted on every proposal, in one pass.
+ *
+ * `readBallots` asks per proposal, which is fine for one open row and wasteful for a
+ * page of them. This reads the governor's whole log once and files each vote under its
+ * own proposal — a vote on one proposal must never look like a vote on another, which is
+ * exactly what a per-row read made easy to get wrong.
+ */
+export async function readAllBallots(
+  client: PublicClient,
+  config: AppConfig,
+): Promise<Record<string, Ballot[]>> {
+  const roleOf = (address: `0x${string}`): Role | null =>
+    ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
+
+  const [cast, onBehalf] = await Promise.all([
+    client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: "earliest" }),
+    client.getLogs({ address: config.governor, event: VOTE_ON_BEHALF, fromBlock: "earliest" }),
+  ]);
+
+  const out: Record<string, Ballot[]> = {};
+  for (const log of cast) {
+    const { proposalId, voter, support, weight } = log.args;
+    if (proposalId === undefined || !voter || support === undefined || weight === undefined) continue;
+
+    const carried = onBehalf
+      .map((entry) => entry.args)
+      .filter(
+        (entry): entry is { proposalId: bigint; principal: `0x${string}`; representative: `0x${string}`; weight: bigint } =>
+          entry.proposalId === proposalId &&
+          entry.principal !== undefined &&
+          entry.weight !== undefined &&
+          entry.representative?.toLowerCase() === voter.toLowerCase(),
+      );
+    const own = weight - carried.reduce((sum, entry) => sum + entry.weight, 0n);
+
+    const entries: BallotEntry[] = [
+      { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
+      ...carried.map((entry) => ({
+        principal: roleOf(entry.principal),
+        principalAddress: entry.principal,
+        carriedBy: roleOf(voter),
+        carriedByAddress: voter,
+        weight: entry.weight,
+      })),
+    ];
+    const key = proposalId.toString();
+    (out[key] ??= []).push({ support: Number(support), entries, total: weight });
+  }
+  return out;
+}
+
+/**
  * Who voted on a proposal, and for whom.
  *
  * Read from the governor's own logs rather than reconstructed: `VoteCast` carries the

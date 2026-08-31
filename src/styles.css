@@ -1298,3 +1298,9 @@ select:focus-visible,
   color: var(--muted);
 }
 .storage strong { color: var(--text); }
+
+/* A row you have already voted on: the weight is no longer the useful number there. */
+.weight-badge-cast {
+  color: var(--ok);
+  border-color: var(--ok);
+}
