@@ -57,7 +57,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
 
         governor = new DemoGovernor(IMultiVault(address(vault)), predicate);
         enforcer = new GraphDomainScope(
-            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
         );
 
         tBrandingDesign = vault.createTriple(branding, predicate, design);
@@ -364,10 +364,36 @@ contract GraphDomainCaveatEnforcerTest is Test {
     /// Constructor input validation.
     function test_RevertWhen_ConstructorZeroAddress() public {
         vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
-        new GraphDomainScope(IMultiVault(address(0)), address(governor), DemoGovernor.castVoteFor.selector);
+        new GraphDomainScope(
+            IMultiVault(address(0)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
+        );
 
         vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
-        new GraphDomainScope(IMultiVault(address(vault)), address(0), DemoGovernor.castVoteFor.selector);
+        new GraphDomainScope(
+            IMultiVault(address(vault)), address(0), DemoGovernor.castVoteFor.selector, address(governor)
+        );
+
+        vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
+        new GraphDomainScope(
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(0)
+        );
+    }
+
+    /// The vote target and the domain resolver are two separate addresses.
+    ///
+    /// They are the same contract on a governor written for this scheme, and different on
+    /// an OpenZeppelin one, where `propose` has nowhere to put a domain so it lives in a
+    /// small resolver alongside. Collapsing them would tie this enforcer to governors we
+    /// wrote, and did: pointing the resolver at an OZ governor reverts with no reason at
+    /// all, because the function simply is not there.
+    function test_ResolverIsSeparateFromTheVoteTarget() public {
+        address resolver = address(governor);
+        address votedOn = makeAddr("some other governor");
+        GraphDomainScope split =
+            new GraphDomainScope(IMultiVault(address(vault)), votedOn, DemoGovernor.castVoteFor.selector, resolver);
+
+        assertEq(split.GOVERNOR(), votedOn, "votes must target the governor");
+        assertEq(address(split.DOMAIN_RESOLVER()), resolver, "domains are read from the resolver");
     }
 
     ////////////////////////////// Delegated votes //////////////////////////////

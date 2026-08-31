@@ -89,6 +89,13 @@ contract GraphDomainScope is CaveatEnforcer {
     IMultiVault public immutable MULTI_VAULT;
     /// @notice The only execution target a scoped delegation may call.
     address public immutable GOVERNOR;
+    /// @notice Where a proposal's domain is read from.
+    /// @dev Separate from `GOVERNOR` because the two are not always the same contract. A
+    ///      governor written for this scheme can hold the mapping itself, but an
+    ///      OpenZeppelin `Governor` has nowhere to put it, so the domain lives in a small
+    ///      resolver beside it. Binding them together would tie this enforcer to governors
+    ///      we wrote, which is the opposite of the point.
+    IGovernorDomains public immutable DOMAIN_RESOLVER;
     /// @notice The only function selector a scoped delegation may invoke on the governor.
     /// @dev Voting is the only delegated action. Proposing needs no delegation — anyone
     ///      may propose in their own name — so it is deliberately outside this caveat.
@@ -97,14 +104,25 @@ contract GraphDomainScope is CaveatEnforcer {
     ////////////////////////////// Constructor //////////////////////////////
 
     /// @notice Deploys the enforcer bound to one MultiVault and one governor endpoint.
+    /// @dev Pass the governor itself as `_domainResolver` when it answers `proposalDomain`
+    ///      on its own, which a governor written for this scheme does.
     /// @param _multiVault The Intuition MultiVault (graph authority).
     /// @param _governor The governor contract votes must target.
     /// @param _voteSelector The delegated-vote selector on the governor.
-    constructor(IMultiVault _multiVault, address _governor, bytes4 _voteSelector) {
-        if (address(_multiVault) == address(0) || _governor == address(0)) revert ZeroAddress();
+    /// @param _domainResolver Where each proposal's domain is recorded.
+    constructor(
+        IMultiVault _multiVault,
+        address _governor,
+        bytes4 _voteSelector,
+        address _domainResolver
+    ) {
+        if (address(_multiVault) == address(0) || _governor == address(0) || _domainResolver == address(0)) {
+            revert ZeroAddress();
+        }
         MULTI_VAULT = _multiVault;
         GOVERNOR = _governor;
         VOTE_SELECTOR = _voteSelector;
+        DOMAIN_RESOLVER = IGovernorDomains(_domainResolver);
     }
 
     ////////////////////////////// External functions //////////////////////////////
@@ -224,7 +242,7 @@ contract GraphDomainScope is CaveatEnforcer {
         if (declaredVoter_ != _redeemer) revert VoterIsNotRedeemer(declaredVoter_, _redeemer);
 
         uint256 proposalId_ = uint256(bytes32(_callData[4:36]));
-        domainId_ = IGovernorDomains(GOVERNOR).proposalDomain(proposalId_);
+        domainId_ = DOMAIN_RESOLVER.proposalDomain(proposalId_);
         if (domainId_ == bytes32(0)) revert UnresolvedProposalDomain(proposalId_);
     }
 

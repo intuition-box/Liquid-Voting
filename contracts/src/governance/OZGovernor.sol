@@ -17,14 +17,22 @@ import { IMultiVault } from "../interfaces/IMultiVault.sol";
 ///      For/Against/Abstain counting, the settings module, and `GovernorVotes` reading an
 ///      `ERC20Votes` snapshot — audited code, deployed at scale, taken as published.
 ///
-///      One method is overridden, `_getVotes`, which `Governor` declares virtual for this
-///      purpose. That is the whole integration: weight still comes from the token, and the
-///      domain register decides who may exercise it where.
+///      Two things are added, and neither touches the inherited code. `_getVotes` is
+///      overridden, which `Governor` declares virtual for exactly this purpose, so weight
+///      still comes from the token and the domain register only decides who may exercise it
+///      where. And `castVoteFor` is added, because OZ's public entry points read the voter
+///      from `_msgSender()` while an ERC-7710 redemption executes from the root delegator's
+///      account: without it a delegated vote would be recorded under the wrong name. It
+///      hands the voter to OZ's own internal `_castVote`, so the state check, the counting,
+///      the double-vote guard and the event are all the audited ones.
 ///
 ///      The domain of a proposal lives in a `ProposalDomains` beside this contract rather
 ///      than on the proposal, because OZ's `propose` has no field for it and adding one
 ///      would mean forking the audited contract.
 contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
+    /// @notice A vote was asked to be recorded under nobody.
+    error ZeroAddress();
+
     /// @param token_ The `ERC20Votes` token weight is read from.
     /// @param multiVault_ The Intuition MultiVault (graph authority).
     /// @param subDomainPredicate_ Term id of the "is a sub-domain of" predicate.
@@ -48,6 +56,35 @@ contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
     /// @inheritdoc Governor
     function quorum(uint256) public pure override returns (uint256) {
         return 1;
+    }
+
+    /// @notice Cast a vote on behalf of `voter`, for a delegation being redeemed.
+    /// @dev The public `castVote*` family reads the voter from `_msgSender()`, which under
+    ///      ERC-7710 is the root delegator's account rather than the delegate doing the
+    ///      voting. This entry point takes the voter explicitly so the vote is recorded
+    ///      under the delegate's own name, carrying the principals it was lent.
+    ///
+    ///      Authorization is not this function's job and it deliberately checks none: it is
+    ///      reachable only through a delegation whose caveat has already been enforced by
+    ///      the `DelegationManager`. `GraphDomainScope` is bound to this selector and is
+    ///      what proves the domain sits under the delegated one. Everything after that is
+    ///      OZ's own `_castVote`.
+    /// @param proposalId The proposal being voted on.
+    /// @param support Against, For or Abstain, as `GovernorCountingSimple` defines them.
+    /// @param voter The account the vote is recorded under.
+    /// @param principals The accounts whose weight is being carried, the caller included.
+    /// @param domainPath Child to ancestor, the path `DomainVotes` rechecks hop by hop.
+    /// @return weight_ The weight counted for this vote.
+    function castVoteFor(
+        uint256 proposalId,
+        uint8 support,
+        address voter,
+        address[] calldata principals,
+        bytes32[] calldata domainPath
+    ) external returns (uint256 weight_) {
+        if (voter == address(0)) revert ZeroAddress();
+        bytes memory params_ = abi.encode(proposalId, domainPath, principals);
+        weight_ = _castVote(proposalId, voter, support, "", params_);
     }
 
     // ── Overrides required because two inherited modules declare the same member ──

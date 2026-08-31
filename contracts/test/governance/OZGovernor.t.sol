@@ -134,6 +134,39 @@ contract DomainScopedGovernorTest is Test {
         governor.castVoteWithReasonAndParams(id, 1, "", _params(id, _path(COMMUNITY, TREASURY), _only(alice)));
     }
 
+    function test_CastVoteFor_RecordsTheVoteUnderTheNamedVoter() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY);
+
+        uint256 id = _propose(GRANTS);
+        // The DelegationManager executes from the root delegator's account, so alice is
+        // the caller here even though the vote is bob's. That is the whole reason this
+        // entry point exists: OZ's public ones would record the vote as alice's.
+        vm.prank(alice);
+        uint256 weight = governor.castVoteFor(id, 1, bob, _only(alice), _path(GRANTS, TREASURY));
+
+        assertEq(weight, 2, "bob's own vote plus alice's");
+        assertTrue(governor.hasVoted(id, bob), "the vote is bob's");
+        assertFalse(governor.hasVoted(id, alice), "alice only carried the call");
+    }
+
+    function test_RevertWhen_CastVoteForNamesNobody() public {
+        uint256 id = _propose(GRANTS);
+        vm.expectRevert(OZGovernor.ZeroAddress.selector);
+        governor.castVoteFor(id, 1, address(0), _only(alice), _path(GRANTS, TREASURY));
+    }
+
+    function test_CastVoteFor_StillRefusesADomainOutsideTheGrant() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY);
+
+        uint256 id = _propose(COMMUNITY);
+        // Naming the voter explicitly buys no authority: the path is checked all the same.
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.DomainPathBroken.selector, COMMUNITY, TREASURY));
+        governor.castVoteFor(id, 1, bob, _only(alice), _path(COMMUNITY, TREASURY));
+    }
+
     function test_RevertWhen_DelegatorVotesOnADomainItGaveAway() public {
         vm.prank(alice);
         governor.delegateWeight(bob, TREASURY);

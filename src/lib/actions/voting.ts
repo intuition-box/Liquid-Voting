@@ -17,7 +17,7 @@ import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
 import type { AppConfig } from "../config/app-config";
-import type { RedeemableChain } from "../delegation/delegation-set";
+import type { RedeemableChain, VoiceChain } from "../delegation/delegation-set";
 import {
   buildVoteCalldata,
   preflightRedeem,
@@ -80,19 +80,22 @@ export async function submitOwnVote(
   proposalId: bigint,
   support: number,
 ): Promise<UserOpResult> {
-  return castOnGovernor(client, config, role, proposalId, support, [], []);
+  return castOnGovernor(client, config, role, proposalId, support, null, [], () => []);
 }
 
 /**
- * Casts a vote on the OpenZeppelin governor, carrying whatever weight is claimed.
+ * Casts a vote, redeeming the delegations that carry it.
  *
- * OZ has one vote entry point that takes extra data, `castVoteWithReasonAndParams`, and
- * that is the channel the domain register reads: the params carry the proposal id, the
- * domain path and the principals whose weight is being claimed. The governor verifies the
- * path against the graph and ignores any principal that did not actually delegate, so an
- * over-claim costs nothing rather than succeeding.
+ * The two cases are genuinely different calls. Voting for oneself is a plain call to the
+ * governor. Voting with borrowed voices goes through the DelegationManager, because that
+ * is what puts `GraphDomainScope` on the path: the caveat resolves the proposal's domain
+ * from the governor and rechecks every hop of the announced path against the graph before
+ * the vote is ever reached. Nothing here proves the scope, and nothing here is trusted to.
  *
- * With no principals and no path, this is a plain vote for oneself.
+ * `castVoteFor` exists on our subclass for one reason: OZ's public entry points read the
+ * voter from `_msgSender()`, and a redemption executes from the root delegator's account,
+ * so a delegated vote would otherwise be recorded under the lender's name. The counting
+ * itself is OZ's own `_castVote`, untouched.
  */
 export async function castOnGovernor(
   client: PublicClient,
@@ -100,24 +103,34 @@ export async function castOnGovernor(
   role: Role,
   proposalId: bigint,
   support: number,
-  principals: Role[],
+  carried: RedeemableChain | null,
   domainPath: Hex[],
+  witnesses: (chain: VoiceChain) => Hex[][],
 ): Promise<UserOpResult> {
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, role)));
-  const params = encodeAbiParameters(
-    [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
-    [proposalId, domainPath, principals.map((principal) => config.accounts[principal].smartAccount)],
-  );
-  return sendUserOp(client, submitterClient(config), account, [
-    {
-      to: config.governor,
-      value: 0n,
-      data: encodeFunctionData({
+  const voter = config.accounts[role].smartAccount;
+
+  const data = carried
+    ? buildVoteCalldata({
+        chains: carried.voices.map((voice) => ({ chain: voice.chain, witnesses: witnesses(voice) })),
+        governor: config.governor,
+        proposalId,
+        support,
+        voter,
+        principals: carried.principals.map((principal) => config.accounts[principal].smartAccount),
+        domainPath,
+      })
+    : encodeFunctionData({
         abi: ozGovernorAbi,
         functionName: "castVoteWithReasonAndParams",
-        args: [proposalId, support, "", params],
-      }),
-    },
+        args: [proposalId, support, "", encodeAbiParameters(
+          [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
+          [proposalId, domainPath, [voter]],
+        )],
+      });
+
+  return sendUserOp(client, submitterClient(config), account, [
+    { to: carried ? FRAMEWORK.delegationManager : config.governor, value: 0n, data },
   ]);
 }
 

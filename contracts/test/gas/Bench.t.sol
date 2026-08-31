@@ -36,7 +36,7 @@ contract GasBenchTest is Test {
         predicate = vault.createAtom("is a sub-domain of");
         governor = new DemoGovernor(IMultiVault(address(vault)), predicate);
         enforcer = new GraphDomainScope(
-            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
         );
 
         chain[0] = vault.createAtom("d0-root");

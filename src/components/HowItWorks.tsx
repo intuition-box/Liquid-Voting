@@ -26,7 +26,7 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       where: "browser",
       kind: "sign",
       what: "B votes: the path is found client-side",
-      how: "micro-grants → builder-grants → grants → treasury, attached to the vote.",
+      how: "micro-grants → builder-grants → grants → treasury, attached to the redemption.",
     },
     {
       where: "framework",
@@ -37,14 +37,14 @@ export function HowItWorks({ config }: { config: AppConfig }) {
     {
       where: "our caveat",
       kind: "graph",
-      what: "GraphDomainScope checks every hop",
+      what: "GraphDomainScope checks every hop, during the redemption",
       how: "Recomputes each triple id and demands both a positive link and the curator's stake. The supplied path proves nothing. It says where to look.",
     },
     {
       where: "governor",
       kind: "gov",
       what: "The vote is recorded as B's, carrying A's weight",
-      how: "One VoteCastOnBehalf per principal, so the split stays auditable.",
+      how: "OpenZeppelin's own _castVote counts it. The tally, the double-vote guard and the event are the audited ones.",
     },
   ];
 
@@ -55,8 +55,8 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       address: config.enforcer,
     },
     {
-      name: "DemoGovernor",
-      role: "The governor this app talks to. Proposals, votes, delegation register.",
+      name: "OZGovernor",
+      role: "OpenZeppelin's Governor, inherited as published. We override _getVotes, and add castVoteFor so a redeemed vote is recorded under the delegate rather than the lender.",
       address: config.governor,
     },
   ];
@@ -146,18 +146,25 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       </section>
 
       <section className="howto-section">
-        <h2>It is not tied to our governor</h2>
+        <h2>Two questions, answered in two places</h2>
         <p>
-          The caveat is bound to a domain resolver, not to a governor. The same scheme runs on
-          an unmodified OpenZeppelin Governor: the audited contracts are inherited as
-          published, and one method is overridden. That method is <code>_getVotes</code>, which{" "}
-          <code>Governor</code> declares virtual for exactly this. Weight still comes from an{" "}
-          <code>ERC20Votes</code> snapshot; the domain register only decides who may exercise
-          it where.
+          Scope and weight are not the same question, and nothing here answers both. The
+          caveat decides whether a voice may be used on this subject at all, and it does that
+          during the redemption, before the governor is ever reached. The governor then
+          decides what that voice is worth, through <code>_getVotes</code>, the method{" "}
+          <code>Governor</code> declares virtual for exactly this purpose.
+        </p>
+        <p>
+          The audited code is inherited as published. Beside it we add one entry point,{" "}
+          <code>castVoteFor</code>, and it exists for a reason worth stating plainly:
+          OpenZeppelin reads the voter from the caller, while a redemption executes from the
+          lender's account. Without it, a vote B redeemed from A would be recorded as A's. The
+          caveat is bound to that entry point and refuses a declared voter who is not the one
+          redeeming, so a delegation cannot be turned into a vote under someone else's name.
         </p>
         <p className="muted">
-          Deployed and exercised on this same testnet: a vote on a domain under the delegated
-          one counts both voices, the same vote outside it counts one.
+          Exercised on this same testnet: a vote on a domain under the delegated one carries
+          both voices, and the same delegation on another branch carries only your own.
         </p>
       </section>
 

@@ -36,7 +36,8 @@ contract GasBenchForkTest is Test {
         vm.createSelectFork(vm.envOr("INTUITION_TESTNET_RPC", DEFAULT_RPC));
         vault = IMultiVault(MULTIVAULT);
         governor = new DemoGovernor(vault, PREDICATE);
-        enforcer = new GraphDomainScope(vault, address(governor), DemoGovernor.castVoteFor.selector);
+        enforcer =
+            new GraphDomainScope(vault, address(governor), DemoGovernor.castVoteFor.selector, address(governor));
 
         (, uint256 curveId) = vault.getBondingCurveConfig();
         vm.deal(delegator, 1 ether);

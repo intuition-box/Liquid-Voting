@@ -143,11 +143,9 @@ export function ProposalsPanel({
     setBusy(key);
     setFeedback((current) => ({ ...current, [key]: { verdict: "pass", text: "voting…" } }));
     try {
-      // One call covers both cases here. The principals are whoever delegated this domain
-      // to the voter, and the path is what proves the domain sits under what they granted;
-      // with neither, the same call is a plain vote for oneself. The governor checks the
-      // path against the graph and ignores a principal that did not actually delegate, so
-      // claiming more than you hold gains nothing.
+      // With no borrowed voice this is a plain vote for oneself. With one, it is a
+      // redemption, and each link of each chain carries the witness for its own scope:
+      // the caveat recomputes that hop against the graph rather than believing it.
       const carried = delegations.chainFor(role, domain);
       const result = await castOnGovernor(
         client,
@@ -155,8 +153,9 @@ export function ProposalsPanel({
         role,
         proposal.id,
         support,
-        carried?.principals ?? [],
-        carried ? graph.domainPathOf(domain) : [],
+        carried,
+        graph.domainPathOf(domain),
+        (voice) => voice.scopes.map((scope) => graph.witnessTo(domain, scope)),
       );
       setFeedback((current) => ({
         ...current,

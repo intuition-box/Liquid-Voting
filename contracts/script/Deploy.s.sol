@@ -33,7 +33,9 @@ contract Deploy is Script {
         vm.startBroadcast(deployerKey);
         DemoGovernor governor = new DemoGovernor(IMultiVault(MULTIVAULT), SUB_DOMAIN);
         GraphDomainScope enforcer =
-            new GraphDomainScope(IMultiVault(MULTIVAULT), address(governor), DemoGovernor.castVoteFor.selector);
+            new GraphDomainScope(
+                IMultiVault(MULTIVAULT), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
+            );
         vm.stopBroadcast();
 
         console2.log("DemoGovernor:              ", address(governor));

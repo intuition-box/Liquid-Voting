@@ -77,7 +77,8 @@ contract DelegationChainForkTest is Test {
         );
 
         governor = new DemoGovernor(vault, PREDICATE);
-        enforcer = new GraphDomainScope(vault, address(governor), DemoGovernor.castVoteFor.selector);
+        enforcer =
+            new GraphDomainScope(vault, address(governor), DemoGovernor.castVoteFor.selector, address(governor));
 
         // ADR 0004: the existing triples carry no real positions — the delegator-as-
         // attestor (voter) deposits on the two edges its `design` delegation relies on.

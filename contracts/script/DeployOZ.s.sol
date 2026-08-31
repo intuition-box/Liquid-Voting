@@ -4,7 +4,6 @@ pragma solidity >=0.8.23 <0.9.0;
 import { Script } from "forge-std/Script.sol";
 import { console2 } from "forge-std/console2.sol";
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import { IGovernor } from "@openzeppelin/contracts/governance/IGovernor.sol";
 
 import { DemoVotes } from "../src/token/DemoVotes.sol";
 import { OZGovernor } from "../src/governance/OZGovernor.sol";
@@ -39,13 +38,13 @@ contract DeployOZ is Script {
         DemoVotes token = new DemoVotes();
         ProposalDomains resolver = new ProposalDomains();
         OZGovernor governor = new OZGovernor(IVotes(address(token)), IMultiVault(MULTIVAULT), SUB_DOMAIN, resolver, false);
-        // The enforcer allows one selector on one governor. Votes that carry delegated
-        // weight go through castVoteWithReasonAndParams, since that is the entry point
-        // OZ routes `params` through.
+        // The enforcer allows one selector on one governor. Delegated votes go through
+        // castVoteFor, the entry point that takes the voter explicitly, because OZ's public
+        // ones read it from `_msgSender()`, which under a redemption is the root delegator
+        // rather than the delegate. The enforcer also refuses a voter who is not the
+        // redeemer, so a delegation cannot be used to vote under someone else's name.
         GraphDomainScope enforcer = new GraphDomainScope(
-            IMultiVault(MULTIVAULT),
-            address(governor),
-            IGovernor.castVoteWithReasonAndParams.selector
+            IMultiVault(MULTIVAULT), address(governor), OZGovernor.castVoteFor.selector, address(resolver)
         );
         vm.stopBroadcast();
 

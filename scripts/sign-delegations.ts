@@ -50,7 +50,10 @@ async function main(): Promise<void> {
   if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run setup first");
   const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
   const manifest = readManifest();
-  const enforcer = manifest.contracts.GraphDomainScope.address;
+  // The enforcer bound to the governor the app runs on, which is the OZ one. Each
+  // enforcer is tied to one governor and one selector at construction, so signing against
+  // the wrong one produces delegations that revert the moment they are redeemed.
+  const enforcer = manifest.contracts.OZGraphDomainScope.address;
   const curator = manifest.curation.curator;
   if (!curator) throw new Error("manifest curation.curator missing — run seed first");
   const voterKey = stored.keys["A"];

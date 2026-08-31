@@ -21,24 +21,30 @@
       "verified": true
     },
     "DemoVotes": {
-      "address": "0x8FeaACD3C686d5Fc86545229B02AFD1bED8E0db1",
-      "deployedAt": "2026-08-29",
+      "address": "0xee0a453A788F249215fa41c88D95ea9f1708aCFf",
+      "deployedAt": "2026-08-31",
       "verified": false
     },
     "ProposalDomains": {
-      "address": "0xF203605Fa334e45Be57F75c76981EC9943Ec6189",
-      "deployedAt": "2026-08-29",
+      "address": "0x5CFd24a70124Cf3e385bFc95891DD76946FC243f",
+      "deployedAt": "2026-08-31",
       "verified": false
     },
     "OZGovernor": {
-      "address": "0x128a187ac177172DA3EE082055352131Fd9e0016",
-      "deployedAt": "2026-08-29",
+      "address": "0x5a27b4be50EE679e2aE82c50e2386A4299010078",
+      "deployedAt": "2026-08-31",
       "verified": false
     },
     "OZGraphDomainScope": {
-      "address": "0x5904F62Fb07f2533D402744a5C47dF2b8CfA72d7",
-      "deployedAt": "2026-08-29",
-      "verified": false
+      "address": "0xFD134E30C45b160fdcb38C4baA9F43d1d4fe9175",
+      "deployedAt": "2026-08-31",
+      "verified": false,
+      "constructorArgs": {
+        "multiVault": "0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91",
+        "governor": "0x5a27b4be50EE679e2aE82c50e2386A4299010078",
+        "voteSelector": "castVoteFor(uint256,uint8,address,address[],bytes32[])",
+        "domainResolver": "0x5CFd24a70124Cf3e385bFc95891DD76946FC243f"
+      }
     }
   },
   "framework": {
@@ -74,22 +80,22 @@
       "content": "0x37f887727fe89c6edd1719e830365cab13e95ba1c3e6badc535e1c7256cc9412"
     },
     "triples": {
-      "treasury \u2014 is a sub-domain of \u2014 governance": "0x8a77d73d7b8cdf7df00ae309a08c21b3d9212657c422a04d5ebeddbaf64840b4",
-      "grants \u2014 is a sub-domain of \u2014 treasury": "0x6609f34465a8fa6e4872e4208ad90c0d03c7c236bfeea5770acc142c024740b9",
-      "builder-grants \u2014 is a sub-domain of \u2014 grants": "0xf9619887098956741a74762f13221cb6ee9ff0c90f49c632ae0d7a0316c0b466",
-      "micro-grants \u2014 is a sub-domain of \u2014 builder-grants": "0x8aed272731e16ff90082642480b3cb585fffb1d504aa8a50e1dc86075abd863d",
-      "retro-funding \u2014 is a sub-domain of \u2014 grants": "0xecb232778f240f7497a629b7654fb590972de30057269586e6f9fb7dc05f14e9",
-      "payroll \u2014 is a sub-domain of \u2014 treasury": "0xba05ba96939188854866ac286070f83ce53e06fbee9e00481753fe8d14645a0b",
-      "contributor-comp \u2014 is a sub-domain of \u2014 payroll": "0x7521aa77b8ac55e62a22d087b2133455fcf996df645ca9ef52df9efa971a9c80",
-      "protocol \u2014 is a sub-domain of \u2014 governance": "0x4f42b39af105ab9da9eea532d4e631c20f8f3b9c0da609de42edd9434f5636da",
-      "parameters \u2014 is a sub-domain of \u2014 protocol": "0x773bdfa5e283de4037fc59d8f836f95a5e1a7425eddb16119b23f2bac9eef75f",
-      "fee-switch \u2014 is a sub-domain of \u2014 parameters": "0x41bb88e9346855067c416e81e1daf51d3bd33b26967865ae3e6a0e6acab0ad17",
-      "rate-model \u2014 is a sub-domain of \u2014 parameters": "0xdc6c69d22a3675f7337206f0eeb8d1c471609efe10cf16f90b25808ffd285466",
-      "upgrades \u2014 is a sub-domain of \u2014 protocol": "0x57d4720aa4c3ee03bbb31fbfa50e8cbe4e82e5136a1d6e2f43755aeb83203c61",
-      "emergency-patches \u2014 is a sub-domain of \u2014 upgrades": "0xf7b25826e7e36748616c424c0eb3fa86670eb32279d30f08468fcd91f930783a",
-      "community \u2014 is a sub-domain of \u2014 governance": "0xb0624fd2af7e9d2d2d34f9dd28fad82085e8b81c780305d63aafcf75c673a929",
-      "events \u2014 is a sub-domain of \u2014 community": "0xdec9770b8ebea75fccbf51143d6b4f1b82729e8f3b79ae8ab4ea9ad14ebae940",
-      "content \u2014 is a sub-domain of \u2014 community": "0x6778defd7e1064953120b963b31e5870ed9c211004783b45526b14cc8df9d7ab"
+      "treasury — is a sub-domain of — governance": "0x8a77d73d7b8cdf7df00ae309a08c21b3d9212657c422a04d5ebeddbaf64840b4",
+      "grants — is a sub-domain of — treasury": "0x6609f34465a8fa6e4872e4208ad90c0d03c7c236bfeea5770acc142c024740b9",
+      "builder-grants — is a sub-domain of — grants": "0xf9619887098956741a74762f13221cb6ee9ff0c90f49c632ae0d7a0316c0b466",
+      "micro-grants — is a sub-domain of — builder-grants": "0x8aed272731e16ff90082642480b3cb585fffb1d504aa8a50e1dc86075abd863d",
+      "retro-funding — is a sub-domain of — grants": "0xecb232778f240f7497a629b7654fb590972de30057269586e6f9fb7dc05f14e9",
+      "payroll — is a sub-domain of — treasury": "0xba05ba96939188854866ac286070f83ce53e06fbee9e00481753fe8d14645a0b",
+      "contributor-comp — is a sub-domain of — payroll": "0x7521aa77b8ac55e62a22d087b2133455fcf996df645ca9ef52df9efa971a9c80",
+      "protocol — is a sub-domain of — governance": "0x4f42b39af105ab9da9eea532d4e631c20f8f3b9c0da609de42edd9434f5636da",
+      "parameters — is a sub-domain of — protocol": "0x773bdfa5e283de4037fc59d8f836f95a5e1a7425eddb16119b23f2bac9eef75f",
+      "fee-switch — is a sub-domain of — parameters": "0x41bb88e9346855067c416e81e1daf51d3bd33b26967865ae3e6a0e6acab0ad17",
+      "rate-model — is a sub-domain of — parameters": "0xdc6c69d22a3675f7337206f0eeb8d1c471609efe10cf16f90b25808ffd285466",
+      "upgrades — is a sub-domain of — protocol": "0x57d4720aa4c3ee03bbb31fbfa50e8cbe4e82e5136a1d6e2f43755aeb83203c61",
+      "emergency-patches — is a sub-domain of — upgrades": "0xf7b25826e7e36748616c424c0eb3fa86670eb32279d30f08468fcd91f930783a",
+      "community — is a sub-domain of — governance": "0xb0624fd2af7e9d2d2d34f9dd28fad82085e8b81c780305d63aafcf75c673a929",
+      "events — is a sub-domain of — community": "0xdec9770b8ebea75fccbf51143d6b4f1b82729e8f3b79ae8ab4ea9ad14ebae940",
+      "content — is a sub-domain of — community": "0x6778defd7e1064953120b963b31e5870ed9c211004783b45526b14cc8df9d7ab"
     }
   },
   "accounts": {
@@ -111,67 +117,67 @@
     "curator": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A",
     "curveId": "1",
     "stakes": {
-      "treasury \u2014 is a sub-domain of \u2014 governance": {
+      "treasury — is a sub-domain of — governance": {
         "shares": "9900000000000000",
         "txHash": "0x56ae52f0161e769010ceae2dd5066249a0869418617e6542d251015b64041a80"
       },
-      "grants \u2014 is a sub-domain of \u2014 treasury": {
+      "grants — is a sub-domain of — treasury": {
         "shares": "9900000000000000",
         "txHash": "0x01cae0c59b637318b238d9b9e90e7d7545f7a7a9815e2befe6491165a7bcd667"
       },
-      "builder-grants \u2014 is a sub-domain of \u2014 grants": {
+      "builder-grants — is a sub-domain of — grants": {
         "shares": "9900000000000000",
         "txHash": "0x951a3b3db174982a8a1d950e4e586cb0f3bc72fb87f2612c948b6fbbe07de6c8"
       },
-      "micro-grants \u2014 is a sub-domain of \u2014 builder-grants": {
+      "micro-grants — is a sub-domain of — builder-grants": {
         "shares": "9900000000000000",
         "txHash": "0xfd5f4b1c74410fc2cac3dd62dd3569267f481b78f7db3e7fb850280d5bfb6691"
       },
-      "retro-funding \u2014 is a sub-domain of \u2014 grants": {
+      "retro-funding — is a sub-domain of — grants": {
         "shares": "9900000000000000",
         "txHash": "0xf4e65ae661355b40b5eb0c31b1f5d2baf1190d9fcfebe1bcb2829b0125f01637"
       },
-      "payroll \u2014 is a sub-domain of \u2014 treasury": {
+      "payroll — is a sub-domain of — treasury": {
         "shares": "9900000000000000",
         "txHash": "0xe00f70e7dd49976f1e5685fd6033c62a96b41aae2c6d4711014431ba71ec62a0"
       },
-      "contributor-comp \u2014 is a sub-domain of \u2014 payroll": {
+      "contributor-comp — is a sub-domain of — payroll": {
         "shares": "9900000000000000",
         "txHash": "0xcacab23eae3efe06c62996ae5b1f513254dae06793a128e983f759954ebf7feb"
       },
-      "protocol \u2014 is a sub-domain of \u2014 governance": {
+      "protocol — is a sub-domain of — governance": {
         "shares": "9900000000000000",
         "txHash": "0x294b38899e23b292206d948e0a462fa8572e95577c3d82e4f2d65da62f2963b1"
       },
-      "parameters \u2014 is a sub-domain of \u2014 protocol": {
+      "parameters — is a sub-domain of — protocol": {
         "shares": "9900000000000000",
         "txHash": "0x5bd44b9e9c977eb629e7dd67952e5c7955f232dd1efff5a2f729c0642a61e7af"
       },
-      "fee-switch \u2014 is a sub-domain of \u2014 parameters": {
+      "fee-switch — is a sub-domain of — parameters": {
         "shares": "9900000000000000",
         "txHash": "0x4069c9355eb73fbda2d4c7d336c1aa57605e128f24ee8a203cd20b052273a5a4"
       },
-      "rate-model \u2014 is a sub-domain of \u2014 parameters": {
+      "rate-model — is a sub-domain of — parameters": {
         "shares": "9900000000000000",
         "txHash": "0xa060753d01be0f1f877f2ffa7c6bf0925f30e6ec3093a69e2fb90be05ad934d9"
       },
-      "upgrades \u2014 is a sub-domain of \u2014 protocol": {
+      "upgrades — is a sub-domain of — protocol": {
         "shares": "9900000000000000",
         "txHash": "0x3d9b05742e0c47a26919ae1f0827c1d564243c6df304cfd69503066d6accf3e9"
       },
-      "emergency-patches \u2014 is a sub-domain of \u2014 upgrades": {
+      "emergency-patches — is a sub-domain of — upgrades": {
         "shares": "9900000000000000",
         "txHash": "0x8600065cb304db61acabd65c3e784b4a329886c5f9ac2e03236c4e6fe18427cb"
       },
-      "community \u2014 is a sub-domain of \u2014 governance": {
+      "community — is a sub-domain of — governance": {
         "shares": "9900000000000000",
         "txHash": "0xd593a86a7a7fb43a7bd13a754ea33497c2d0a4daa9d29cbf9d203eb0defb5aef"
       },
-      "events \u2014 is a sub-domain of \u2014 community": {
+      "events — is a sub-domain of — community": {
         "shares": "9900000000000000",
         "txHash": "0xe726e452f564f5af32a3cf12d83b6ba645d081e8e0d80f19b05d404ba911acf5"
       },
-      "content \u2014 is a sub-domain of \u2014 community": {
+      "content — is a sub-domain of — community": {
         "shares": "9900000000000000",
         "txHash": "0x1fb64df1519e206ff99ab03c995974c0c4b27954d1a4425d4e3cd434b5d37761"
       }
