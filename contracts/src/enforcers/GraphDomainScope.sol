@@ -8,7 +8,7 @@ import { ModeCode } from "@delegation-framework/utils/Types.sol";
 import { ExecutionLib } from "@erc7579/lib/ExecutionLib.sol";
 import { ModeLib, CallType, ExecType, CALLTYPE_SINGLE, EXECTYPE_DEFAULT } from "@erc7579/lib/ModeLib.sol";
 
-import { IMultiVault } from "./interfaces/IMultiVault.sol";
+import { IMultiVault } from "../interfaces/IMultiVault.sol";
 
 /// @notice The governor-side domain resolver: maps a proposal to the governance domain it
 ///         is scoped to. Vote entry points carry a proposal id rather than a domain, so
@@ -20,7 +20,7 @@ interface IGovernorDomains {
     function proposalDomain(uint256 proposalId) external view returns (bytes32 domainId_);
 }
 
-/// @title GraphDomainCaveatEnforcer
+/// @title GraphDomainScope
 /// @notice ERC-7710 caveat enforcer scoping a delegation to a governance *domain*,
 ///         where domain membership is resolved by verifying a redeemer-supplied path
 ///         witness hop-by-hop against the Intuition MultiVault (ADR 0003), and each
@@ -29,7 +29,7 @@ interface IGovernorDomains {
 ///      (and staking) extends every delegation scoped above the new edge — no
 ///      redeploy, no re-signature. The enforcer never re-implements the vault's id
 ///      math: `calculateTripleId` is treated as an oracle-pure function of the vault.
-contract GraphDomainCaveatEnforcer is CaveatEnforcer {
+contract GraphDomainScope is CaveatEnforcer {
     using ModeLib for ModeCode;
     ////////////////////////////// Types //////////////////////////////
 

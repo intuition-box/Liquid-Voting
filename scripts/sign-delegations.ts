@@ -1,8 +1,8 @@
 /**
  * Phase 3 step 2 — build and sign the two delegations, offline:
  *
- *   voter SA    --[GraphDomainCaveatEnforcer root=treasury]-->  delegate SA
- *   delegate SA --[GraphDomainCaveatEnforcer root=UX]------>  executor SA   (narrowing, ADR 0007)
+ *   voter SA    --[GraphDomainScope root=treasury]-->  delegate SA
+ *   delegate SA --[GraphDomainScope root=UX]------>  executor SA   (narrowing, ADR 0007)
  *
  * The delegation structs are built directly (the whole grant IS our custom caveat, so
  * the Kit's scope system is bypassed) and signed with the smart accounts' canonical
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   if (!existsSync(accountsPath)) throw new Error("data/accounts.json missing — run setup first");
   const stored = JSON.parse(readFileSync(accountsPath, "utf-8")) as { keys: Record<string, `0x${string}`> };
   const manifest = readManifest();
-  const enforcer = manifest.contracts.GraphDomainCaveatEnforcer.address;
+  const enforcer = manifest.contracts.GraphDomainScope.address;
   const curator = manifest.curation.curator;
   if (!curator) throw new Error("manifest curation.curator missing — run seed first");
   const voterKey = stored.keys["A"];

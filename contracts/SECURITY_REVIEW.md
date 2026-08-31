@@ -1,10 +1,10 @@
-# Security review — GraphDomainCaveatEnforcer (+ MockGovernor, IMultiVault, Deploy.s.sol)
+# Security review — GraphDomainScope (+ DemoGovernor, IMultiVault, Deploy.s.sol)
 
 **Reviewed:** 2026-08-17
 **Commit:** 98adc1aa8e886d9db208ca156a9646855cdf804d
 **Reviewer:** contract-reviewer agent
 
-Scope: `src/GraphDomainCaveatEnforcer.sol` (the deliverable), `src/MockGovernor.sol`,
+Scope: `src/GraphDomainScope.sol` (the deliverable), `src/DemoGovernor.sol`,
 `src/interfaces/IMultiVault.sol`, `script/Deploy.s.sol`. Reviewed against
 `.claude/rules/solidity.md` + `security.md`, ADRs 0003–0007 and 0009, with the
 Trail of Bits skill chain (Slither run included) and the ethskills security checklist.
@@ -13,7 +13,7 @@ Trail of Bits skill chain (Slither run included) and the ethskills security chec
 
 - **Reentrancy** — clean. `beforeHook` is `view`; every MultiVault read compiles to
   STATICCALL and the enforcer holds zero storage — there is no state to reenter and no
-  callback surface. `MockGovernor.propose` makes no external calls and emits after its
+  callback surface. `DemoGovernor.propose` makes no external calls and emits after its
   single write (CEI trivially satisfied).
 - **Access control** — clean. The enforcer has no state-changing function. Hooks are
   callable by anyone, but they are pure predicates (revert or return void), grant
@@ -21,7 +21,7 @@ Trail of Bits skill chain (Slither run included) and the ethskills security chec
   public graph already says. The only call that carries authority is the
   DelegationManager's during redemption, and it supplies the framework-verified
   `_delegator` used as the default attestor; that binding cannot be forged by the
-  redeemer. `MockGovernor.propose` is deliberately permissionless (bounty-sanctioned
+  redeemer. `DemoGovernor.propose` is deliberately permissionless (bounty-sanctioned
   mock recorder; binds `msg.sender` as proposer — the root DeleGator under redemption).
   `Deploy.s.sol` refuses any chain but 13579 and fails loudly on a missing key.
 - **Integer arithmetic** — clean. Solidity 0.8.23 checked math, no `unchecked` blocks
@@ -63,7 +63,7 @@ Trail of Bits skill chain (Slither run included) and the ethskills security chec
   an accepted, documented trust (the graph authority can change its own semantics).
 - **Events** — clean. The enforcer performs no state mutation (grep-verified: no
   storage, no writes), so it has nothing to emit; redemption-level events come from the
-  DelegationManager. `MockGovernor`'s only write path emits `ProposalCreated` with
+  DelegationManager. `DemoGovernor`'s only write path emits `ProposalCreated` with
   indexed id/domain/proposer (event-emission test present).
 
 ## Adversarial walk of the review's focus items
@@ -124,7 +124,7 @@ Trail of Bits skill chain (Slither run included) and the ethskills security chec
   signed `maxDepth`, no state, no value: the pattern the design is built on.
 - `timestamp` (1) — the expiry comparison; inherent to expiry (same exposure as the
   framework's own TimestampEnforcer), rationale recorded in `foundry.toml` lint config.
-- `solc-version` (2) — the `>=0.8.23 <0.9.0` range on MockGovernor/IMultiVault; see I-2.
+- `solc-version` (2) — the `>=0.8.23 <0.9.0` range on DemoGovernor/IMultiVault; see I-2.
 - `naming-convention` (9) — underscore-prefixed params and capitalized immutables;
   deliberate house/framework style.
 
@@ -132,7 +132,7 @@ Trail of Bits skill chain (Slither run included) and the ethskills security chec
 
 ## Test coverage
 
-46/46 green: 34 local (25 enforcer unit incl. 3 fuzz, 3 MockGovernor, 6 gas bench) +
+46/46 green: 34 local (25 enforcer unit incl. 3 fuzz, 3 DemoGovernor, 6 gas bench) +
 12 fork against live 13579 (9 end-to-end chain redemptions through the real
 DelegationManager with signed HybridDeleGator delegations, 3 gas). Every custom error
 has a dedicated `vm.expectRevert(Error.selector)` test; fuzz covers terms round-trip,
@@ -143,8 +143,8 @@ n/a with reasoning — the enforcer is stateless, so no property spans call sequ
 
 | File | Lines | Statements | Branches | Funcs |
 |---|---|---|---|---|
-| src/GraphDomainCaveatEnforcer.sol | **100%** (44/44) | **100%** (63/63) | **100%** (14/14) | **100%** (7/7) |
-| src/MockGovernor.sol | 100% (9/9) | 100% (7/7) | 100% (1/1) | 100% (3/3) |
+| src/GraphDomainScope.sol | **100%** (44/44) | **100%** (63/63) | **100%** (14/14) | **100%** (7/7) |
+| src/DemoGovernor.sol | 100% (9/9) | 100% (7/7) | 100% (1/1) | 100% (3/3) |
 | script/Deploy.s.sol | 0% | 0% | 0% | 0% |
 
 Deploy.s.sol is exercised by the actual deployment run (Phase 2), not unit tests;
@@ -163,15 +163,15 @@ No hard target set for this task; numbers recorded.
 
 No Critical, High, or Medium findings. Nothing below requires a contract code change.
 
-- **I-1 · Informational · `src/GraphDomainCaveatEnforcer.sol:175`** — the execution's
+- **I-1 · Informational · `src/GraphDomainScope.sol:175`** — the execution's
   native-value word is decoded and discarded, so the caveat itself does not forbid
   attaching value. Currently unexploitable: the only admissible target+selector is
-  `MockGovernor.propose`, which is non-payable, so any value-bearing execution reverts
+  `DemoGovernor.propose`, which is non-payable, so any value-bearing execution reverts
   at the call (and try-mode, which could swallow that revert, is rejected by the mode
   check). Recommendation for Mission 11: bind `value == 0` explicitly or compose the
   audited `ValueLteEnforcer`, so the no-value guarantee stops depending on the bound
   target's payability.
-- **I-2 · Low (docs only) · `src/MockGovernor.sol:2`, `src/interfaces/IMultiVault.sol:2`,
+- **I-2 · Low (docs only) · `src/DemoGovernor.sol:2`, `src/interfaces/IMultiVault.sol:2`,
   `script/Deploy.s.sol:2`** — pragma `>=0.8.23 <0.9.0` deviates from the rule's
   `^0.8.24` and from ADR 0006's letter ("contracts that do not import framework code
   follow the standard `^0.8.24` rule"). The deviation is forced: `Deploy.s.sol` and the
@@ -179,9 +179,9 @@ No Critical, High, or Medium findings. Nothing below requires a contract code ch
   compilation units, so their pragmas must admit 0.8.23 — `^0.8.24` would be
   uncompilable. Fix is a one-paragraph amendment to ADR 0006 / `solidity.md` recording
   this consequence; no code change.
-- **I-3 · Informational · `src/GraphDomainCaveatEnforcer.sol:85`** — the constructor
+- **I-3 · Informational · `src/GraphDomainScope.sol:85`** — the constructor
   accepts `_allowedSelector == bytes4(0)`, which would match empty calldata to the
-  governor. Unreachable via the repo's deploy path (binds `MockGovernor.propose.selector`)
+  governor. Unreachable via the repo's deploy path (binds `DemoGovernor.propose.selector`)
   and the immutable is readable before anyone signs; optional hardening only.
 - **I-4 · Informational (upstream assumptions, for the writeup)** — two verified
   dependencies on live-vault behavior worth stating in docs/WRITEUP.md: (A1) attestor

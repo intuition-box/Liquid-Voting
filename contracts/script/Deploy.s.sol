@@ -4,12 +4,12 @@ pragma solidity >=0.8.23 <0.9.0;
 import { Script } from "forge-std/Script.sol";
 import { console2 } from "forge-std/console2.sol";
 
-import { GraphDomainCaveatEnforcer } from "../src/GraphDomainCaveatEnforcer.sol";
-import { MockGovernor } from "../src/MockGovernor.sol";
+import { GraphDomainScope } from "../../src/enforcers/GraphDomainScope.sol";
+import { DemoGovernor } from "../../src/governance/DemoGovernor.sol";
 import { IMultiVault } from "../src/interfaces/IMultiVault.sol";
 
 /// @title Deploy
-/// @notice Deploys MockGovernor + GraphDomainCaveatEnforcer to Intuition testnet.
+/// @notice Deploys DemoGovernor + GraphDomainScope to Intuition testnet.
 /// @dev Refuses to run on any chain but 13579 (mainnet requires explicit user
 ///      confirmation and is out of scope — see .claude/rules/security.md).
 ///      PRIVATE_KEY comes from the environment and fails loudly if missing.
@@ -31,12 +31,12 @@ contract Deploy is Script {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerKey);
-        MockGovernor governor = new MockGovernor(IMultiVault(MULTIVAULT), SUB_DOMAIN);
-        GraphDomainCaveatEnforcer enforcer =
-            new GraphDomainCaveatEnforcer(IMultiVault(MULTIVAULT), address(governor), MockGovernor.castVoteFor.selector);
+        DemoGovernor governor = new DemoGovernor(IMultiVault(MULTIVAULT), SUB_DOMAIN);
+        GraphDomainScope enforcer =
+            new GraphDomainScope(IMultiVault(MULTIVAULT), address(governor), DemoGovernor.castVoteFor.selector);
         vm.stopBroadcast();
 
-        console2.log("MockGovernor:              ", address(governor));
-        console2.log("GraphDomainCaveatEnforcer: ", address(enforcer));
+        console2.log("DemoGovernor:              ", address(governor));
+        console2.log("GraphDomainScope: ", address(enforcer));
     }
 }

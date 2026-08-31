@@ -15,8 +15,8 @@ Everything below is deployed and verified on **Intuition testnet (chain 13579)**
 
 | | |
 |---|---|
-| `GraphDomainCaveatEnforcer` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) — source-verified |
-| `MockGovernor` | [`0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — source-verified |
+| `GraphDomainScope` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) — source-verified |
+| `DemoGovernor` | [`0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — source-verified |
 | A / B / C | `0x446FF798…417B` · `0xd99c420d…6fa4` · `0x91C69d59…A5b2` (HybridDeleGator v1.3.0) |
 | Delegation Framework | v1.3.0 at canonical CREATE2 addresses — all 31 standard enforcers present |
 | Tests | 103 passing (91 unit + gas + governor, 12 fork against live MultiVault); **100 %** line/statement/branch/function coverage on the enforcer |

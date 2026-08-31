@@ -10,8 +10,8 @@ import { IDelegationManager } from "@delegation-framework/interfaces/IDelegation
 import { Delegation, Caveat } from "@delegation-framework/utils/Types.sol";
 import { HybridDeleGator } from "@delegation-framework/HybridDeleGator.sol";
 
-import { GraphDomainCaveatEnforcer } from "../../src/GraphDomainCaveatEnforcer.sol";
-import { MockGovernor } from "../../src/MockGovernor.sol";
+import { GraphDomainScope } from "../../src/enforcers/GraphDomainScope.sol";
+import { DemoGovernor } from "../../src/governance/DemoGovernor.sol";
 import { IMultiVault } from "../../src/interfaces/IMultiVault.sol";
 
 /// @notice Fork suite against Intuition testnet (13579): the real MultiVault (real id
@@ -43,8 +43,8 @@ contract DelegationChainForkTest is Test {
 
     IDelegationManager internal manager;
     IMultiVault internal vault;
-    MockGovernor internal governor;
-    GraphDomainCaveatEnforcer internal enforcer;
+    DemoGovernor internal governor;
+    GraphDomainScope internal enforcer;
     uint256 internal curveId;
 
     // voter = HybridDeleGator smart account (root delegator — must execute); the
@@ -76,8 +76,8 @@ contract DelegationChainForkTest is Test {
             )
         );
 
-        governor = new MockGovernor(vault, PREDICATE);
-        enforcer = new GraphDomainCaveatEnforcer(vault, address(governor), MockGovernor.castVoteFor.selector);
+        governor = new DemoGovernor(vault, PREDICATE);
+        enforcer = new GraphDomainScope(vault, address(governor), DemoGovernor.castVoteFor.selector);
 
         // ADR 0004: the existing triples carry no real positions — the delegator-as-
         // attestor (voter) deposits on the two edges its `design` delegation relies on.
@@ -110,7 +110,7 @@ contract DelegationChainForkTest is Test {
         returns (bytes memory)
     {
         return abi.encode(
-            GraphDomainCaveatEnforcer.Terms({
+            GraphDomainScope.Terms({
                 rootDomainId: root,
                 predicateId: PREDICATE,
                 maxDepth: maxDepth,
@@ -162,7 +162,7 @@ contract DelegationChainForkTest is Test {
         return abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter_, principals, noPath))
+            abi.encodeCall(DemoGovernor.castVoteFor, (proposalId, 1, voter_, principals, noPath))
         );
     }
 
@@ -274,7 +274,7 @@ contract DelegationChainForkTest is Test {
         bytes32 missing = vault.calculateTripleId(BRANDING, PREDICATE, UX);
         (bytes[] memory c, ModeCode[] memory m, bytes[] memory e) =
             _chainCall(BRANDING, _path(BRANDING, UX), _path(BRANDING, DESIGN));
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, missing));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, missing));
         vm.prank(executorEoa);
         manager.redeemDelegations(c, m, e);
     }
@@ -293,7 +293,7 @@ contract DelegationChainForkTest is Test {
     function test_Fork_Legal_Fails() public {
         bytes32 missing = vault.calculateTripleId(LEGAL, PREDICATE, DESIGN);
         (bytes[] memory c, ModeCode[] memory m, bytes[] memory e) = _rootOnlyCall(LEGAL, _path(LEGAL, DESIGN));
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, missing));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, missing));
         vm.prank(delegateEoa);
         manager.redeemDelegations(c, m, e);
     }
@@ -305,7 +305,7 @@ contract DelegationChainForkTest is Test {
         (bytes[] memory c, ModeCode[] memory m, bytes[] memory e) =
             _rootOnlyCall(LOGO, _path(LOGO, BRANDING, DESIGN));
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotAttested.selector, T_LOGO_BRANDING, voter)
+            abi.encodeWithSelector(GraphDomainScope.NotAttested.selector, T_LOGO_BRANDING, voter)
         );
         vm.prank(delegateEoa);
         manager.redeemDelegations(c, m, e);
@@ -352,7 +352,7 @@ contract DelegationChainForkTest is Test {
         execs[0] = _voteCalldata(BRANDING, delegateEoa);
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.DelegationExpired.selector, expiry, block.timestamp)
+            abi.encodeWithSelector(GraphDomainScope.DelegationExpired.selector, expiry, block.timestamp)
         );
         vm.prank(delegateEoa);
         manager.redeemDelegations(contexts, modes, execs);

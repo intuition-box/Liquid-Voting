@@ -41,7 +41,7 @@ export function parseEdgeKey(key: string): { child: string; parent: string } {
  * a substitute for the on-chain check.
  */
 export interface GraphLimits {
-  /** `MockGovernor.MAX_DOMAIN_PATH` — longest domain path a voter may present. */
+  /** `DemoGovernor.MAX_DOMAIN_PATH` — longest domain path a voter may present. */
   maxDomainPath: number;
 }
 

@@ -73,7 +73,7 @@ export async function prepareRunner(): Promise<RunnerContext> {
     submitter,
     accounts,
     signed,
-    governor: manifest.contracts.MockGovernor.address,
+    governor: manifest.contracts.DemoGovernor.address,
     atoms: manifest.vocabulary.atoms as Record<string, Hex>,
   };
 }

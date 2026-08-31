@@ -4,7 +4,7 @@ pragma solidity >=0.8.23 <0.9.0;
 /// @title IDomainResolver
 /// @notice Maps a proposal to the governance domain it is scoped to.
 /// @dev The enforcer needs this because vote calldata carries a proposal id and nothing
-///      else. Our MockGovernor answers it from a field on the proposal; OpenZeppelin's
+///      else. Our DemoGovernor answers it from a field on the proposal; OpenZeppelin's
 ///      `propose(targets, values, calldatas, description)` has no such field, so the
 ///      association lives beside the governor instead of inside it.
 ///

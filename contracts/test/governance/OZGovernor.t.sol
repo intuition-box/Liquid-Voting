@@ -8,9 +8,9 @@ import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import { Nonces } from "@openzeppelin/contracts/utils/Nonces.sol";
 
-import { DomainScopedGovernor } from "../../src/oz/DomainScopedGovernor.sol";
-import { DomainResolver } from "../../src/oz/DomainResolver.sol";
-import { GovernorDomainVotes } from "../../src/oz/GovernorDomainVotes.sol";
+import { OZGovernor } from "../../src/governance/OZGovernor.sol";
+import { ProposalDomains } from "../../src/resolvers/ProposalDomains.sol";
+import { DomainVotes } from "../../src/governance/DomainVotes.sol";
 import { MockMultiVault } from "../mocks/MockMultiVault.sol";
 
 /// @dev The smallest ERC20Votes that OZ's GovernorVotes will accept.
@@ -38,8 +38,8 @@ contract VoteToken is ERC20, ERC20Permit, ERC20Votes {
 contract DomainScopedGovernorTest is Test {
     VoteToken internal token;
     MockMultiVault internal vault;
-    DomainResolver internal resolver;
-    DomainScopedGovernor internal governor;
+    ProposalDomains internal resolver;
+    OZGovernor internal governor;
 
     address internal alice = address(0xA);
     address internal bob = address(0xB);
@@ -52,8 +52,8 @@ contract DomainScopedGovernorTest is Test {
     function setUp() public {
         token = new VoteToken();
         vault = new MockMultiVault();
-        resolver = new DomainResolver();
-        governor = new DomainScopedGovernor(IVotes(address(token)), vault, PREDICATE, resolver);
+        resolver = new ProposalDomains();
+        governor = new OZGovernor(IVotes(address(token)), vault, PREDICATE, resolver);
 
         // grants sits under treasury; community does not.
         vault.createTriple(GRANTS, PREDICATE, TREASURY);
@@ -129,7 +129,7 @@ contract DomainScopedGovernorTest is Test {
         vm.prank(bob);
         // No attested edge connects community to treasury: the claimed path is refused.
         vm.expectRevert(
-            abi.encodeWithSelector(GovernorDomainVotes.DomainPathBroken.selector, COMMUNITY, TREASURY)
+            abi.encodeWithSelector(DomainVotes.DomainPathBroken.selector, COMMUNITY, TREASURY)
         );
         governor.castVoteWithReasonAndParams(id, 1, "", _params(id, _path(COMMUNITY, TREASURY), _only(alice)));
     }
@@ -143,7 +143,7 @@ contract DomainScopedGovernorTest is Test {
         bytes32[] memory path = _path(GRANTS, TREASURY);
         address[] memory none = new address[](0);
         vm.expectRevert(
-            abi.encodeWithSelector(GovernorDomainVotes.WeightDelegatedAway.selector, alice, GRANTS, bob)
+            abi.encodeWithSelector(DomainVotes.WeightDelegatedAway.selector, alice, GRANTS, bob)
         );
         governor.castVoteWithReasonAndParams(id, 1, "", _params(id, path, none));
     }
@@ -173,7 +173,7 @@ contract DomainScopedGovernorTest is Test {
 
     function test_ResolverRecordsADomainOnce() public {
         uint256 id = _propose(GRANTS);
-        vm.expectRevert(abi.encodeWithSelector(DomainResolver.DomainAlreadySet.selector, id, GRANTS));
+        vm.expectRevert(abi.encodeWithSelector(ProposalDomains.DomainAlreadySet.selector, id, GRANTS));
         resolver.scopeProposal(id, COMMUNITY);
     }
 }

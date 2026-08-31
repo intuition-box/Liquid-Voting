@@ -7,11 +7,11 @@ import { GovernorSettings } from "@openzeppelin/contracts/governance/extensions/
 import { GovernorVotes } from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
-import { GovernorDomainVotes } from "./GovernorDomainVotes.sol";
-import { IDomainResolver } from "./IDomainResolver.sol";
+import { DomainVotes } from "./DomainVotes.sol";
+import { IDomainResolver } from "../interfaces/IDomainResolver.sol";
 import { IMultiVault } from "../interfaces/IMultiVault.sol";
 
-/// @title DomainScopedGovernor
+/// @title OZGovernor
 /// @notice A stock OpenZeppelin Governor that also honours per-domain delegation.
 /// @dev Everything a DAO already expects is inherited unmodified: the proposal lifecycle,
 ///      For/Against/Abstain counting, the settings module, and `GovernorVotes` reading an
@@ -21,10 +21,10 @@ import { IMultiVault } from "../interfaces/IMultiVault.sol";
 ///      purpose. That is the whole integration: weight still comes from the token, and the
 ///      domain register decides who may exercise it where.
 ///
-///      The domain of a proposal lives in a `DomainResolver` beside this contract rather
+///      The domain of a proposal lives in a `ProposalDomains` beside this contract rather
 ///      than on the proposal, because OZ's `propose` has no field for it and adding one
 ///      would mean forking the audited contract.
-contract DomainScopedGovernor is GovernorSettings, GovernorCountingSimple, GovernorDomainVotes {
+contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
     /// @param token_ The `ERC20Votes` token weight is read from.
     /// @param multiVault_ The Intuition MultiVault (graph authority).
     /// @param subDomainPredicate_ Term id of the "is a sub-domain of" predicate.
@@ -35,10 +35,10 @@ contract DomainScopedGovernor is GovernorSettings, GovernorCountingSimple, Gover
         bytes32 subDomainPredicate_,
         IDomainResolver resolver_
     )
-        Governor("DomainScopedGovernor")
+        Governor("OZGovernor")
         GovernorSettings(1, 30_000, 0)
         GovernorVotes(token_)
-        GovernorDomainVotes(multiVault_, subDomainPredicate_, resolver_)
+        DomainVotes(multiVault_, subDomainPredicate_, resolver_)
     { }
 
     /// @inheritdoc Governor
@@ -64,7 +64,7 @@ contract DomainScopedGovernor is GovernorSettings, GovernorCountingSimple, Gover
         address account,
         uint256 timepoint,
         bytes memory params
-    ) internal view override(Governor, GovernorDomainVotes) returns (uint256) {
+    ) internal view override(Governor, DomainVotes) returns (uint256) {
         return super._getVotes(account, timepoint, params);
     }
 }

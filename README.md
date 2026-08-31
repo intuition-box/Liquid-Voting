@@ -6,7 +6,7 @@ and the scope check is resolved by traversing the Intuition knowledge graph — 
 adding `micro-grants — is a sub-domain of — builder-grants` extends every `treasury`-scoped
 delegation, **with no contract redeploy and no re-signature**.
 
-The mechanism: each delegation carries a custom caveat, `GraphDomainCaveatEnforcer`.
+The mechanism: each delegation carries a custom caveat, `GraphDomainScope`.
 The redeemer supplies the domain path as a witness (`_args`); the enforcer verifies
 every hop against live MultiVault state — existence as a positive triple
 (`getVaultType == 1`) *and* attestation by stake position (`getShares(attestor) > 0`).
@@ -35,7 +35,10 @@ docs/phase0/           gate report + vocabulary audit (re-runnable queries)
 docs/notes/            working notes: the code audit and the refactor plans it produced
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
 docs/scope-check.excalidraw       how a delegation's scope is verified against the graph
-contracts/             Foundry project: enforcer, mock governor, unit + fork suites
+contracts/src/enforcers/    GraphDomainScope — the ERC-7710 caveat, scope resolved by the graph
+contracts/src/governance/   DemoGovernor (deployed) · OZGovernor + DomainVotes (OpenZeppelin, tested)
+contracts/src/resolvers/    ProposalDomains — which domain a proposal belongs to
+contracts/test/             mirrors src/, plus gas benchmarks and fork suites
 scripts/               CLI: seed, account setup, delegation signing, acceptance runner, verify
 src/lib/               services by subject — chain/, graph/, delegation/, config/, actions/
 src/components/        panels; src/hooks/ owns the reads they display

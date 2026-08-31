@@ -23,8 +23,8 @@ const DEMO_OWNER_KEYS: Record<string, string> = (() => {
 interface ManifestShape {
   multiVault: `0x${string}`;
   contracts: {
-    GraphDomainCaveatEnforcer: { address: `0x${string}` };
-    MockGovernor: { address: `0x${string}` };
+    GraphDomainScope: { address: `0x${string}` };
+    DemoGovernor: { address: `0x${string}` };
   };
   vocabulary: {
     predicate: { label: string; termId: Hex };
@@ -135,8 +135,8 @@ export function loadAppConfig(): ConfigResult {
     ok: true,
     config: {
       multiVault: manifest.multiVault,
-      enforcer: manifest.contracts.GraphDomainCaveatEnforcer.address,
-      governor: manifest.contracts.MockGovernor.address,
+      enforcer: manifest.contracts.GraphDomainScope.address,
+      governor: manifest.contracts.DemoGovernor.address,
       predicate: manifest.vocabulary.predicate,
       nodes,
       edges,

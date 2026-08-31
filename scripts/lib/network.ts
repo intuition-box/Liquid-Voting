@@ -22,10 +22,10 @@ export interface Manifest {
   graphql: string;
   explorer: string;
   contracts: {
-    GraphDomainCaveatEnforcer: DeployedContract & {
+    GraphDomainScope: DeployedContract & {
       constructorArgs: { multiVault: `0x${string}`; governor: `0x${string}`; allowedSelector: `0x${string}` };
     };
-    MockGovernor: DeployedContract;
+    DemoGovernor: DeployedContract;
   };
   framework: Record<string, string>;
   multiVault: `0x${string}`;

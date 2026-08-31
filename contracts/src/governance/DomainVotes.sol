@@ -4,10 +4,10 @@ pragma solidity >=0.8.23 <0.9.0;
 import { Governor } from "@openzeppelin/contracts/governance/Governor.sol";
 import { GovernorVotes } from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 
-import { IDomainResolver } from "./IDomainResolver.sol";
+import { IDomainResolver } from "../interfaces/IDomainResolver.sol";
 import { IMultiVault } from "../interfaces/IMultiVault.sol";
 
-/// @title GovernorDomainVotes
+/// @title DomainVotes
 /// @notice Adds per-domain delegation to an OpenZeppelin Governor, without touching it.
 /// @dev OpenZeppelin's own `delegate()` moves an account's entire weight to one delegate.
 ///      Delegating by *domain* is finer: A can hand the treasury to B and keep its vote on
@@ -21,7 +21,7 @@ import { IMultiVault } from "../interfaces/IMultiVault.sol";
 ///      Two registers therefore coexist, and they answer different questions. The token
 ///      says how much weight an account holds — that stays OZ's, snapshot and all. This
 ///      register says who may exercise it on a given domain.
-abstract contract GovernorDomainVotes is GovernorVotes {
+abstract contract DomainVotes is GovernorVotes {
     /// @notice MultiVault term classifier for a positive triple.
     uint8 internal constant VAULT_TYPE_TRIPLE = 1;
     /// @notice Longest domain path a voter may present.

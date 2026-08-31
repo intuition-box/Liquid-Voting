@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.23 <0.9.0;
 
-import { IDomainResolver } from "./IDomainResolver.sol";
+import { IDomainResolver } from "../interfaces/IDomainResolver.sol";
 
-/// @title DomainResolver
+/// @title ProposalDomains
 /// @notice Records which governance domain each proposal belongs to, for a governor that
 ///         has nowhere to keep it.
 /// @dev Deployed alongside an unmodified OpenZeppelin `Governor`. The proposer records the
@@ -13,7 +13,7 @@ import { IDomainResolver } from "./IDomainResolver.sol";
 ///      A domain is written once and never changes: a proposal that could be re-scoped
 ///      after votes were cast would let anyone widen or narrow what a delegation covers
 ///      retroactively.
-contract DomainResolver is IDomainResolver {
+contract ProposalDomains is IDomainResolver {
     /// @notice The proposal already has a domain, and a domain is written once.
     error DomainAlreadySet(uint256 proposalId, bytes32 domainId);
     /// @notice A proposal cannot be scoped to the zero domain.
