@@ -200,7 +200,7 @@ export function useApp(): AppState {
     // Session grants used to skip this check, so one signed in the browser survived being
     // taken back on chain — and showed up beside the seeded pair as a second A → B.
     const inForce = (grant: Grant): boolean => delegatedTo[grant.scope]?.[grant.from] === grant.to;
-    const signed = config
+    const all = config
       ? [
           ...baseGrants(config, rootDisabled, leafDisabled, (from, scope) => delegatedTo[scope]?.[from] ?? null),
           ...sessionGrants,
@@ -210,6 +210,19 @@ export function useApp(): AppState {
             : grant,
         )
       : [];
+
+    // The pre-signed pair covers the same grant the demo makes live — A hands treasury to
+    // B in both — so once the register turns on, two signatures describe one handover and
+    // the panel listed it twice. One live grant per (signer, recipient, domain, voice);
+    // the one signed in front of the audience is the one to show.
+    const seen = new Set<string>();
+    const signed = [...all].reverse().map((grant) => {
+      if (grant.revoked) return grant;
+      const key = `${grant.from}|${grant.to}|${grant.scope}|${grant.principal}`;
+      if (seen.has(key)) return { ...grant, revoked: true };
+      seen.add(key);
+      return grant;
+    }).reverse();
     return new DelegationSet(signed, graph);
   }, [config, rootDisabled, leafDisabled, sessionGrants, revokedGrants, graph, delegatedTo]);
   const grants = delegations.all() as Grant[];
