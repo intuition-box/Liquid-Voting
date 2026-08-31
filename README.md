@@ -48,6 +48,7 @@ src/components/        panels; src/hooks/ owns the reads they display
 
 ```bash
 bun install
+bun run reset    # back to the opening state: delegations taken back, fresh proposals
 bun run verify   # read-only: asserts every panel's behaviour against live chain state
 bun run dev      # http://localhost:5173
 ```

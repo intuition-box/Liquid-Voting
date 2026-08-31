@@ -7,9 +7,15 @@ what to say, what to expect on screen, and the recovery move if it misbehaves.
 
 ```bash
 cd ~/VScode/Liquid-demo
-bun run verify        # read-only, ~5s — asserts every claim below against live state
+bun run reset         # back to the opening state after a rehearsal
+bun run verify        # read-only, ~5s, asserts every claim below against live state
 bun run dev           # http://localhost:5173
 ```
+
+`bun run reset` is the one to run after rehearsing. It takes every delegation back and
+records a fresh proposal on any domain whose only open one has been voted on. Votes
+themselves cannot be withdrawn, which is why a voted proposal is replaced rather than
+cleared. Running it twice costs nothing.
 
 `bun run verify` must end with **"Demo is ready — every panel verified against live
 state."** If a line says FAIL, fix it before presenting:

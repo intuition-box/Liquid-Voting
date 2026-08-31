@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "verify": "bun --env-file=contracts/.env scripts/verify.ts",
+    "reset": "bun --env-file=contracts/.env scripts/reset-demo.ts",
     "rehearse": "bun --env-file=contracts/.env scripts/rehearse.ts"
   },
   "dependencies": {
