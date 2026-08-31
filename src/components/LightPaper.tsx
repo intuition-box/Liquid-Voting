@@ -46,6 +46,11 @@ export function LightPaper() {
         <p className="paper-pull">“You may vote on anything the organisation files under the treasury.”</p>
 
         <p>
+          And it need not be everything you have. You can hand over part of your voice and
+          keep the rest, so backing someone on a subject does not mean going silent on it.
+        </p>
+
+        <p>
           The difference matters. Start a new grants programme tomorrow, and every delegation
           already signed covers it, without anyone signing anything again. The scope follows
           the organisation because it <em>is</em> the organisation.

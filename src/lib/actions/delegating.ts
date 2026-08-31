@@ -6,7 +6,7 @@ import { encodeFunctionData, toHex, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ROOT_AUTHORITY } from "@metamask/smart-accounts-kit";
 
-import { delegationManagerAbi, ozGovernorAbi } from "../chain/abis";
+import { delegationManagerAbi, ozGovernorAbi, votesTokenAbi } from "../chain/abis";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
@@ -15,6 +15,16 @@ import { buildDisableCalldata, encodeTerms, type Delegation } from "../delegatio
 import type { Role } from "../roles";
 
 import { DEFAULT_MAX_DEPTH, requireOwnerKey, submitterClient } from "./common";
+
+/** What an account currently counts for, which is the most it can possibly lend. */
+async function ownWeight(client: PublicClient, config: AppConfig, role: Role): Promise<bigint> {
+  return client.readContract({
+    address: config.votesToken,
+    abi: votesTokenAbi,
+    functionName: "getVotes",
+    args: [config.accounts[role].smartAccount],
+  });
+}
 
 export async function signDelegation(
   client: PublicClient,
@@ -27,6 +37,9 @@ export async function signDelegation(
   /** How many hops below the domain the grant reaches. Signed into the terms, so it is
    *  fixed for the life of the delegation. */
   maxDepth: number = DEFAULT_MAX_DEPTH,
+  /** How much weight to lend. Undefined lends the whole balance, which is what a grant
+   *  meant everything before an amount could be named. */
+  amount?: bigint,
 ): Promise<{ delegation: Delegation & { hash: Hex }; relays: (Delegation & { hash: Hex }) | null }[]> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
@@ -82,7 +95,7 @@ export async function signDelegation(
   }
 
   // The signatures say the delegate MAY vote on this domain; the governor's register says
-  // whose weight it carries. Recording the transfer is what makes the delegator stop
+  // how much weight it carries. Recording the transfer is what makes the delegator stop
   // counting on this domain and the delegate count for both. One transfer, however many
   // voices moved: the register tracks the holder, the signatures track the authority.
   const op = await sendUserOp(client, submitterClient(config), delegator, [
@@ -92,7 +105,7 @@ export async function signDelegation(
       data: encodeFunctionData({
         abi: ozGovernorAbi,
         functionName: "delegateWeight",
-        args: [config.accounts[to].smartAccount, domainId],
+        args: [config.accounts[to].smartAccount, domainId, amount ?? (await ownWeight(client, config, from))],
       }),
     },
   ]);
@@ -136,7 +149,7 @@ export async function revokeWeight(
       data: encodeFunctionData({
         abi: ozGovernorAbi,
         functionName: "delegateWeight",
-        args: ["0x0000000000000000000000000000000000000000", domainId],
+        args: ["0x0000000000000000000000000000000000000000", domainId, 0n],
       }),
     },
   ]);

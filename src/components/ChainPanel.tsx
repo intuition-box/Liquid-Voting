@@ -21,6 +21,7 @@ export function ChainPanel({
   role,
   grants,
   domain,
+  holdings,
   onSigned,
   onRevoked,
 }: {
@@ -35,11 +36,16 @@ export function ChainPanel({
   grants: Grant[];
   /** The domain picked in the rail — what this grant would cover. */
   domain: string;
+  /** What each account holds, which is the ceiling on what it can lend. */
+  holdings?: Record<Role, { balance: bigint; votes: bigint }>;
   onSigned: (grant: Grant) => void;
   onRevoked: (from: Role, domain: string) => void;
 }) {
   const [to, setTo] = useState<Role | null>(null);
   const [depth, setDepth] = useState(DEFAULT_MAX_DEPTH);
+  // Null means the whole balance, which stays the default: most handovers are total, and
+  // a slider that starts mid-way would invent an intent nobody expressed.
+  const [amount, setAmount] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<{ verdict: Verdict; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -56,6 +62,11 @@ export function ChainPanel({
 
   // A domain has one holder at a time, so while yours stands the only move is to revoke.
   const locked = yours !== null || coveredBy !== null;
+
+  // What the signer can lend is what it counts for, not what it holds: an unself-delegated
+  // balance counts for nothing, and lending it would be lending zero.
+  const own = holdings?.[role].votes ?? 0n;
+  const lending = amount === null ? Number(own) : amount;
 
   async function revokeParent(): Promise<void> {
     if (!coveredBy) return;
@@ -114,6 +125,7 @@ export function ChainPanel({
         domain,
         held?.voices.map((voice) => voice.chain[0]!) ?? [],
         depth,
+        amount === null ? undefined : BigInt(amount),
       );
       // Whose voice each one carries is read from what it relays, not from position:
       // signDelegation only relays the grants it may chain to, so an index into the
@@ -131,7 +143,13 @@ export function ChainPanel({
           delegation,
         });
       });
-      setOutcome({ verdict: "pass", text: `${role} handed “${domain}” to ${target}` });
+      setOutcome({
+        verdict: "pass",
+        text:
+          amount === null || amount === Number(own)
+            ? `${role} handed “${domain}” to ${target}`
+            : `${role} lent ${amount} of ${own} on “${domain}” to ${target}`,
+      });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -181,6 +199,25 @@ export function ChainPanel({
           );
         })}
       </ul>
+
+      {!coveredBy && !locked && own > 0n ? (
+        <label className="lend">
+          <span className="lend-label">
+            how much of it
+            <span className="lend-read">
+              {lending} of {own.toString()}
+              {lending < Number(own) ? <span className="lend-kept">, you keep {Number(own) - lending}</span> : null}
+            </span>
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={Number(own)}
+            value={lending}
+            onChange={(event) => setAmount(Number(event.target.value))}
+          />
+        </label>
+      ) : null}
 
       {!coveredBy && !locked ? (
         <label className="depth">

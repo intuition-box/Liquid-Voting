@@ -58,8 +58,10 @@ contract DomainScopedGovernorTest is Test {
         // grants sits under treasury; community does not.
         vault.createTriple(GRANTS, PREDICATE, TREASURY);
 
-        token.mint(alice, 1);
-        token.mint(bob, 1);
+        // Distinct, splittable balances: a partial lending is invisible at 1 each, and
+        // equal balances make every total ambiguous.
+        token.mint(alice, 12);
+        token.mint(bob, 30);
         vm.prank(alice);
         token.delegate(alice);
         vm.prank(bob);
@@ -105,12 +107,12 @@ contract DomainScopedGovernorTest is Test {
         uint256 id = _propose(GRANTS);
         vm.prank(bob);
         uint256 weight = governor.castVote(id, 1);
-        assertEq(weight, 1, "bob votes with its own token weight");
+        assertEq(weight, 30, "bob votes with its own token weight");
     }
 
     function test_DelegatedDomain_CarriesThePrincipalsWeight() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(GRANTS);
         vm.prank(bob);
@@ -118,12 +120,63 @@ contract DomainScopedGovernorTest is Test {
         uint256 weight = governor.castVoteWithReasonAndParams(
             id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
         );
-        assertEq(weight, 2, "bob's own vote plus alice's");
+        assertEq(weight, 42, "bob's 30 plus alice's 12");
+    }
+
+    /// Lending part of a balance leaves the rest where it was.
+    function test_PartialLending_SplitsTheWeight() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 5);
+
+        uint256 id = _propose(GRANTS);
+
+        vm.prank(bob);
+        uint256 borrowed = governor.castVoteWithReasonAndParams(
+            id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
+        );
+        assertEq(borrowed, 35, "bob's 30 plus the 5 alice lent");
+
+        // Alice keeps what she did not lend, and can still cast it herself.
+        vm.prank(alice);
+        uint256 kept = governor.castVoteWithReasonAndParams(
+            id, 1, "", _params(id, _path(GRANTS, TREASURY), new address[](0))
+        );
+        assertEq(kept, 7, "alice keeps 12 less the 5 she lent");
+    }
+
+    /// A lending is capped by what the lender still holds when the vote is counted.
+    function test_LendingIsCappedByTheBalanceAtVoteTime() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 12);
+
+        // Alice sends most of her tokens away after lending all 12 of them.
+        vm.prank(alice);
+        token.transfer(address(0xCAFE), 10);
+        vm.roll(block.number + 1);
+
+        uint256 id = _propose(GRANTS);
+        vm.prank(bob);
+        uint256 weight = governor.castVoteWithReasonAndParams(
+            id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
+        );
+        assertEq(weight, 32, "bob's 30 plus the 2 alice still holds, not the 12 she promised");
+    }
+
+    function test_RevertWhen_LendingMoreThanHeld() public {
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.AmountExceedsBalance.selector, alice, 13, 12));
+        governor.delegateWeight(bob, TREASURY, 13);
+    }
+
+    function test_RevertWhen_LendingNothing() public {
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.ZeroAmount.selector, alice, TREASURY));
+        governor.delegateWeight(bob, TREASURY, 0);
     }
 
     function test_RevertWhen_DomainIsOutsideTheGrant() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(COMMUNITY);
         vm.prank(bob);
@@ -136,7 +189,7 @@ contract DomainScopedGovernorTest is Test {
 
     function test_CastVoteFor_RecordsTheVoteUnderTheNamedVoter() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(GRANTS);
         // The DelegationManager executes from the root delegator's account, so alice is
@@ -145,7 +198,7 @@ contract DomainScopedGovernorTest is Test {
         vm.prank(alice);
         uint256 weight = governor.castVoteFor(id, 1, bob, _only(alice), _path(GRANTS, TREASURY));
 
-        assertEq(weight, 2, "bob's own vote plus alice's");
+        assertEq(weight, 42, "bob's 30 plus alice's 12");
         assertTrue(governor.hasVoted(id, bob), "the vote is bob's");
         assertFalse(governor.hasVoted(id, alice), "alice only carried the call");
     }
@@ -158,7 +211,7 @@ contract DomainScopedGovernorTest is Test {
 
     function test_CastVoteFor_StillRefusesADomainOutsideTheGrant() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(COMMUNITY);
         // Naming the voter explicitly buys no authority: the path is checked all the same.
@@ -167,18 +220,19 @@ contract DomainScopedGovernorTest is Test {
         governor.castVoteFor(id, 1, bob, _only(alice), _path(COMMUNITY, TREASURY));
     }
 
-    function test_RevertWhen_DelegatorVotesOnADomainItGaveAway() public {
+    /// Lending the whole balance leaves nothing behind, which is the old all-or-nothing
+    /// behaviour arrived at from the other direction: it is now a lending of everything
+    /// rather than a special case in the contract.
+    function test_LendingEverythingLeavesTheLenderWithNothing() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(GRANTS);
         vm.prank(alice);
-        bytes32[] memory path = _path(GRANTS, TREASURY);
-        address[] memory none = new address[](0);
-        vm.expectRevert(
-            abi.encodeWithSelector(DomainVotes.WeightDelegatedAway.selector, alice, GRANTS, bob)
+        uint256 weight = governor.castVoteWithReasonAndParams(
+            id, 1, "", _params(id, _path(GRANTS, TREASURY), new address[](0))
         );
-        governor.castVoteWithReasonAndParams(id, 1, "", _params(id, path, none));
+        assertEq(weight, 0, "alice lent all of it");
     }
 
     function test_UnclaimedPrincipalIsIgnored() public {
@@ -188,12 +242,12 @@ contract DomainScopedGovernorTest is Test {
         uint256 weight = governor.castVoteWithReasonAndParams(
             id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
         );
-        assertEq(weight, 1, "a claim that is not backed by a delegation counts for nothing");
+        assertEq(weight, 30, "a claim that is not backed by a delegation counts for nothing");
     }
 
     function test_DelegationIsPerDomain_OtherDomainsStay() public {
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         uint256 id = _propose(COMMUNITY);
         vm.prank(alice);
@@ -201,7 +255,7 @@ contract DomainScopedGovernorTest is Test {
         bytes32[] memory justCommunity = new bytes32[](1);
         justCommunity[0] = COMMUNITY;
         uint256 weight = governor.castVoteWithReasonAndParams(id, 1, "", _params(id, justCommunity, none));
-        assertEq(weight, 1, "giving treasury away leaves community alone");
+        assertEq(weight, 12, "giving treasury away leaves community alone");
     }
 
     /// @dev The reason this governor reads weight live rather than at the snapshot.
@@ -216,26 +270,26 @@ contract DomainScopedGovernorTest is Test {
 
         // Only now does alice hand the treasury over, well after that snapshot was taken.
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 12);
 
         vm.prank(bob);
         uint256 weight = governor.castVoteWithReasonAndParams(
             id, 1, "", _params(id, _path(GRANTS, TREASURY), _only(alice))
         );
-        assertEq(weight, 2, "a delegation made after the proposal opened still counts on it");
+        assertEq(weight, 42, "a delegation made after the proposal opened still counts on it");
     }
 
     /// @dev What the UI reads to show each identity's weight on a domain.
     function test_WeightForReflectsTheRegister() public {
         bytes32[] memory path = _path(GRANTS, TREASURY);
-        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 1, "bob alone before any handover");
+        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 30, "bob alone before any handover");
 
         vm.prank(alice);
-        governor.delegateWeight(bob, TREASURY);
+        governor.delegateWeight(bob, TREASURY, 5);
 
-        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 2, "bob carries alice's too");
+        assertEq(governor.weightFor(bob, GRANTS, _only(alice), path), 35, "bob carries the 5 alice lent");
         address[] memory none = new address[](0);
-        assertEq(governor.weightFor(alice, GRANTS, none, path), 0, "alice handed this domain away");
+        assertEq(governor.weightFor(alice, GRANTS, none, path), 7, "alice keeps what she did not lend");
     }
 
     function test_ResolverRecordsADomainOnce() public {

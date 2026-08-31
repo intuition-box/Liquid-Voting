@@ -368,8 +368,19 @@ export const ozGovernorAbi = [
     type: "function",
     name: "delegateWeight",
     stateMutability: "nonpayable",
-    inputs: [{ name: "delegate", type: "address" }, { name: "domainId", type: "bytes32" }],
+    inputs: [
+      { name: "delegate", type: "address" },
+      { name: "domainId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
     outputs: [],
+  },
+  {
+    type: "function",
+    name: "lendingOf",
+    stateMutability: "view",
+    inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
+    outputs: [{ name: "delegate", type: "address" }, { name: "amount", type: "uint256" }],
   },
   {
     type: "function",

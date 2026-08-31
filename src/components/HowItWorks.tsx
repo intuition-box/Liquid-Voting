@@ -20,7 +20,7 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       where: "governor",
       kind: "gov",
       what: "The weight transfer is recorded",
-      how: "delegateWeight(B, domain). A stops counting there, and B counts for both.",
+      how: "delegateWeight(B, domain, amount). A keeps whatever it did not lend, and B counts for the rest.",
     },
     {
       where: "browser",

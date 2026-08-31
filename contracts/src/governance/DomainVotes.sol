@@ -52,6 +52,10 @@ abstract contract DomainVotes is GovernorVotes {
     error AlreadyDelegated(address delegator, bytes32 domainId, address delegate);
     /// @notice Delegating here would send the weight in a circle.
     error CircularDelegation(address delegator, address delegate, bytes32 domainId);
+    /// @notice More weight was lent than the account holds.
+    error AmountExceedsBalance(address delegator, uint256 amount, uint256 balance);
+    /// @notice A delegation of nothing is not a delegation.
+    error ZeroAmount(address delegator, bytes32 domainId);
     /// @notice The domain path does not start at the proposal's own domain.
     error DomainPathMismatch(bytes32 pathStart, bytes32 domainId);
     /// @notice The domain path claims an edge the graph does not carry.
@@ -59,11 +63,21 @@ abstract contract DomainVotes is GovernorVotes {
     /// @notice The domain path exceeds the hop cap.
     error DomainPathTooLong(uint256 hops);
 
-    /// @notice Emitted when an account hands its weight on a domain to someone else.
-    event WeightDelegated(address indexed delegator, address indexed delegate, bytes32 indexed domainId);
+    /// @notice Emitted when an account hands weight on a domain to someone else.
+    /// @param amount How much was lent. Zero on a withdrawal.
+    event WeightDelegated(
+        address indexed delegator, address indexed delegate, bytes32 indexed domainId, uint256 amount
+    );
 
-    /// @dev Who an account handed its weight to, per domain. Zero means it kept it.
-    mapping(address delegator => mapping(bytes32 domainId => address delegate)) private _delegatedTo;
+    /// @dev A lending: who holds the weight, and how much of it.
+    struct Lending {
+        address delegate;
+        uint256 amount;
+    }
+
+    /// @dev What an account lent on a domain, and to whom. A zero delegate means it kept
+    ///      everything.
+    mapping(address delegator => mapping(bytes32 domainId => Lending)) private _lent;
 
     constructor(
         IMultiVault multiVault_,
@@ -84,18 +98,35 @@ abstract contract DomainVotes is GovernorVotes {
         return SNAPSHOT_WEIGHT ? snapshot : clock() - 1;
     }
 
-    /// @notice Hands the caller's weight on one domain to another account.
+    /// @notice Hands part of the caller's weight on one domain to another account.
     /// @dev A domain has one holder at a time: granting one already given reverts, so the
     ///      weight cannot be moved out from under a delegate silently. Passing the zero
     ///      address takes it back.
-    function delegateWeight(address delegate, bytes32 domainId) external {
-        address held_ = _delegatedTo[msg.sender][domainId];
-        if (delegate != address(0) && held_ != address(0)) {
-            revert AlreadyDelegated(msg.sender, domainId, held_);
+    ///
+    ///      The amount is checked against the balance when it is lent, and again when a
+    ///      vote is counted. Both matter: the first refuses an obvious mistake at the
+    ///      moment someone makes it, and the second is what actually binds, since a
+    ///      balance can fall after a delegation is signed and a promise of weight nobody
+    ///      holds any more must not be honoured.
+    /// @param delegate Who receives the weight. Zero takes the whole lending back.
+    /// @param domainId The domain being lent.
+    /// @param amount How much weight to lend.
+    function delegateWeight(address delegate, bytes32 domainId, uint256 amount) external {
+        Lending memory held_ = _lent[msg.sender][domainId];
+        if (delegate == address(0)) {
+            delete _lent[msg.sender][domainId];
+            emit WeightDelegated(msg.sender, address(0), domainId, 0);
+            return;
         }
+        if (held_.delegate != address(0)) revert AlreadyDelegated(msg.sender, domainId, held_.delegate);
         if (delegate == msg.sender) revert CircularDelegation(msg.sender, delegate, domainId);
-        _delegatedTo[msg.sender][domainId] = delegate;
-        emit WeightDelegated(msg.sender, delegate, domainId);
+        if (amount == 0) revert ZeroAmount(msg.sender, domainId);
+
+        uint256 balance_ = super._getVotes(msg.sender, clock() - 1, "");
+        if (amount > balance_) revert AmountExceedsBalance(msg.sender, amount, balance_);
+
+        _lent[msg.sender][domainId] = Lending(delegate, amount);
+        emit WeightDelegated(msg.sender, delegate, domainId, amount);
     }
 
     /// @notice The weight an account would cast on a domain, given who delegated to whom.
@@ -114,23 +145,36 @@ abstract contract DomainVotes is GovernorVotes {
     ) external view returns (uint256 weight_) {
         _verifyPath(domainId, domainPath);
         bytes32[] memory domains_ = _domainsFor(domainId, domainPath);
-        if (_delegatedAny(account, domains_) != address(0)) return 0;
-
         // The last completed block, which is the most recent one the token can answer
         // for. A display never asks about a proposal, so there is no snapshot to honour.
         uint256 at_ = clock() - 1;
-        weight_ = super._getVotes(account, at_, "");
+        weight_ = _keptBy(account, domains_, at_);
         uint256 count_ = principals.length;
         for (uint256 i_; i_ < count_; ++i_) {
-            if (_delegatedAny(principals[i_], domains_) == account) {
-                weight_ += super._getVotes(principals[i_], at_, "");
-            }
+            weight_ += _lentTo(principals[i_], account, domains_, at_);
         }
     }
 
-    /// @notice Who an account handed its weight to on a domain.
+    /// @notice Who an account handed weight to on a domain.
     function delegatedTo(address delegator, bytes32 domainId) public view returns (address delegate_) {
-        delegate_ = _delegatedTo[delegator][domainId];
+        delegate_ = _lent[delegator][domainId].delegate;
+    }
+
+    /// @notice What an account lent on a domain, and to whom.
+    /// @dev A display cannot work this out from balances any more: since a lending can be
+    ///      partial, the difference between what someone holds and what they cast says
+    ///      nothing about how much they lent. This is the only honest source.
+    /// @param delegator The account that lent.
+    /// @param domainId The domain it lent on.
+    /// @return delegate_ Who holds it. Zero if nothing was lent.
+    /// @return amount_ How much was lent, uncapped by the current balance.
+    function lendingOf(address delegator, bytes32 domainId)
+        external
+        view
+        returns (address delegate_, uint256 amount_)
+    {
+        Lending memory held_ = _lent[delegator][domainId];
+        return (held_.delegate, held_.amount);
     }
 
     /// @dev The weight an account casts, given who delegated what on this proposal's domain.
@@ -161,21 +205,40 @@ abstract contract DomainVotes is GovernorVotes {
         _verifyPath(domainId_, domainPath_);
         bytes32[] memory domains_ = _domainsFor(domainId_, domainPath_);
 
-        // Delegating transfers weight rather than copying it: an account that handed this
-        // domain over casts nothing on it.
-        address handedTo_ = _delegatedAny(account, domains_);
-        if (handedTo_ != address(0)) revert WeightDelegatedAway(account, domainId_, handedTo_);
-
-        uint256 total_ = own_;
+        // Lending moves weight rather than copying it: what an account lent here is gone
+        // from its own vote, and what it kept is still its own to cast.
+        uint256 total_ = _keptBy(account, domains_, at_);
         uint256 count_ = principals_.length;
         for (uint256 i_; i_ < count_; ++i_) {
             // Only weight actually routed to this account counts — the claim is checked,
             // not believed.
-            if (_delegatedAny(principals_[i_], domains_) == account) {
-                total_ += super._getVotes(principals_[i_], at_, "");
-            }
+            total_ += _lentTo(principals_[i_], account, domains_, at_);
         }
         return total_;
+    }
+
+    /// @dev What an account may still cast itself: its balance, less anything it lent on
+    ///      this domain. A lending larger than the balance it is drawn against takes the
+    ///      whole balance and no more, which is what keeps the two sides adding up when a
+    ///      balance falls after the delegation was made.
+    function _keptBy(address account, bytes32[] memory domains, uint256 at) private view returns (uint256) {
+        uint256 own_ = super._getVotes(account, at, "");
+        (, uint256 lent_) = _lentAny(account, domains);
+        return lent_ >= own_ ? 0 : own_ - lent_;
+    }
+
+    /// @dev What `principal` lent to `account` on this domain, capped at what the
+    ///      principal actually holds. Zero if the lending went to somebody else.
+    function _lentTo(
+        address principal,
+        address account,
+        bytes32[] memory domains,
+        uint256 at
+    ) private view returns (uint256) {
+        (address to_, uint256 amount_) = _lentAny(principal, domains);
+        if (to_ != account) return 0;
+        uint256 balance_ = super._getVotes(principal, at, "");
+        return amount_ > balance_ ? balance_ : amount_;
     }
 
     /// @dev The domain itself plus every parent on the verified path — a grant on any of
@@ -190,13 +253,17 @@ abstract contract DomainVotes is GovernorVotes {
     }
 
     /// @dev Whether `account` handed any domain in `domains` away, and to whom.
-    function _delegatedAny(address account, bytes32[] memory domains) private view returns (address delegate_) {
+    function _lentAny(address account, bytes32[] memory domains)
+        private
+        view
+        returns (address delegate_, uint256 amount_)
+    {
         uint256 count_ = domains.length;
         for (uint256 d_; d_ < count_; ++d_) {
-            address to_ = _delegatedTo[account][domains[d_]];
-            if (to_ != address(0)) return to_;
+            Lending memory held_ = _lent[account][domains[d_]];
+            if (held_.delegate != address(0)) return (held_.delegate, held_.amount);
         }
-        return address(0);
+        return (address(0), 0);
     }
 
     /// @dev Confirms `path` is a real chain of sub-domain edges, starting at the proposal's

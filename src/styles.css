@@ -119,6 +119,41 @@ body {
   color: var(--dim);
 }
 
+.lend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.lend-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* The running total sits with the label rather than under the slider: the number is the
+   point of the control, and reading it should not mean looking somewhere else. */
+.lend-read {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+.lend-kept {
+  color: var(--dim);
+}
+
+.lend input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 /* ── Delegation wiring ───────────────────────────────────────────────── */
 
 .holders {

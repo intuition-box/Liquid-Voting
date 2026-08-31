@@ -463,40 +463,37 @@ export async function readAllBallots(
     const { voter, proposalId, support, weight } = log.args;
     if (!voter || proposalId === undefined || support === undefined || weight === undefined) continue;
 
-    // The params say whose weight was claimed. The governor only counts a principal that
-    // actually delegated, so the split is derived from the weight rather than the claim:
-    // the voter's own is what one account holds, the rest rode along.
-    const own = await client.readContract({
-      address: config.votesToken,
-      abi: votesTokenAbi,
-      functionName: "getVotes",
-      args: [voter],
-    });
-    const carriedWeight = weight > own ? weight - own : 0n;
+    // Who carried what has to come from the register, not from balances. A lending can
+    // be partial, so the gap between what an account holds and what it cast says nothing
+    // about how much it lent: only the register knows.
+    const claimed = "params" in log.args ? decodeClaimedPrincipals(log.args.params as Hex) : [];
+    const domainId = "params" in log.args ? decodeClaimedDomain(log.args.params as Hex) : null;
+
+    const carried: BallotEntry[] = [];
+    for (const principal of claimed) {
+      if (principal.toLowerCase() === voter.toLowerCase()) continue;
+      if (!domainId) continue;
+      const share = await lentToward(client, config, principal, voter, domainId);
+      if (share === 0n) continue;
+      carried.push({
+        principal: roleOf(principal),
+        principalAddress: principal,
+        carriedBy: roleOf(voter),
+        carriedByAddress: voter,
+        weight: share,
+      });
+    }
+
+    // Whatever the total is not accounted for by borrowed voices is the voter's own. It
+    // is derived rather than read so the parts always add up to the number the governor
+    // actually counted, even when a balance moved between the vote and this read.
+    const borrowed = carried.reduce((sum, entry) => sum + entry.weight, 0n);
+    const own = weight > borrowed ? weight - borrowed : 0n;
 
     const entries: BallotEntry[] = [
       { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
+      ...carried,
     ];
-    if (carriedWeight > 0n) {
-      const principals = "params" in log.args ? decodeClaimedPrincipals(log.args.params as Hex) : [];
-      for (const principal of principals) {
-        if (principal.toLowerCase() === voter.toLowerCase()) continue;
-        const share = await client.readContract({
-          address: config.votesToken,
-          abi: votesTokenAbi,
-          functionName: "getVotes",
-          args: [principal],
-        });
-        if (share === 0n) continue;
-        entries.push({
-          principal: roleOf(principal),
-          principalAddress: principal,
-          carriedBy: roleOf(voter),
-          carriedByAddress: voter,
-          weight: share,
-        });
-      }
-    }
     (out[proposalId.toString()] ??= []).push({ support: Number(support), entries, total: weight });
   }
   return out;
@@ -513,6 +510,76 @@ function decodeClaimedPrincipals(params: Hex): `0x${string}`[] {
   } catch {
     return [];
   }
+}
+
+/** A domain's ancestors, by term id, nearest first. */
+function ancestorTermIds(config: AppConfig, domainId: Hex): Hex[] {
+  const labelOf = new Map(config.nodes.map((node) => [node.termId.toLowerCase(), node.label]));
+  const parentOf = new Map(config.edges.map((edge) => [edge.child, edge.parent]));
+  const idOf = new Map(config.nodes.map((node) => [node.label, node.termId]));
+
+  const out: Hex[] = [];
+  let label = labelOf.get(domainId.toLowerCase());
+  // The graph is a tree in practice, but a cycle in the manifest must not hang the UI.
+  const seen = new Set<string>();
+  while (label && !seen.has(label)) {
+    seen.add(label);
+    label = parentOf.get(label);
+    const id = label ? idOf.get(label) : undefined;
+    if (id) out.push(id);
+  }
+  return out;
+}
+
+/** The domain a vote was cast on, which is the first hop of the path it carried. */
+function decodeClaimedDomain(params: Hex): Hex | null {
+  try {
+    const [, path] = decodeAbiParameters(
+      [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
+      params,
+    );
+    return path[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How much `principal` lent to `voter`, reachable from this domain.
+ *
+ * The lending may sit on an ancestor rather than on the domain itself, since a grant on a
+ * parent covers everything beneath it. The register is asked about each domain on the way
+ * up until one answers, which is the same walk the governor does when it counts.
+ *
+ * The amount is capped by what the principal still holds: a promise of weight nobody has
+ * any more is not honoured on chain, so it must not be displayed either.
+ */
+async function lentToward(
+  client: PublicClient,
+  config: AppConfig,
+  principal: `0x${string}`,
+  voter: `0x${string}`,
+  domainId: Hex,
+): Promise<bigint> {
+  const path = [domainId, ...ancestorTermIds(config, domainId)];
+  for (const id of path) {
+    const [delegate, amount] = await client.readContract({
+      address: config.governor,
+      abi: ozGovernorAbi,
+      functionName: "lendingOf",
+      args: [principal, id],
+    });
+    if (delegate === "0x0000000000000000000000000000000000000000") continue;
+    if (delegate.toLowerCase() !== voter.toLowerCase()) return 0n;
+    const held = await client.readContract({
+      address: config.votesToken,
+      abi: votesTokenAbi,
+      functionName: "getVotes",
+      args: [principal],
+    });
+    return amount > held ? held : amount;
+  }
+  return 0n;
 }
 
 /**

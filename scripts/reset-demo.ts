@@ -74,7 +74,16 @@ async function main(): Promise<void> {
   const failed: string[] = [];
   for (const label of needed) {
     try {
-      const { proposalId } = await recordProposal(client, config, label, `Decide the next step for ${label}`);
+      // OZ derives a proposal's id from the call and its description, so reusing a
+      // description that has already been proposed collides with the existing one and
+      // reverts. The round makes each one distinct without saying anything the reader
+      // has to care about.
+      const { proposalId } = await recordProposal(
+        client,
+        config,
+        label,
+        `Decide the next step for ${label} (${new Date().toISOString().slice(0, 16)})`,
+      );
       console.log(`  “${label}” gets a fresh proposal #${proposalId}`);
     } catch (error) {
       failed.push(label);
