@@ -30,7 +30,7 @@ The graph is the authority; stake is the trust signal.
 docs/OVERVIEW.md       what we built and why, in plain terms — start here
 docs/WRITEUP.md        design decisions, gas, limitations, Mission 11 notes
 docs/DEMO.md           ordered demo script with expected output and recovery moves
-docs/adr/              ADRs 0001–0016 — every architectural decision, with rejected alternatives
+docs/adr/              ADRs 0001–0017 — every architectural decision, with rejected alternatives
 docs/phase0/           gate report + vocabulary audit (re-runnable queries)
 docs/notes/            working notes: the code audit and the refactor plans it produced
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
