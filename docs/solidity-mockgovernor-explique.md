@@ -756,4 +756,4 @@ externes et la réentrance**.
   bon complément, les tests Foundry montrent comment on appelle chaque fonction et
   comment on assert un revert (`vm.expectRevert`).
 - Notes de comparaison avec un vrai Governor OpenZeppelin :
-  [contracts/src/gouvernorOpenZpplinExmple.md](../contracts/src/gouvernorOpenZpplinExmple.md)
+  [contracts/src/gouvernorOpenZpplinExmple.md](notes/openzeppelin-governor-notes.md)

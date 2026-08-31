@@ -17,12 +17,13 @@ The graph is the authority; stake is the trust signal.
 | Phase | State |
 |---|---|
 | 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | done — [gate report](docs/phase0/gate-report.md) |
-| 1 — Enforcer (implement, gas table, review, deploy + verify) | done — 46/46 green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
+| 1 — Enforcer (implement, gas table, review, deploy + verify) | done — 111 tests green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
 | 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed-graph.ts), org-attestor staked on every edge, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (a domain under the delegated root passes, one outside it reverts) |
 | 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | done — the delegated-voting flows verified live on 13579 (`bun run votes`): chain redemption, narrowing, scope rejection, revocation |
 | 4 — Frontend (5 panels, incl. live graph extension) | done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
 | 5 — Writeup | done — [WRITEUP.md](docs/WRITEUP.md) |
 | 6 — Presentation (demo script, slides, rehearsal) | done — [DEMO.md](docs/DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
+| 7 — OpenZeppelin integration | done — the same scheme on a stock OZ `Governor`, nothing in their package touched; deployed on 13579 and exercised: a vote inside the delegated domain counts both voices, the same vote outside it counts one ([WRITEUP §5](docs/WRITEUP.md)) |
 
 ## Layout
 
