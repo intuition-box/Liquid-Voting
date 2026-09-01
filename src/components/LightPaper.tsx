@@ -11,9 +11,9 @@ export function LightPaper() {
       <header className="paper-head">
         <h1>Overview</h1>
         <p className="paper-standfirst">
-          You can hand someone your vote on the treasury without handing them anything else,
-          and keep part of it for yourself. Today that choice does not exist: a delegation
-          covers everything or it covers nothing.
+          You can put someone else in charge of what you hold on one subject, and decide how
+          much of it goes to them. Today neither choice exists: a delegation covers
+          everything you vote on, or it does not happen.
         </p>
       </header>
 
@@ -52,8 +52,9 @@ export function LightPaper() {
         <p>
           Whoever receives it still votes for themselves, and now carries somebody else’s
           voice as well, on the one subject where that person judged them better placed.
-          Nor does it have to be a whole vote: you can lend a share and keep the rest, so
-          backing someone on a subject does not mean going silent on it.
+          How much of your holding goes with it is yours to decide, the same way you already
+          decide how much of it to put behind each thing you vote on. Backing someone on a
+          subject does not mean going quiet on it.
         </p>
 
         <p>
