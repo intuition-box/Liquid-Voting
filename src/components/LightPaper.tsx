@@ -52,9 +52,7 @@ export function LightPaper() {
         <p>
           Whoever receives it still votes for themselves, and now carries somebody else’s
           voice as well, on the one subject where that person judged them better placed.
-          How much of your holding goes with it is yours to decide, the same way you already
-          decide how much of it to put behind each thing you vote on. Backing someone on a
-          subject does not mean going quiet on it.
+          Backing someone on a subject does not mean going quiet on it.
         </p>
 
         <p>
