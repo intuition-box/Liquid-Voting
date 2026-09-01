@@ -1229,14 +1229,6 @@ select:focus-visible,
 .paper-beat-yes .paper-beat-mark { color: var(--ok); }
 .paper-beat-no .paper-beat-mark { color: var(--bad); }
 
-.paper-close {
-  font-size: 17px;
-  line-height: 1.55;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-  padding-top: var(--s5);
-}
-
 /* ── How it works ──────────────────────────────────────────────────────────── */
 .flow {
   list-style: none;

@@ -147,9 +147,7 @@ export function LightPaper() {
             </span>
           </div>
           <p>
-            C goes from three voices to two and carries on. The naive version would have
-            taken all three, because A’s withdrawal arrived through B, punishing C for a
-            decision between two other people.
+            C goes from three voices to two and carries on.
           </p>
         </div>
       </section>
@@ -168,11 +166,6 @@ export function LightPaper() {
           already keeps current.
         </p>
       </section>
-
-      <p className="paper-close">
-        All of this runs today, on a live network. A delegation signed before a meeting
-        authorises, during that meeting, a subject that did not exist when it was signed.
-      </p>
     </article>
   );
 }
