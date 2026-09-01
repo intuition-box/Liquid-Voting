@@ -11,8 +11,9 @@ export function LightPaper() {
       <header className="paper-head">
         <h1>Overview</h1>
         <p className="paper-standfirst">
-          Handing your vote to someone today means handing it over on everything. Here is how
-          it can be handed over on one subject, and one only.
+          You can hand someone your vote on the treasury without handing them anything else,
+          and keep part of it for yourself. Today that choice does not exist: a delegation
+          covers everything or it covers nothing.
         </p>
       </header>
 
@@ -24,9 +25,9 @@ export function LightPaper() {
           on the treasury, and nothing else.”
         </p>
         <p>
-          Today that is not possible. A delegation is total or it does not exist. So people
-          hand everything to someone they broadly trust, and that person votes in their name
-          on subjects they would never have handed over.
+          So people hand everything to someone they broadly trust, and that person votes in
+          their name on subjects they would never have handed over. Or they hand over
+          nothing, and a decision they cared about is taken without them.
         </p>
       </section>
 
