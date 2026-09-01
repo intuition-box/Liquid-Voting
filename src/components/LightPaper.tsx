@@ -155,10 +155,11 @@ export function LightPaper() {
       <section className="paper-section">
         <h2>What it changes</h2>
         <p>
-          An organisation can finally delegate by competence rather than by broad trust. The
-          person who knows finance carries the voices handed to them on finance. The one who
-          knows the protocol carries theirs elsewhere. Nobody needs to understand everything
-          to take part.
+          The organisation lays out the subjects and puts proposals to a vote. What happens
+          between contributors is theirs: whoever knows finance ends up carrying the tokens
+          lent to them on finance, whoever knows the protocol carries other people’s there,
+          and each of them keeps voting with what they held back. Nobody has to follow every
+          subject to take part in all of them.
         </p>
         <p>
           And the delegation stays alive: as the organisation changes, the scope follows,
