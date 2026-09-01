@@ -55,11 +55,7 @@ export function LightPaper() {
           Backing someone on a subject does not mean going quiet on it.
         </p>
 
-        <p>
-          The difference matters. Start a new grants programme tomorrow, and every delegation
-          already signed covers it, without anyone signing anything again. The scope follows
-          the organisation because it <em>is</em> the organisation.
-        </p>
+        <p>Here is the structure such a sentence points at.</p>
 
         <pre className="paper-tree">
 {`governance
