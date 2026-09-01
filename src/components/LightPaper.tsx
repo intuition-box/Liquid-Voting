@@ -55,7 +55,10 @@ export function LightPaper() {
           Backing someone on a subject does not mean going quiet on it.
         </p>
 
-        <p>Here is the structure such a sentence points at.</p>
+        <p>
+          Subjects nest inside one another, and that is what decides how far a delegation
+          reaches.
+        </p>
 
         <pre className="paper-tree">
 {`governance
