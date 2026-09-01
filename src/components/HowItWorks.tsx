@@ -174,19 +174,18 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       <section className="howto-section">
         <h2>Two questions, answered in two places</h2>
         <p>
-          Scope and weight are not the same question, and nothing here answers both. The
-          caveat decides whether a voice may be used on this subject at all, and it does that
-          during the redemption, before the governor is ever reached. The governor then
+          The caveat decides whether a voice may be used on this subject at all, and it does
+          that during the redemption, before the governor is ever reached. The governor then
           decides what that voice is worth, through <code>_getVotes</code>, the method{" "}
           <code>Governor</code> declares virtual for exactly this purpose.
         </p>
         <p>
           The audited code is inherited as published. Beside it we add one entry point,{" "}
-          <code>castVoteFor</code>, and it exists for a reason worth stating plainly:
-          OpenZeppelin reads the voter from the caller, while a redemption executes from the
-          lender's account. Without it, a vote B redeemed from A would be recorded as A's. The
-          caveat is bound to that entry point and refuses a declared voter who is not the one
-          redeeming, so a delegation cannot be turned into a vote under someone else's name.
+          <code>castVoteFor</code>. OpenZeppelin reads the voter from the caller, while a
+          redemption executes from the lender's account. Without it, a vote B redeemed from
+          A would be recorded as A's. The caveat is bound to that entry point and refuses a
+          declared voter who is not the one redeeming, so a delegation cannot be turned into
+          a vote under someone else's name.
         </p>
         <p className="muted">
           Exercised on this same testnet: a vote on a domain under the delegated one carries
