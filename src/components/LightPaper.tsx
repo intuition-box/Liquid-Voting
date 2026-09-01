@@ -45,7 +45,8 @@ export function LightPaper() {
         </p>
 
         <p className="paper-pull">
-          “You know the treasury better than I do. Carry a quarter of my vote there.”
+          “On the protocol, I would rather delegate my vote to someone I trust in this
+          matter. Here is a quarter of it.”
         </p>
 
         <p>
@@ -77,9 +78,10 @@ export function LightPaper() {
         </pre>
 
         <p>
-          Hand me <strong>the treasury</strong>, and I vote on everything beneath it,
-          micro-grants included, four levels down. But nothing on the protocol or the
-          community: those are other branches.
+          Take the deepest branch, since it shows the most. Hand me{" "}
+          <strong>the treasury</strong>, and I vote on everything beneath it, micro-grants
+          included, four levels down. But nothing on the protocol or the community: those
+          are other branches, and a delegation on one says nothing about them.
         </p>
       </section>
 
