@@ -46,14 +46,14 @@ export function LightPaper() {
 
         <p className="paper-pull">
           “On the protocol, I would rather delegate my vote to someone I trust in this
-          matter. Here is a quarter of it.”
+          matter.”
         </p>
 
         <p>
-          Two things are being said at once. Whoever receives it still votes for themselves,
-          and now carries somebody else’s voice on the subject where that person judged them
-          better placed. And it need not be a whole vote: you can lend a share and keep the
-          rest, so backing someone on a subject does not mean going silent on it.
+          Whoever receives it still votes for themselves, and now carries somebody else’s
+          voice as well, on the one subject where that person judged them better placed.
+          Nor does it have to be a whole vote: you can lend a share and keep the rest, so
+          backing someone on a subject does not mean going silent on it.
         </p>
 
         <p>
