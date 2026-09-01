@@ -162,9 +162,7 @@ export function LightPaper() {
           subject to take part in all of them.
         </p>
         <p>
-          And the delegation stays alive: as the organisation changes, the scope follows,
-          because it was never a list, only a question put to a structure the organisation
-          already keeps current.
+          And the delegation stays alive: as the organisation changes, the scope follows.
         </p>
       </section>
     </article>
