@@ -1149,6 +1149,15 @@ select:focus-visible,
 .paper p,
 .howto p { margin: 0; }
 
+/* A subheading over prose, as opposed to .howto-label, which is a small caps tag sitting
+   on top of a list. */
+.howto-sub {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: var(--s5) 0 calc(-1 * var(--s3));
+}
+
 .howto-label {
   font-size: 11px;
   font-weight: 600;
@@ -1298,15 +1307,6 @@ select:focus-visible,
   grid-column: 1 / -1;
   font-size: 14px;
   color: var(--muted);
-}
-
-.claims {
-  margin: 0;
-  padding-left: var(--s5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
-  font-size: 15.5px;
 }
 
 .storage {

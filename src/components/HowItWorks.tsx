@@ -126,23 +126,49 @@ export function HowItWorks({ config }: { config: AppConfig }) {
       </section>
 
       <section className="howto-section">
-        <h2>Three sentences that carry it</h2>
-        <ol className="claims">
-          <li>
-            A delegation does not carry a <em>list</em> of domains. It carries a{" "}
-            <strong>question</strong> put to the graph. Add a branch, and every delegation
-            already signed covers it.
-          </li>
-          <li>
-            The graph cannot be walked from a contract, because there is no reverse index. The
-            voter announces the path; the contract <strong>rechecks every hop</strong>.
-          </li>
-          <li>
-            Writing a claim costs a fraction of a cent, so authorization follows the{" "}
-            <strong>stake</strong>, not existence. Without that, a delegate would widen its own
-            delegation.
-          </li>
-        </ol>
+        <h2>Three design decisions</h2>
+
+        <h3 className="howto-sub">The scope is a question, not a list</h3>
+        <p>
+          A caveat could hold the domains it permits, and checking one would be a membership
+          test. It would also be wrong within a quarter, because an organisation opens
+          programmes and closes them, and a delegation signed in March cannot be expected to
+          know about a branch created in June. So the terms hold a single domain and the
+          check asks whether the proposal's domain sits under it, which is a question the
+          graph answers at the time it is asked. Add a branch and every delegation already
+          signed covers it, with nobody signing anything again.
+        </p>
+
+        <h3 className="howto-sub">The voter announces the path, the contract rechecks it</h3>
+        <p>
+          The MultiVault stores a triple by its own id and offers no way to ask which
+          triples name a given subject, so a contract holding <code>micro-grants</code>{" "}
+          cannot walk upwards to <code>treasury</code> on its own. Iterating to find out is
+          not an option either, since the set is unbounded and the gas is not.
+        </p>
+        <p>
+          The voter therefore supplies the path, and the enforcer treats it as a claim rather
+          than as evidence. It recomputes each triple id from the two domains and the
+          predicate, and looks that id up. A path that does not exist produces an id nothing
+          is stored under, so an invented route fails on the first hop it invents. Supplying
+          the path is a convenience for the contract, never a permission for the voter.
+        </p>
+
+        <h3 className="howto-sub">Authorization follows the stake, not existence</h3>
+        <p>
+          Anyone can write a triple, and it costs a fraction of a cent. If the enforcer
+          accepted a link because it existed, a delegate holding <code>events</code> would
+          mint <code>treasury is a sub-domain of events</code> and vote on the treasury with
+          borrowed weight, having paid almost nothing to widen a delegation somebody else
+          signed.
+        </p>
+        <p>
+          So existence is not the test. The enforcer reads the curator's stake on the triple
+          and requires it to be positive, which makes an attack cost whatever the curator
+          committed rather than a gas fee. It also gives the organisation a way to disown a
+          link without deleting anything, since withdrawing the stake stops it authorising
+          while the claim remains on chain for anyone to read.
+        </p>
       </section>
 
       <section className="howto-section">
