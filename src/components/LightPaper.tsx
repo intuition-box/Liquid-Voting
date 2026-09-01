@@ -39,16 +39,20 @@ export function LightPaper() {
           wrong within three months.
         </p>
         <p>
-          So we stopped listing. An organisation already describes its own structure
-          somewhere, and we made that description the authority. The delegation asks a
-          question instead.
+          An organisation already describes its own structure somewhere, and we made that
+          description the authority. So a delegation stopped carrying a list and started
+          carrying a sentence one member says to another.
         </p>
 
-        <p className="paper-pull">“You may vote on anything the organisation files under the treasury.”</p>
+        <p className="paper-pull">
+          “You know the treasury better than I do. Carry a quarter of my vote there.”
+        </p>
 
         <p>
-          And it need not be everything you have. You can hand over part of your voice and
-          keep the rest, so backing someone on a subject does not mean going silent on it.
+          Two things are being said at once. Whoever receives it still votes for themselves,
+          and now carries somebody else’s voice on the subject where that person judged them
+          better placed. And it need not be a whole vote: you can lend a share and keep the
+          rest, so backing someone on a subject does not mean going silent on it.
         </p>
 
         <p>
