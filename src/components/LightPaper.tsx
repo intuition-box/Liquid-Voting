@@ -114,7 +114,7 @@ export function LightPaper() {
         <p>
           One detail makes this hold. A line in the structure only counts once the
           organisation has staked money behind it, so nobody can widen their own mandate by
-          writing themselves a new one. Talking is free; committing costs something.
+          writing themselves a new one.
         </p>
       </section>
 
