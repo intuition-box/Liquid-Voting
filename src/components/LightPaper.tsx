@@ -76,8 +76,8 @@ export function LightPaper() {
         </pre>
 
         <p>
-          Take the deepest branch, since it shows the most. Hand me{" "}
-          <strong>the treasury</strong>, and I vote on everything beneath it, micro-grants
+          Take the deepest branch, since it shows the most. Give someone{" "}
+          <strong>the treasury</strong>, and they vote on everything beneath it, micro-grants
           included, four levels down. But nothing on the protocol or the community: those
           are other branches, and a delegation on one says nothing about them.
         </p>
@@ -86,30 +86,30 @@ export function LightPaper() {
       <section className="paper-section">
         <h2>How it is checked</h2>
         <p>
-          When you vote with my voice, the system does not take your word for it. It walks the
-          path again, step by step, and confirms each link genuinely exists in the
-          organisation’s structure.
+          Say <strong>A</strong> has delegated the treasury to <strong>B</strong>. When B
+          votes with A’s voice, the system does not take B’s word for it. It walks the path
+          again, step by step, and confirms each link genuinely exists in the organisation’s
+          structure.
         </p>
 
         <div className="paper-verdicts">
           <div className="paper-verdict paper-verdict-yes">
             <span>
-              A vote on <strong>micro-grants</strong>, carrying the voice I handed over on the
-              treasury
+              B votes on <strong>micro-grants</strong>, carrying A’s voice
             </span>
             <span className="paper-verdict-out">allowed</span>
           </div>
           <div className="paper-verdict paper-verdict-no">
             <span>
-              A vote on <strong>events</strong>, carrying the same delegation
+              B votes on <strong>events</strong>, carrying the same delegation
             </span>
             <span className="paper-verdict-out">refused</span>
           </div>
         </div>
 
         <p>
-          In the second case you are not silenced: you still vote with <em>your</em> voice. It
-          is mine that stays with me, because that is not what I handed over.
+          In the second case B is not silenced: B still votes with <em>their own</em> voice.
+          It is A’s that stays behind, because events is not what A handed over.
         </p>
         <p>
           One detail makes this hold. A line in the structure only counts once the
@@ -121,26 +121,35 @@ export function LightPaper() {
       <section className="paper-section">
         <h2>Taking back what you lent</h2>
         <p>
-          A chain forms naturally: I hand you the treasury, and you pass the grants programme
-          to someone closer to it. That person now carries three voices: their own, yours,
-          and mine.
+          Chains form naturally. <strong>A</strong> delegates the treasury to{" "}
+          <strong>B</strong>, and B passes the grants programme on to <strong>C</strong>, who
+          works on it every day. C now votes with three voices: their own, B’s, and A’s.
+        </p>
+        <p>
+          Then A changes their mind and takes their voice back. The question is what that
+          should do to C, who never dealt with A at all.
         </p>
 
         <div className="paper-scene">
-          <span className="paper-scene-label">What happens when I take my voice back</span>
+          <span className="paper-scene-label">A takes their voice back</span>
           <div className="paper-beat paper-beat-no">
             <span className="paper-beat-mark">−</span>
-            <span>Mine is withdrawn. It was only ever lent, and only for that subject.</span>
+            <span>
+              C loses A’s voice. A had lent it, on that subject only, and a lender can ask
+              for it back.
+            </span>
           </div>
           <div className="paper-beat paper-beat-yes">
             <span className="paper-beat-mark">+</span>
             <span>
-              Yours stays. You gave it on your own authority, and I have no claim on it.
+              C keeps B’s. B lent their own voice, on their own authority, and A never had
+              any say over it.
             </span>
           </div>
           <p>
-            They go from three voices to two. Nobody is silenced, and each of us takes back
-            only what we lent.
+            C goes from three voices to two and carries on. The naive version would have
+            taken all three, because A’s withdrawal arrived through B, punishing C for a
+            decision between two other people.
           </p>
         </div>
       </section>
