@@ -20,6 +20,7 @@ import {
 } from "../lib/config/app-config";
 import {
   readDelegatedTo,
+  readLendings,
   readGraphLimits,
   readProposals,
   readTokenHoldings,
@@ -41,6 +42,9 @@ export interface AppState {
   graph: DomainGraph;
   /** What each identity holds of the governance token, and how much of it votes. */
   holdings: Record<Role, { balance: bigint; votes: bigint }>;
+  /** What each account is lending, and where. A lending moves no tokens, so a balance
+   *  alone cannot show it. */
+  lent: Partial<Record<Role, { amount: bigint; scope: string }>>;
   proposals: ProposalRecord[];
   rootDisabled: boolean;
   leafDisabled: boolean;
@@ -96,6 +100,9 @@ export function useApp(): AppState {
     B: { balance: 0n, votes: 0n },
     C: { balance: 0n, votes: 0n },
   });
+  // What each account is lending right now. A lending moves no tokens, so the balance
+  // above says nothing about it.
+  const [lent, setLent] = useState<Partial<Record<Role, { amount: bigint; scope: string }>>>({});
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -168,12 +175,14 @@ export function useApp(): AppState {
         // What the governor actually has on its books. Read for every domain, not just
         // the seeded pair's: a grant signed in the browser is checked against this too, so
         // a domain missing from the query would hide a delegation that is genuinely live.
-        const [register, tokens] = await Promise.all([
+        const [register, tokens, lendings] = await Promise.all([
           readDelegatedTo(client, config, config.nodes.map((node) => node.label)),
           readTokenHoldings(client, config),
+          readLendings(client, config, config.nodes.map((node) => node.label)),
         ]);
         if (cancelled) return;
         setHoldings(tokens);
+        setLent(lendings);
         if (cancelled) return;
         setDelegatedTo(register);
         setEdges(edgeStates);
@@ -254,6 +263,7 @@ export function useApp(): AppState {
     edges,
     graph,
     holdings,
+    lent,
     proposals,
     rootDisabled,
     leafDisabled,

@@ -642,20 +642,54 @@ export async function readDelegatedTo(
     pairs.map(async ({ scope, role }) => {
       const domainId = config.nodes.find((node) => node.label === scope)?.termId;
       if (!domainId) return null;
-      const to = await client.readContract({
+      const [to, amount] = await client.readContract({
         address: config.governor,
-        abi: governorAbi,
-        functionName: "delegatedTo",
+        abi: ozGovernorAbi,
+        functionName: "lendingOf",
         args: [config.accounts[role].smartAccount, domainId],
       });
-      return addressOf.get(to.toLowerCase()) ?? null;
+      const holder = addressOf.get(to.toLowerCase());
+      return holder ? { holder, amount } : null;
     }),
   );
   const out: Record<string, Partial<Record<Role, Role>>> = {};
   pairs.forEach(({ scope, role }, index) => {
-    const to = held[index];
-    if (to) (out[scope] ??= {})[role] = to;
+    const lending = held[index];
+    if (lending) (out[scope] ??= {})[role] = lending.holder;
   });
+  return out;
+}
+
+/**
+ * What each account is currently lending, and where.
+ *
+ * The masthead shows a token balance, which a lending never moves: the register records
+ * who may exercise the weight, and the tokens stay where they are. Without this the
+ * screen would answer "one hundred" both before and after a handover, so the lending is
+ * read separately and shown beside the balance.
+ */
+export async function readLendings(
+  client: PublicClient,
+  config: AppConfig,
+  scopes: string[],
+): Promise<Partial<Record<Role, { amount: bigint; scope: string }>>> {
+  const out: Partial<Record<Role, { amount: bigint; scope: string }>> = {};
+  await Promise.all(
+    ROLES.flatMap((role) =>
+      scopes.map(async (scope) => {
+        const domainId = config.nodes.find((node) => node.label === scope)?.termId;
+        if (!domainId || out[role]) return;
+        const [to, amount] = await client.readContract({
+          address: config.governor,
+          abi: ozGovernorAbi,
+          functionName: "lendingOf",
+          args: [config.accounts[role].smartAccount, domainId],
+        });
+        if (to === "0x0000000000000000000000000000000000000000") return;
+        out[role] = { amount, scope };
+      }),
+    ),
+  );
   return out;
 }
 

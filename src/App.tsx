@@ -74,7 +74,7 @@ export function App() {
         ))}
       </nav>
 
-      <Masthead role={role} onRole={setRole} holdings={demo.holdings} />
+      <Masthead role={role} onRole={setRole} holdings={demo.holdings} lent={demo.lent} />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
 
@@ -158,11 +158,15 @@ function Masthead({
   role,
   onRole,
   holdings,
+  lent,
 }: {
   role: Role;
   onRole: (role: Role) => void;
   /** What each identity holds of the governance token, when the chain has answered. */
   holdings?: Record<Role, { balance: bigint; votes: bigint }>;
+  /** What each account is lending. Shown beside the balance because a lending never moves
+   *  a token: without it the header reads the same before and after a handover. */
+  lent?: Partial<Record<Role, { amount: bigint; scope: string }>>;
 }) {
   return (
     <header className="masthead">
@@ -199,11 +203,17 @@ function Masthead({
             // A balance that is not self-delegated counts for nothing, which is a real
             // state on an ERC20Votes and worth showing rather than debugging.
             const dormant = held.balance > 0n && held.votes === 0n;
+            const lending = lent?.[entry.role];
             return (
               <span key={entry.role} className="holding">
                 <span className={`holding-who ${entry.className}`}>{entry.label}</span>
                 <Mono>{held.balance.toString()}</Mono>
                 {dormant ? <span className="holding-note">not self-delegated</span> : null}
+                {lending ? (
+                  <span className="holding-note">
+                    lending <Mono>{lending.amount.toString()}</Mono> on {lending.scope}
+                  </span>
+                ) : null}
               </span>
             );
           })}
