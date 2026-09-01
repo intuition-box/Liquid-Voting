@@ -37,10 +37,10 @@ docs/notes/            working notes: the code audit and the refactor plans it p
 docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
 docs/scope-check.excalidraw       how a delegation's scope is verified against the graph
 contracts/src/enforcers/    GraphDomainScope — the ERC-7710 caveat, scope resolved by the graph
-contracts/src/governance/   DemoGovernor (deployed) · OZGovernor + DomainVotes (OpenZeppelin, tested)
+contracts/src/governance/   OZGovernor + DomainVotes (what the app runs on) · DemoGovernor (first implementation)
 contracts/src/resolvers/    ProposalDomains — which domain a proposal belongs to
 contracts/test/             mirrors src/, plus gas benchmarks and fork suites
-scripts/               CLI: seed, account setup, delegation signing, acceptance runner, verify
+scripts/               CLI: seed, account setup, funding, delegation signing, reset, verify
 src/lib/               services by subject — chain/, graph/, delegation/, config/, actions/
 src/components/        panels; src/hooks/ owns the reads they display
 ```

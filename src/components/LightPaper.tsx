@@ -9,7 +9,7 @@ export function LightPaper() {
   return (
     <article className="paper">
       <header className="paper-head">
-        <h1>Delegating without giving everything away</h1>
+        <h1>Overview</h1>
         <p className="paper-standfirst">
           Handing your vote to someone today means handing it over on everything. Here is how
           it can be handed over on one subject, and one only.

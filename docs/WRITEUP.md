@@ -15,12 +15,13 @@ Everything below is deployed and verified on **Intuition testnet (chain 13579)**
 
 | | |
 |---|---|
-| `GraphDomainScope` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) — source-verified |
-| `DemoGovernor` | [`0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — source-verified |
-| `OZGovernor` + `ProposalDomains` | `0x39B446e1…32E9` · `0x6D96C81F…0686` — the same scheme on a stock OpenZeppelin Governor (§5) |
+| `OZGovernor` | [`0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828`](https://testnet.explorer.intuition.systems/address/0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828) — what the app runs on (§5) |
+| `GraphDomainScope` on it | [`0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2`](https://testnet.explorer.intuition.systems/address/0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2) — bound to `castVoteFor` |
+| `ProposalDomains` · `DemoVotes` | `0xa0806eF5…F00B` · `0x0f44F7d9…A14e` — the domain resolver and the `ERC20Votes` weight comes from |
+| `GraphDomainScope` on `DemoGovernor` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) · [`0x2bEE53dd…6cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — both source-verified, kept as the first implementation |
 | A / B / C | `0x446FF798…417B` · `0xd99c420d…6fa4` · `0x91C69d59…A5b2` (HybridDeleGator v1.3.0) |
 | Delegation Framework | v1.3.0 at canonical CREATE2 addresses — all 31 standard enforcers present |
-| Tests | 111 passing (unit, gas, governor, OpenZeppelin integration, and 12 fork against the live MultiVault); **100 %** line/statement/branch/function coverage on the enforcer |
+| Tests | 120 passing (unit, gas, governor, OpenZeppelin integration, and 12 fork against the live MultiVault); **100 %** line/statement/branch/function coverage on the enforcer |
 
 ---
 
@@ -287,18 +288,32 @@ Full threat-model walk in [`contracts/SECURITY_REVIEW.md`](contracts/SECURITY_RE
 
 ---
 
-## 5. It does not need our governor
+## 5. It runs on OpenZeppelin
 
-The obvious objection to a mock governor is that the scheme might depend on it. It does
-not, and that is deployed rather than asserted: the same delegation, scoped by the same
-graph, runs on an OpenZeppelin `Governor` taken as published.
+The obvious objection to a governor we wrote is that the scheme might depend on it. It
+does not, and that is deployed rather than asserted: the app runs on an OpenZeppelin
+`Governor` taken as published. `DemoGovernor` stays deployed as the first implementation,
+and nothing in the frontend points at it.
 
 Nothing in `@openzeppelin/contracts` is modified, copied or forked. `Governor`,
 `GovernorSettings`, `GovernorCountingSimple` and `GovernorVotes` are inherited as
-released, and exactly one method is overridden: `_getVotes`, which `Governor` declares
-`virtual` so a counting scheme can be substituted. The extension point is theirs.
+released, and `_getVotes` is overridden, which `Governor` declares `virtual` so a counting
+scheme can be substituted. The extension point is theirs.
 
-Two pieces make up the integration.
+Beside it our subclass adds one entry point, `castVoteFor`, and the reason is worth
+stating plainly rather than burying. OZ reads the voter from `_msgSender()`, while an
+ERC-7710 redemption executes from the root delegator's account: without it, a vote B
+redeemed from A would be recorded as A's. It hands the voter to OZ's own internal
+`_castVote`, so the state check, the tally, the double-vote guard and the event are all
+the audited ones. The caveat is bound to that selector and refuses a declared voter who is
+not the redeemer, so a delegation cannot be turned into a vote under a third party's name.
+
+That keeps the two questions apart. **The caveat scopes and the governor counts:** a
+delegated vote is a redemption through the `DelegationManager`, so `GraphDomainScope`
+proves the domain sits under the delegated one before the governor is reached, and
+`DomainVotes` then decides what the announced voices are worth.
+
+Two more pieces make up the integration.
 
 **`ProposalDomains`** holds which domain a proposal belongs to. OZ's
 `propose(targets, values, calldatas, description)` has no field for it, and adding one
@@ -307,9 +322,12 @@ domain is written once: a proposal that could be re-scoped after votes were cast
 anyone widen or narrow a delegation retroactively.
 
 **`DomainVotes`** adds the per-domain register. OZ's own `delegate()` moves an account's
-entire weight to one delegate; delegating by domain is finer, and that is the whole
-difference. Weight still comes from an `ERC20Votes` snapshot — this only decides who may
-exercise it where. The domain path travels through the `params` channel OZ provides for
+entire weight to one delegate; delegating by domain is finer, and so is lending part of a
+balance rather than all of it, which the register stores as an amount alongside the
+delegate. A lender casts what it kept, a delegate adds what was lent to it, and the amount
+is capped at what the lender still holds when the vote is counted, since weight nobody has
+any more is not weight anybody can lend. Weight still comes from the `ERC20Votes` token —
+this only decides who may exercise how much of it, and where. The domain path travels through the `params` channel OZ provides for
 exactly this, and is verified hop by hop against the graph rather than believed.
 
 One deliberate departure. OpenZeppelin reads an account's balance as it stood when the

@@ -102,21 +102,21 @@ Stay on **A**. Open **Proposals**, click **treasury** in the rail.
 
 **Expect:** the weight column reads `0` throughout.
 
-> "Zero, everywhere under `treasury`. I gave it away — delegating transfers weight, it
-> does not copy it."
+> "Zero, everywhere under `treasury`. I lent all of it, and lending moves weight rather
+> than copying it. Had I lent a quarter, this would read seventy five."
 
 Click **community** in the rail.
 
-**Expect:** `1`.
+**Expect:** `100`.
 
 > "Here I kept my vote. The delegation is scoped to a branch, not to me."
 
 Switch to **B**, click **payroll**.
 
-**Expect:** `2`.
+**Expect:** `200`.
 
-> "B votes with two: its own, plus mine, because `payroll` sits under the `treasury` I
-> delegated. B was never granted `payroll` — the graph carried it."
+> "B votes with two hundred: its own hundred, plus mine, because `payroll` sits under the
+> `treasury` I delegated. B was never granted `payroll` — the graph carried it."
 
 Click **grants**.
 
@@ -126,10 +126,10 @@ Click **grants**.
 
 Switch to **C**, click **micro-grants** — three levels below `grants`.
 
-**Expect:** `3`.
+**Expect:** `300`.
 
-> "Three. C’s own, B’s, and mine, riding down two delegations and three graph hops.
-> The totals never grow: three accounts, three votes, wherever they end up."
+> "Three hundred. C’s own, B’s, and mine, riding down two delegations and three graph hops.
+> The totals never grow: three accounts, three hundred votes, wherever they end up."
 
 ---
 
@@ -137,11 +137,11 @@ Switch to **C**, click **micro-grants** — three levels below `grants`.
 
 As **C**, on **micro-grants**, expand *Raise the Micro-Grant Ceiling from 2k to 5k*.
 
-> "The weight line says three, and whose voices they are. Watch the tally."
+> "The weight line says three hundred, and whose voices they are. Watch the tally."
 
 Click **for**.
 
-**Expect:** green, a tx link, the For column moves by 3.
+**Expect:** green, a tx link, the For column moves by 300.
 
 > "One vote, three voices, recorded as C’s. That is a sub-delegation working: the DAO
 > delegated a treasury, the treasury delegated its grants programme, and the decision
@@ -153,9 +153,9 @@ Click **for**.
 
 Switch to **B**, click **events** in the rail, expand a proposal there.
 
-**Expect:** the weight column reads `1`, not 2.
+**Expect:** the weight column reads `100`, not 200.
 
-> "One. B can vote on `events` — nothing silences it — but my weight stays behind, because
+> "A hundred. B can vote on `events` — nothing silences it — but my weight stays behind, because
 > no attested path connects `events` to the `treasury` I delegated. The delegation is
 > scoped, not a mute button."
 
@@ -185,7 +185,7 @@ Click **events**, one level below.
 
 **Expect:** `1`.
 
-> "One level down and my weight is gone. `maxDepth` is signed into the terms, so it is
+> "One level down and my lending is gone. `maxDepth` is signed into the terms, so it is
 > fixed for the life of the delegation — I cannot widen it afterwards, and neither can
 > anyone else. A DAO can hand out a whole branch, or exactly one topic."
 
@@ -210,7 +210,7 @@ attestor’s stake — in about 18 seconds. It appears in the tree.
 
 Switch to **C**, click **hackathon-grants**, add a proposal on it, expand it.
 
-**Expect:** the weight column reads `3`.
+**Expect:** the weight column reads `300`.
 
 > "Same delegations. Same signatures. Untouched. They now reach a domain that did not
 > exist when they were signed — no redeploy, no new signature. For a DAO that means
@@ -241,6 +241,32 @@ Click **payroll**, still as **A**.
 
 **To reset for a second run:** the `reset` button under the tree clears session domains
 and grants.
+
+---
+
+## 7b · Lending part of it (1.5 min)
+
+Take `treasury` back as **A**, then select it again and look at the slider above the
+button.
+
+> "Nothing so far said how much I lend. Until now the answer was always everything, which
+> is not how anyone actually delegates: backing someone on the treasury should not mean
+> going silent on the treasury."
+
+Drag it to **25**, then hand `treasury` to **B**.
+
+**Expect:** the slider reads `25 of 100, you keep 75`.
+
+Click **Proposals**, then **payroll**.
+
+**Expect:** A reads `75`, and B reads `125`.
+
+> "Seventy five for me, a hundred and twenty five for B. I backed B on the treasury and I
+> can still vote on it myself. Two questions, answered separately: the caveat decides
+> whether my voice may be used here at all, and the register decides how much of it."
+
+**If the numbers look stale:** the weights are read from the chain, so give it a beat and
+reload. `bun run verify` prints the same figures.
 
 ---
 
@@ -282,7 +308,7 @@ Then the ask: **Mission 11** — see the slide outline.
 | *What if the graph changes after I sign?* | That is the demo you just watched. It is bounded: scope only widens along edges *your* attestor staked. If you are your own attestor, nobody can widen it. |
 | *What does traversal cost at depth 5?* | ~100k gas live, ~14k per hop, strictly linear, bounded by the signed `maxDepth`. Table in `docs/WRITEUP.md` §3. |
 | *Why is `isTriple` not enough?* | It returns true for counter-triples — the "against" vault. An enforcer built on it would accept a hop meaning the negation of the edge. We use `getVaultType == 1`, and a fork test proves the trap is real on your deployment. |
-| *Is this audited?* | No — it is a POC. 103 tests including fork tests against the live MultiVault, 100 % coverage on the enforcer, a threat-model review with no code findings, Slither clean. Mission 11 should budget a real audit. |
+| *Is this audited?* | No — it is a POC. 120 tests including fork tests against the live MultiVault, 100 % coverage on the enforcer, a threat-model review with no code findings, Slither clean. Mission 11 should budget a real audit. |
 | *Why user operations instead of direct calls?* | `DeleGatorCore.execute` is `onlyEntryPoint`, and there is no bundler on 13579 — so we submit `handleOps` ourselves. A public bundler would remove that step for every app on the chain. |
 
 ## If the whole browser demo fails

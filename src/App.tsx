@@ -24,7 +24,7 @@ const IDENTITIES = ROLES.map((role) => ({
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
   { id: "delegations", label: "Delegations" },
-  { id: "paper", label: "Light paper" },
+  { id: "paper", label: "Overview" },
   { id: "how", label: "How it works" },
 ];
 
