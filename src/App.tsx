@@ -125,7 +125,6 @@ export function App() {
                   role={role}
                   grants={demo.grants}
                   domain={domain}
-                  holdings={demo.holdings}
                   onSigned={demo.addGrant}
                   onRevoked={demo.revokeGrant}
                 />
