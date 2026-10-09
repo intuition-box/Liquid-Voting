@@ -8,10 +8,9 @@
  *
  * Run: bun run verify
  */
-import { createPublicClient, http } from "viem";
 
-import { intuitionTestnet } from "./lib/network";
 import { configFromManifest } from "./lib/config";
+import { createChainClient } from "../src/lib/chain/network";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
 import { readDelegatedTo, readProposals } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
@@ -43,10 +42,9 @@ const SCOPE_CHECKS: Array<{ domain: string; heldOn: string; carries: boolean }> 
 
 async function main(): Promise<void> {
   const config = configFromManifest();
-  const client = createPublicClient({
-    chain: intuitionTestnet,
-    transport: http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]),
-  });
+  // The batching client: these scripts issue hundreds of reads in a burst, which is
+  // what exhausted the public RPC's allowance before.
+  const client = createChainClient(process.env["INTUITION_TESTNET_RPC"]);
 
   let failures = 0;
   const fail = (line: string): void => {

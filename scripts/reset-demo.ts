@@ -10,13 +10,12 @@
  *
  * Run: bun run reset
  */
-import { createPublicClient, http } from "viem";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { intuitionTestnet } from "./lib/network";
 import { configFromManifest } from "./lib/config";
+import { createChainClient } from "../src/lib/chain/network";
 import { readAllBallots, readDelegatedTo, readProposals, recordProposal, revokeWeight } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { readEdgeStates } from "../src/lib/graph/edges";
@@ -36,10 +35,9 @@ async function main(): Promise<void> {
   };
   for (const role of ROLES) config.ownerKeys[role] = stored.keys[role];
 
-  const client = createPublicClient({
-    chain: intuitionTestnet,
-    transport: http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]),
-  });
+  // The batching client: these scripts issue hundreds of reads in a burst, which is
+  // what exhausted the public RPC's allowance before.
+  const client = createChainClient(process.env["INTUITION_TESTNET_RPC"]);
   const edges = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
   const graph = DomainGraph.from(config.nodes, edges);
   const labels = config.nodes.map((node) => node.label);
