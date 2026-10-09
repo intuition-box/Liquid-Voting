@@ -6,6 +6,7 @@
     "seed": "bun --env-file=contracts/.env scripts/seed-graph.ts",
     "typecheck": "tsc --noEmit",
     "setup": "bun --env-file=contracts/.env scripts/setup-accounts.ts",
+    "fund": "bun --env-file=contracts/.env scripts/fund-votes.ts",
     "delegate": "bun --env-file=contracts/.env scripts/sign-delegations.ts",
     "seed:proposals": "bun --env-file=contracts/.env scripts/seed-proposals.ts",
     "votes": "bun --env-file=contracts/.env scripts/acceptance-votes.ts",
@@ -13,6 +14,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "verify": "bun --env-file=contracts/.env scripts/verify.ts",
+    "reset": "bun --env-file=contracts/.env scripts/reset-demo.ts",
     "rehearse": "bun --env-file=contracts/.env scripts/rehearse.ts"
   },
   "dependencies": {

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.23 <0.9.0;
 
-import { IMultiVault } from "./interfaces/IMultiVault.sol";
+import { IMultiVault } from "../interfaces/IMultiVault.sol";
 
-/// @title MockGovernor
+/// @title DemoGovernor
 /// @notice Minimal governance recorder for the POC — the bounty explicitly allows a mock.
 ///         It reproduces the shape of an OpenZeppelin `Governor` (proposal lifecycle,
 ///         For/Against/Abstain counting, a voting delay and period, a quorum, weighted
@@ -20,7 +20,7 @@ import { IMultiVault } from "./interfaces/IMultiVault.sol";
 ///         and records who was represented. OpenZeppelin aggregates delegated weight
 ///         invisibly at snapshot time; here the representation is explicit on-chain so a
 ///         delegation chain scoped by the knowledge graph can be audited vote by vote.
-contract MockGovernor {
+contract DemoGovernor {
     ////////////////////////////// Types //////////////////////////////
 
     /// @notice Lifecycle of a proposal, mirroring OpenZeppelin's `IGovernor.ProposalState`

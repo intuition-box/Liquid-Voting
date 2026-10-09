@@ -18,10 +18,18 @@ import {
   type Role,
   type SessionDomain,
 } from "../lib/config/app-config";
-import { readDelegatedTo, readGraphLimits, readProposals, readWeights, type ProposalRecord } from "../lib/actions";
+import {
+  readDelegatedTo,
+  readLendings,
+  readGraphLimits,
+  readProposals,
+  readTokenHoldings,
+  readWeights,
+  type ProposalRecord,
+} from "../lib/actions";
 import { DelegationSet } from "../lib/delegation/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
-import { baseGrants, grantScope, type Grant } from "../lib/delegation/grant";
+import { baseGrants, type Grant } from "../lib/delegation/grant";
 import { readEdgeStates, type EdgeState } from "../lib/graph/edges";
 
 export interface AppState {
@@ -32,6 +40,11 @@ export interface AppState {
   edges: EdgeState[];
   /** The domain hierarchy, indexed once — every parent/child question goes through it. */
   graph: DomainGraph;
+  /** What each identity holds of the governance token, and how much of it votes. */
+  holdings: Record<Role, { balance: bigint; votes: bigint }>;
+  /** What each account is lending, and where. A lending moves no tokens, so a balance
+   *  alone cannot show it. */
+  lent: Partial<Record<Role, { amount: bigint; scope: string }>>;
   proposals: ProposalRecord[];
   rootDisabled: boolean;
   leafDisabled: boolean;
@@ -82,6 +95,14 @@ export function useApp(): AppState {
   const [limits, setLimits] = useState<GraphLimits | null>(null);
   /** Who the governor has each account delegating to, per domain — the register, not the signature. */
   const [delegatedTo, setDelegatedTo] = useState<Record<string, Partial<Record<Role, Role>>>>({});
+  const [holdings, setHoldings] = useState<Record<Role, { balance: bigint; votes: bigint }>>({
+    A: { balance: 0n, votes: 0n },
+    B: { balance: 0n, votes: 0n },
+    C: { balance: 0n, votes: 0n },
+  });
+  // What each account is lending right now. A lending moves no tokens, so the balance
+  // above says nothing about it.
+  const [lent, setLent] = useState<Partial<Record<Role, { amount: bigint; scope: string }>>>({});
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -151,12 +172,17 @@ export function useApp(): AppState {
         if (cancelled) return;
         setLimits(graphLimits);
 
-        // Which seeded pairs the governor actually has on its books. Without this the app
-        // would open showing a chain nobody made in front of the audience.
-        const scopes = [config.delegations.root, config.delegations.leaf]
-          .map((delegation) => grantScope(config, delegation))
-          .filter((scope): scope is string => scope.length > 0);
-        const register = await readDelegatedTo(client, config, [...new Set(scopes)]);
+        // What the governor actually has on its books. Read for every domain, not just
+        // the seeded pair's: a grant signed in the browser is checked against this too, so
+        // a domain missing from the query would hide a delegation that is genuinely live.
+        const [register, tokens, lendings] = await Promise.all([
+          readDelegatedTo(client, config, config.nodes.map((node) => node.label)),
+          readTokenHoldings(client, config),
+          readLendings(client, config, config.nodes.map((node) => node.label)),
+        ]);
+        if (cancelled) return;
+        setHoldings(tokens);
+        setLent(lendings);
         if (cancelled) return;
         setDelegatedTo(register);
         setEdges(edgeStates);
@@ -198,14 +224,33 @@ export function useApp(): AppState {
   // The seeded pair carries its on-chain revoked state; session grants are always live.
   // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
   const delegations = useMemo(() => {
-    const signed = config
+    // A grant counts while the governor's register agrees, whichever list it came from.
+    // Session grants used to skip this check, so one signed in the browser survived being
+    // taken back on chain — and showed up beside the seeded pair as a second A → B.
+    const inForce = (grant: Grant): boolean => delegatedTo[grant.scope]?.[grant.from] === grant.to;
+    const all = config
       ? [
           ...baseGrants(config, rootDisabled, leafDisabled, (from, scope) => delegatedTo[scope]?.[from] ?? null),
           ...sessionGrants,
         ].map((grant) =>
-          revokedGrants.includes(`${grant.from}|${grant.scope}`) ? { ...grant, revoked: true } : grant,
+          revokedGrants.includes(`${grant.from}|${grant.scope}`) || !inForce(grant)
+            ? { ...grant, revoked: true }
+            : grant,
         )
       : [];
+
+    // The pre-signed pair covers the same grant the demo makes live — A hands treasury to
+    // B in both — so once the register turns on, two signatures describe one handover and
+    // the panel listed it twice. One live grant per (signer, recipient, domain, voice);
+    // the one signed in front of the audience is the one to show.
+    const seen = new Set<string>();
+    const signed = [...all].reverse().map((grant) => {
+      if (grant.revoked) return grant;
+      const key = `${grant.from}|${grant.to}|${grant.scope}|${grant.principal}`;
+      if (seen.has(key)) return { ...grant, revoked: true };
+      seen.add(key);
+      return grant;
+    }).reverse();
     return new DelegationSet(signed, graph);
   }, [config, rootDisabled, leafDisabled, sessionGrants, revokedGrants, graph, delegatedTo]);
   const grants = delegations.all() as Grant[];
@@ -217,6 +262,8 @@ export function useApp(): AppState {
     writable: config ? canWrite(config) : false,
     edges,
     graph,
+    holdings,
+    lent,
     proposals,
     rootDisabled,
     leafDisabled,

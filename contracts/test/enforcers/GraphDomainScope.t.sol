@@ -11,19 +11,19 @@ import {
     MODE_DEFAULT
 } from "@erc7579/lib/ModeLib.sol";
 
-import { GraphDomainCaveatEnforcer } from "../../src/GraphDomainCaveatEnforcer.sol";
-import { MockGovernor } from "../../src/MockGovernor.sol";
+import { GraphDomainScope } from "../../src/enforcers/GraphDomainScope.sol";
+import { DemoGovernor } from "../../src/governance/DemoGovernor.sol";
 import { IMultiVault } from "../../src/interfaces/IMultiVault.sol";
 import { MockMultiVault } from "../mocks/MockMultiVault.sol";
 
-/// @notice Unit suite for GraphDomainCaveatEnforcer against MockMultiVault (no network).
+/// @notice Unit suite for GraphDomainScope against MockMultiVault (no network).
 /// Test numbering in comments follows §6 of the bounty bootstrap. Hooks are driven
 /// directly (the DelegationManager's role); chain-level cases (revocation, narrowing
 /// through redeemDelegations) live in the fork suite.
 contract GraphDomainCaveatEnforcerTest is Test {
     MockMultiVault internal vault;
-    MockGovernor internal governor;
-    GraphDomainCaveatEnforcer internal enforcer;
+    DemoGovernor internal governor;
+    GraphDomainScope internal enforcer;
 
     address internal delegator = makeAddr("delegator");
     address internal redeemer = makeAddr("redeemer");
@@ -55,9 +55,9 @@ contract GraphDomainCaveatEnforcerTest is Test {
         logo = vault.createAtom("logo");
         predicate = vault.createAtom("is a sub-domain of");
 
-        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
-        enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
+        governor = new DemoGovernor(IMultiVault(address(vault)), predicate);
+        enforcer = new GraphDomainScope(
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
         );
 
         tBrandingDesign = vault.createTriple(branding, predicate, design);
@@ -81,7 +81,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         returns (bytes memory)
     {
         return abi.encode(
-            GraphDomainCaveatEnforcer.Terms({
+            GraphDomainScope.Terms({
                 rootDomainId: root,
                 predicateId: predicate,
                 maxDepth: maxDepth,
@@ -136,7 +136,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         return abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, voter, principals, noPath))
+            abi.encodeCall(DemoGovernor.castVoteFor, (proposalId, 1, voter, principals, noPath))
         );
     }
 
@@ -183,7 +183,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
     function test_RevertWhen_PathExceedsMaxDepth() public {
         bytes memory exec_ = _voteOn(logo);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.PathTooLong.selector, 2, 1));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.PathTooLong.selector, 2, 1));
         _hook(_terms(design, 1, 0, address(0)), _path(logo, branding, design), exec_);
     }
 
@@ -194,7 +194,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes memory exec_ = _voteOn(branding);
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.DelegationExpired.selector, expiry, block.timestamp)
+            abi.encodeWithSelector(GraphDomainScope.DelegationExpired.selector, expiry, block.timestamp)
         );
         _hook(_terms(design, 3, expiry, address(0)), _path(branding, design), exec_);
     }
@@ -204,7 +204,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes32 missing = vault.calculateTripleId(legal, predicate, design);
         bytes memory exec_ = _voteOn(legal);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, missing));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, missing));
         _hook(_defaultTerms(design), _path(legal, design), exec_);
     }
 
@@ -217,7 +217,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         assertTrue(vault.isTriple(tBrandingDesign), "trap precondition: isTriple accepts the counter-triple");
         bytes memory exec_ = _voteOn(branding);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, tBrandingDesign));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, tBrandingDesign));
         _hook(_defaultTerms(design), _path(branding, design), exec_);
     }
 
@@ -227,7 +227,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes memory exec_ = _voteOn(branding);
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotAttested.selector, tBrandingDesign, delegator)
+            abi.encodeWithSelector(GraphDomainScope.NotAttested.selector, tBrandingDesign, delegator)
         );
         _hook(_defaultTerms(design), _path(branding, design), exec_);
     }
@@ -245,7 +245,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes memory exec_ = _voteOn(branding);
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotAttested.selector, tBrandingDesign, delegator)
+            abi.encodeWithSelector(GraphDomainScope.NotAttested.selector, tBrandingDesign, delegator)
         );
         _hook(_terms(design, 3, 0, address(0)), _path(branding, design), exec_);
     }
@@ -258,7 +258,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         // Built before expectRevert: recording the proposal is a state write of its own.
         bytes memory exec_ = _voteOn(branding);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotAttested.selector, tBrandingDesign, org));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotAttested.selector, tBrandingDesign, org));
         _hook(_terms(design, 3, 0, org), _path(branding, design), exec_);
     }
 
@@ -267,7 +267,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes32 missing = vault.calculateTripleId(logo, predicate, design);
         bytes memory exec_ = _voteOn(logo);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, missing));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, missing));
         _hook(_defaultTerms(design), _path(logo, design), exec_);
     }
 
@@ -276,7 +276,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         bytes memory exec_ = _voteOn(branding);
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.PathStartMismatch.selector, ux, branding)
+            abi.encodeWithSelector(GraphDomainScope.PathStartMismatch.selector, ux, branding)
         );
         _hook(_defaultTerms(design), _path(ux, design), exec_);
     }
@@ -285,7 +285,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
     function test_RevertWhen_PathEndMismatch() public {
         bytes memory exec_ = _voteOn(branding);
 
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.PathEndMismatch.selector, ux, design));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.PathEndMismatch.selector, ux, design));
         _hook(_defaultTerms(design), _path(branding, ux), exec_);
     }
 
@@ -293,7 +293,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
     function test_RevertWhen_EmptyPath() public {
         bytes memory exec_ = _voteOn(design);
 
-        vm.expectRevert(GraphDomainCaveatEnforcer.EmptyPath.selector);
+        vm.expectRevert(GraphDomainScope.EmptyPath.selector);
         _hook(_defaultTerms(design), new bytes32[](0), exec_);
     }
 
@@ -303,10 +303,10 @@ contract GraphDomainCaveatEnforcerTest is Test {
         address[] memory principals = new address[](1);
         principals[0] = delegator;
         bytes memory exec =
-            abi.encodePacked(other, uint256(0), abi.encodeCall(MockGovernor.castVoteFor, (0, 1, redeemer, principals, new bytes32[](0))));
+            abi.encodePacked(other, uint256(0), abi.encodeCall(DemoGovernor.castVoteFor, (0, 1, redeemer, principals, new bytes32[](0))));
 
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.InvalidTarget.selector, other, address(governor))
+            abi.encodeWithSelector(GraphDomainScope.InvalidTarget.selector, other, address(governor))
         );
         _hook(_defaultTerms(design), _path(design), exec);
     }
@@ -314,12 +314,12 @@ contract GraphDomainCaveatEnforcerTest is Test {
     /// §6 test 13b — the selector check is not optional: any other governor function reverts.
     function test_RevertWhen_WrongSelector() public {
         bytes memory exec =
-            abi.encodePacked(address(governor), uint256(0), abi.encodeCall(MockGovernor.proposalCount, ()));
+            abi.encodePacked(address(governor), uint256(0), abi.encodeCall(DemoGovernor.proposalCount, ()));
         vm.expectRevert(
             abi.encodeWithSelector(
-                GraphDomainCaveatEnforcer.InvalidSelector.selector,
-                MockGovernor.proposalCount.selector,
-                MockGovernor.castVoteFor.selector
+                GraphDomainScope.InvalidSelector.selector,
+                DemoGovernor.proposalCount.selector,
+                DemoGovernor.castVoteFor.selector
             )
         );
         _hook(_defaultTerms(design), _path(design), exec);
@@ -330,7 +330,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         ModeCode batchMode = ModeLib.encodeSimpleBatch();
         bytes memory exec_ = _voteOn(design);
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotSingleExecutionMode.selector, batchMode)
+            abi.encodeWithSelector(GraphDomainScope.NotSingleExecutionMode.selector, batchMode)
         );
         enforcer.beforeHook(
             _defaultTerms(design), abi.encode(_path(design)), batchMode, exec_, bytes32(0), delegator, redeemer
@@ -341,7 +341,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
     function test_RevertWhen_TryExecutionMode() public {
         ModeCode tryMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(bytes22(0)));
         bytes memory exec_ = _voteOn(design);
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotSingleExecutionMode.selector, tryMode));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotSingleExecutionMode.selector, tryMode));
         enforcer.beforeHook(
             _defaultTerms(design), abi.encode(_path(design)), tryMode, exec_, bytes32(0), delegator, redeemer
         );
@@ -357,17 +357,43 @@ contract GraphDomainCaveatEnforcerTest is Test {
         _hook(_defaultTerms(design), _path(branding, design), exec);
 
         bytes32 missing = vault.calculateTripleId(branding, predicate, ux);
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.NotATriple.selector, missing));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.NotATriple.selector, missing));
         _hook(_defaultTerms(ux), _path(branding, ux), exec);
     }
 
     /// Constructor input validation.
     function test_RevertWhen_ConstructorZeroAddress() public {
-        vm.expectRevert(GraphDomainCaveatEnforcer.ZeroAddress.selector);
-        new GraphDomainCaveatEnforcer(IMultiVault(address(0)), address(governor), MockGovernor.castVoteFor.selector);
+        vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
+        new GraphDomainScope(
+            IMultiVault(address(0)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
+        );
 
-        vm.expectRevert(GraphDomainCaveatEnforcer.ZeroAddress.selector);
-        new GraphDomainCaveatEnforcer(IMultiVault(address(vault)), address(0), MockGovernor.castVoteFor.selector);
+        vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
+        new GraphDomainScope(
+            IMultiVault(address(vault)), address(0), DemoGovernor.castVoteFor.selector, address(governor)
+        );
+
+        vm.expectRevert(GraphDomainScope.ZeroAddress.selector);
+        new GraphDomainScope(
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(0)
+        );
+    }
+
+    /// The vote target and the domain resolver are two separate addresses.
+    ///
+    /// They are the same contract on a governor written for this scheme, and different on
+    /// an OpenZeppelin one, where `propose` has nowhere to put a domain so it lives in a
+    /// small resolver alongside. Collapsing them would tie this enforcer to governors we
+    /// wrote, and did: pointing the resolver at an OZ governor reverts with no reason at
+    /// all, because the function simply is not there.
+    function test_ResolverIsSeparateFromTheVoteTarget() public {
+        address resolver = address(governor);
+        address votedOn = makeAddr("some other governor");
+        GraphDomainScope split =
+            new GraphDomainScope(IMultiVault(address(vault)), votedOn, DemoGovernor.castVoteFor.selector, resolver);
+
+        assertEq(split.GOVERNOR(), votedOn, "votes must target the governor");
+        assertEq(address(split.DOMAIN_RESOLVER()), resolver, "domains are read from the resolver");
     }
 
     ////////////////////////////// Delegated votes //////////////////////////////
@@ -386,7 +412,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         uint256 proposalId = _record(legal);
         vm.expectRevert(
             abi.encodeWithSelector(
-                GraphDomainCaveatEnforcer.NotATriple.selector, vault.calculateTripleId(legal, predicate, design)
+                GraphDomainScope.NotATriple.selector, vault.calculateTripleId(legal, predicate, design)
             )
         );
         _hook(_defaultTerms(design), _path(legal, design), _voteFor(proposalId));
@@ -398,7 +424,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         uint256 proposalId = _record(branding);
         vm.expectRevert(
             abi.encodeWithSelector(
-                GraphDomainCaveatEnforcer.NotATriple.selector, vault.calculateTripleId(branding, predicate, ux)
+                GraphDomainScope.NotATriple.selector, vault.calculateTripleId(branding, predicate, ux)
             )
         );
         _hook(_defaultTerms(ux), _path(branding, ux), _voteFor(proposalId));
@@ -413,7 +439,7 @@ contract GraphDomainCaveatEnforcerTest is Test {
         uint256 proposalId = _record(branding);
         // The witness claims `ux`, but the governor resolves the proposal to `branding`.
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.PathStartMismatch.selector, ux, branding)
+            abi.encodeWithSelector(GraphDomainScope.PathStartMismatch.selector, ux, branding)
         );
         _hook(_defaultTerms(design), _path(ux, design), _voteFor(proposalId));
     }
@@ -424,16 +450,16 @@ contract GraphDomainCaveatEnforcerTest is Test {
         uint256 proposalId = _record(branding);
         address impostor = address(0xBAD);
         vm.expectRevert(
-            abi.encodeWithSelector(GraphDomainCaveatEnforcer.VoterIsNotRedeemer.selector, impostor, redeemer)
+            abi.encodeWithSelector(GraphDomainScope.VoterIsNotRedeemer.selector, impostor, redeemer)
         );
         _hook(_defaultTerms(design), _path(branding, design), _voteAs(proposalId, impostor));
     }
 
     function test_RevertWhen_VoteCalldataTooShort() public {
         bytes memory execData = abi.encodePacked(
-            address(governor), uint256(0), abi.encodePacked(MockGovernor.castVoteFor.selector, hex"1234")
+            address(governor), uint256(0), abi.encodePacked(DemoGovernor.castVoteFor.selector, hex"1234")
         );
-        vm.expectRevert(abi.encodeWithSelector(GraphDomainCaveatEnforcer.MalformedVoteCalldata.selector, uint256(6)));
+        vm.expectRevert(abi.encodeWithSelector(GraphDomainScope.MalformedVoteCalldata.selector, uint256(6)));
         _hook(_defaultTerms(design), _path(design), execData);
     }
 
@@ -444,9 +470,9 @@ contract GraphDomainCaveatEnforcerTest is Test {
         public
         view
     {
-        GraphDomainCaveatEnforcer.Terms memory decoded = enforcer.getTermsInfo(
+        GraphDomainScope.Terms memory decoded = enforcer.getTermsInfo(
             abi.encode(
-                GraphDomainCaveatEnforcer.Terms({
+                GraphDomainScope.Terms({
                     rootDomainId: root,
                     predicateId: pred,
                     maxDepth: maxDepth,

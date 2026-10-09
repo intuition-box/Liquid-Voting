@@ -5,8 +5,8 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { ModeLib, ModeCode } from "@erc7579/lib/ModeLib.sol";
 
-import { GraphDomainCaveatEnforcer } from "../../src/GraphDomainCaveatEnforcer.sol";
-import { MockGovernor } from "../../src/MockGovernor.sol";
+import { GraphDomainScope } from "../../src/enforcers/GraphDomainScope.sol";
+import { DemoGovernor } from "../../src/governance/DemoGovernor.sol";
 import { IMultiVault } from "../../src/interfaces/IMultiVault.sol";
 import { MockMultiVault } from "../mocks/MockMultiVault.sol";
 
@@ -17,8 +17,8 @@ import { MockMultiVault } from "../mocks/MockMultiVault.sol";
 /// docs/phase1/gas-report.md.
 contract GasBenchTest is Test {
     MockMultiVault internal vault;
-    MockGovernor internal governor;
-    GraphDomainCaveatEnforcer internal enforcer;
+    DemoGovernor internal governor;
+    GraphDomainScope internal enforcer;
 
     address internal delegator = makeAddr("delegator");
     address internal redeemer = makeAddr("redeemer");
@@ -34,9 +34,9 @@ contract GasBenchTest is Test {
     function setUp() public {
         vault = new MockMultiVault();
         predicate = vault.createAtom("is a sub-domain of");
-        governor = new MockGovernor(IMultiVault(address(vault)), predicate);
-        enforcer = new GraphDomainCaveatEnforcer(
-            IMultiVault(address(vault)), address(governor), MockGovernor.castVoteFor.selector
+        governor = new DemoGovernor(IMultiVault(address(vault)), predicate);
+        enforcer = new GraphDomainScope(
+            IMultiVault(address(vault)), address(governor), DemoGovernor.castVoteFor.selector, address(governor)
         );
 
         chain[0] = vault.createAtom("d0-root");
@@ -51,7 +51,7 @@ contract GasBenchTest is Test {
 
     function _measure(uint256 depth) internal returns (uint256 gasUsed) {
         bytes memory terms = abi.encode(
-            GraphDomainCaveatEnforcer.Terms({
+            GraphDomainScope.Terms({
                 rootDomainId: chain[0],
                 predicateId: predicate,
                 maxDepth: 5,
@@ -71,7 +71,7 @@ contract GasBenchTest is Test {
         bytes memory exec = abi.encodePacked(
             address(governor),
             uint256(0),
-            abi.encodeCall(MockGovernor.castVoteFor, (proposalId, 1, redeemer, principals, noPath))
+            abi.encodeCall(DemoGovernor.castVoteFor, (proposalId, 1, redeemer, principals, noPath))
         );
 
         uint256 before = gasleft();

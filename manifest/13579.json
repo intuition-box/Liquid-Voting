@@ -5,7 +5,7 @@
   "graphql": "https://testnet.intuition.sh/v1/graphql",
   "explorer": "https://testnet.explorer.intuition.systems",
   "contracts": {
-    "GraphDomainCaveatEnforcer": {
+    "GraphDomainScope": {
       "address": "0x948CFe8438161390DbeF07c291Cb8ffDd7955302",
       "deployedAt": "2026-08-29",
       "verified": true,
@@ -15,10 +15,36 @@
         "voteSelector": "castVoteFor(uint256,uint8,address,address[],bytes32[])"
       }
     },
-    "MockGovernor": {
+    "DemoGovernor": {
       "address": "0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE",
       "deployedAt": "2026-08-29",
       "verified": true
+    },
+    "DemoVotes": {
+      "address": "0x0f44F7d916e19B04A6291a1fAB37fC5178EEA14e",
+      "deployedAt": "2026-08-31",
+      "verified": false
+    },
+    "ProposalDomains": {
+      "address": "0xa0806eF53d27fD938040a32ba20743700746F00B",
+      "deployedAt": "2026-08-31",
+      "verified": false
+    },
+    "OZGovernor": {
+      "address": "0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828",
+      "deployedAt": "2026-08-31",
+      "verified": false
+    },
+    "OZGraphDomainScope": {
+      "address": "0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2",
+      "deployedAt": "2026-08-31",
+      "verified": false,
+      "constructorArgs": {
+        "multiVault": "0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91",
+        "governor": "0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828",
+        "voteSelector": "castVoteFor(uint256,uint8,address,address[],bytes32[])",
+        "domainResolver": "0xa0806eF53d27fD938040a32ba20743700746F00B"
+      }
     }
   },
   "framework": {

@@ -11,11 +11,11 @@
  *
  * Run: bun run rehearse            (or: bun run rehearse "some label")
  */
-import { createPublicClient, formatEther, http, parseEther } from "viem";
+import { formatEther, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { intuitionTestnet } from "./lib/network";
 import { configFromManifest } from "./lib/config";
+import { createChainClient } from "../src/lib/chain/network";
 import type { AppConfig } from "../src/lib/config/app-config";
 import {
   extendGraph,
@@ -38,10 +38,9 @@ async function main(): Promise<void> {
   const submitterKey = process.env["PRIVATE_KEY"];
   if (!submitterKey) throw new Error("PRIVATE_KEY missing (contracts/.env)");
   const config = configFromManifest(submitterKey);
-  const client = createPublicClient({
-    chain: intuitionTestnet,
-    transport: http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]),
-  });
+  // The batching client: these scripts issue hundreds of reads in a burst, which is
+  // what exhausted the public RPC's allowance before.
+  const client = createChainClient(process.env["INTUITION_TESTNET_RPC"]);
 
   const submitter = privateKeyToAccount(config.submitterKey);
   const startBalance = await client.getBalance({ address: submitter.address });

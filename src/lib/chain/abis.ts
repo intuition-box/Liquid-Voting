@@ -329,3 +329,113 @@ export const entryPointAbi = [
     ],
   },
 ] as const;
+
+/**
+ * The OpenZeppelin governor, and the token it reads weight from.
+ *
+ * Separate from `governorAbi` because the two governors genuinely differ. OZ has no
+ * proposal counter and no stored proposal struct: ids are hashes and the details live in
+ * events, so listing proposals means reading `ProposalCreated` rather than counting up
+ * from zero. Voting goes through `castVoteWithReasonAndParams`, which is the entry point
+ * that carries the `params` our domain register needs.
+ */
+export const ozGovernorAbi = [
+  {
+    type: "function",
+    name: "propose",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "targets", type: "address[]" },
+      { name: "values", type: "uint256[]" },
+      { name: "calldatas", type: "bytes[]" },
+      { name: "description", type: "string" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "castVoteWithReasonAndParams",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "support", type: "uint8" },
+      { name: "reason", type: "string" },
+      { name: "params", type: "bytes" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "delegateWeight",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "delegate", type: "address" },
+      { name: "domainId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "lendingOf",
+    stateMutability: "view",
+    inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
+    outputs: [{ name: "delegate", type: "address" }, { name: "amount", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "delegatedTo",
+    stateMutability: "view",
+    inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "weightFor",
+    stateMutability: "view",
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "domainId", type: "bytes32" },
+      { name: "principals", type: "address[]" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  { type: "function", name: "state", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }], outputs: [{ type: "uint8" }] },
+  { type: "function", name: "hasVoted", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }, { name: "account", type: "address" }], outputs: [{ type: "bool" }] },
+  {
+    type: "function",
+    name: "proposalVotes",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
+  },
+  { type: "function", name: "votingDelay", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "MAX_DOMAIN_PATH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
+
+/** Records which domain a proposal belongs to, since an OZ proposal carries none. */
+export const proposalDomainsAbi = [
+  {
+    type: "function",
+    name: "scopeProposal",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "proposalId", type: "uint256" }, { name: "domainId", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "proposalDomain",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "bytes32" }],
+  },
+] as const;
+
+/** The ERC20Votes weight is read from. A balance only counts once self-delegated. */
+export const votesTokenAbi = [
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "getVotes", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "delegate", stateMutability: "nonpayable", inputs: [{ name: "delegatee", type: "address" }], outputs: [] },
+  { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+] as const;

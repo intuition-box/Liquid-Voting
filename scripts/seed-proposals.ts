@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   const transport = http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]);
   const client = createPublicClient({ chain: intuitionTestnet, transport });
   const wallet = createWalletClient({ chain: intuitionTestnet, transport, account: privateKeyToAccount(key as `0x${string}`) });
-  const gov = { address: manifest.contracts.MockGovernor.address, abi: governorAbi } as const;
+  const gov = { address: manifest.contracts.DemoGovernor.address, abi: governorAbi } as const;
   const atoms = manifest.vocabulary.atoms as Record<string, Hex>;
 
 

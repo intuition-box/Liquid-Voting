@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+# The published site is read-only by design: a production build receives no keys, so
+# canWrite() is false and every write panel falls back to reading (ADR 0011). Visitors
+# see the live graph, the proposals and the documents; they cannot vote or delegate.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      # Typecheck runs as part of the build script, so a broken build never ships.
+      - run: bun run build
+
+      - name: Fail if the bundle carries a private key
+        run: |
+          if grep -rEq '0x[0-9a-fA-F]{64}' dist/assets/*.js && \
+             grep -rq 'DEMO_OWNER_KEYS' dist/assets/*.js; then
+            echo "A secrets placeholder reached the bundle — refusing to publish."
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

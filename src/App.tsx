@@ -8,9 +8,11 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
 import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
-import { AddressLink, Panel } from "./components/primitives";
+import { HowItWorks } from "./components/HowItWorks";
+import { LightPaper } from "./components/LightPaper";
+import { AddressLink, Mono, Panel } from "./components/primitives";
 
-type TabId = "proposals" | "delegations";
+type TabId = "proposals" | "delegations" | "paper" | "how";
 
 /** The three demo identities. Each carries one colour, used everywhere the role appears. */
 const IDENTITIES = ROLES.map((role) => ({
@@ -22,14 +24,20 @@ const IDENTITIES = ROLES.map((role) => ({
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
   { id: "delegations", label: "Delegations" },
+  { id: "paper", label: "Overview" },
+  { id: "how", label: "How it works" },
 ];
+
+/** The reading tabs stand alone — the domain rail scopes the app, not a document. */
+const READING: TabId[] = ["paper", "how"];
 
 export function App() {
   const demo = useApp();
   const [tab, setTab] = useState<TabId>("proposals");
-  const [domain, setDomain] = useState("design");
+  const [domain, setDomain] = useState("treasury");
   const [role, setRole] = useState<Role>("B");
   const { config, client } = demo;
+  const reading = READING.includes(tab);
 
   if (!demo.configResult.ok || !config || !client) {
     const missing = demo.configResult.ok ? "chain client" : demo.configResult.missing;
@@ -52,11 +60,26 @@ export function App() {
 
   return (
     <main className="shell">
-      <Masthead role={role} onRole={setRole} />
+      <nav className="topnav" aria-label="sections">
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={tab === entry.id ? "topnav-tab topnav-tab-on" : "topnav-tab"}
+            onClick={() => setTab(entry.id)}
+            aria-current={tab === entry.id ? "page" : undefined}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
+
+      <Masthead role={role} onRole={setRole} holdings={demo.holdings} lent={demo.lent} />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
 
-      <div className="workspace">
+      <div className={reading ? "workspace workspace-reading" : "workspace"}>
+        {reading ? null : (
         <DomainNav
           config={config}
           client={client}
@@ -70,22 +93,9 @@ export function App() {
           onRegistered={demo.registerDomain}
           onResetSession={demo.resetSessionDomains}
         />
+        )}
 
         <div className="workspace-main">
-          <nav className="tabs" aria-label="sections">
-            {TABS.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className={tab === entry.id ? "tab tab-on" : "tab"}
-                onClick={() => setTab(entry.id)}
-                aria-current={tab === entry.id ? "page" : undefined}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </nav>
-
           <ErrorBoundary>
             {tab === "proposals" ? (
               <ProposalsPanel
@@ -110,7 +120,6 @@ export function App() {
                 <ChainPanel
                   config={config}
                   client={client}
-                  graph={demo.graph}
                   delegations={demo.delegations}
                   writable={demo.writable}
                   role={role}
@@ -121,6 +130,9 @@ export function App() {
                 />
               </div>
             ) : null}
+
+            {tab === "paper" ? <LightPaper /> : null}
+            {tab === "how" ? <HowItWorks config={config} /> : null}
           </ErrorBoundary>
         </div>
       </div>
@@ -141,7 +153,20 @@ export function App() {
   );
 }
 
-function Masthead({ role, onRole }: { role: Role; onRole: (role: Role) => void }) {
+function Masthead({
+  role,
+  onRole,
+  holdings,
+  lent,
+}: {
+  role: Role;
+  onRole: (role: Role) => void;
+  /** What each identity holds of the governance token, when the chain has answered. */
+  holdings?: Record<Role, { balance: bigint; votes: bigint }>;
+  /** What each account is lending. Shown beside the balance because a lending never moves
+   *  a token: without it the header reads the same before and after a handover. */
+  lent?: Partial<Record<Role, { amount: bigint; scope: string }>>;
+}) {
   return (
     <header className="masthead">
       <div className="masthead-text">
@@ -168,6 +193,31 @@ function Masthead({ role, onRole }: { role: Role; onRole: (role: Role) => void }
           </button>
         ))}
       </div>
+
+      {holdings ? (
+        <div className="holdings">
+          <span className="holdings-label">governance token</span>
+          {IDENTITIES.map((entry) => {
+            const held = holdings[entry.role];
+            // A balance that is not self-delegated counts for nothing, which is a real
+            // state on an ERC20Votes and worth showing rather than debugging.
+            const dormant = held.balance > 0n && held.votes === 0n;
+            const lending = lent?.[entry.role];
+            return (
+              <span key={entry.role} className="holding">
+                <span className={`holding-who ${entry.className}`}>{entry.label}</span>
+                <Mono>{held.balance.toString()}</Mono>
+                {dormant ? <span className="holding-note">not self-delegated</span> : null}
+                {lending ? (
+                  <span className="holding-note">
+                    lending <Mono>{lending.amount.toString()}</Mono> on {lending.scope}
+                  </span>
+                ) : null}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
     </header>
   );
 }

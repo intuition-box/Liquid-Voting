@@ -8,7 +8,7 @@ import { ModeCode } from "@delegation-framework/utils/Types.sol";
 import { ExecutionLib } from "@erc7579/lib/ExecutionLib.sol";
 import { ModeLib, CallType, ExecType, CALLTYPE_SINGLE, EXECTYPE_DEFAULT } from "@erc7579/lib/ModeLib.sol";
 
-import { IMultiVault } from "./interfaces/IMultiVault.sol";
+import { IMultiVault } from "../interfaces/IMultiVault.sol";
 
 /// @notice The governor-side domain resolver: maps a proposal to the governance domain it
 ///         is scoped to. Vote entry points carry a proposal id rather than a domain, so
@@ -20,7 +20,7 @@ interface IGovernorDomains {
     function proposalDomain(uint256 proposalId) external view returns (bytes32 domainId_);
 }
 
-/// @title GraphDomainCaveatEnforcer
+/// @title GraphDomainScope
 /// @notice ERC-7710 caveat enforcer scoping a delegation to a governance *domain*,
 ///         where domain membership is resolved by verifying a redeemer-supplied path
 ///         witness hop-by-hop against the Intuition MultiVault (ADR 0003), and each
@@ -29,7 +29,7 @@ interface IGovernorDomains {
 ///      (and staking) extends every delegation scoped above the new edge — no
 ///      redeploy, no re-signature. The enforcer never re-implements the vault's id
 ///      math: `calculateTripleId` is treated as an oracle-pure function of the vault.
-contract GraphDomainCaveatEnforcer is CaveatEnforcer {
+contract GraphDomainScope is CaveatEnforcer {
     using ModeLib for ModeCode;
     ////////////////////////////// Types //////////////////////////////
 
@@ -89,6 +89,13 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
     IMultiVault public immutable MULTI_VAULT;
     /// @notice The only execution target a scoped delegation may call.
     address public immutable GOVERNOR;
+    /// @notice Where a proposal's domain is read from.
+    /// @dev Separate from `GOVERNOR` because the two are not always the same contract. A
+    ///      governor written for this scheme can hold the mapping itself, but an
+    ///      OpenZeppelin `Governor` has nowhere to put it, so the domain lives in a small
+    ///      resolver beside it. Binding them together would tie this enforcer to governors
+    ///      we wrote, which is the opposite of the point.
+    IGovernorDomains public immutable DOMAIN_RESOLVER;
     /// @notice The only function selector a scoped delegation may invoke on the governor.
     /// @dev Voting is the only delegated action. Proposing needs no delegation — anyone
     ///      may propose in their own name — so it is deliberately outside this caveat.
@@ -97,14 +104,25 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
     ////////////////////////////// Constructor //////////////////////////////
 
     /// @notice Deploys the enforcer bound to one MultiVault and one governor endpoint.
+    /// @dev Pass the governor itself as `_domainResolver` when it answers `proposalDomain`
+    ///      on its own, which a governor written for this scheme does.
     /// @param _multiVault The Intuition MultiVault (graph authority).
     /// @param _governor The governor contract votes must target.
     /// @param _voteSelector The delegated-vote selector on the governor.
-    constructor(IMultiVault _multiVault, address _governor, bytes4 _voteSelector) {
-        if (address(_multiVault) == address(0) || _governor == address(0)) revert ZeroAddress();
+    /// @param _domainResolver Where each proposal's domain is recorded.
+    constructor(
+        IMultiVault _multiVault,
+        address _governor,
+        bytes4 _voteSelector,
+        address _domainResolver
+    ) {
+        if (address(_multiVault) == address(0) || _governor == address(0) || _domainResolver == address(0)) {
+            revert ZeroAddress();
+        }
         MULTI_VAULT = _multiVault;
         GOVERNOR = _governor;
         VOTE_SELECTOR = _voteSelector;
+        DOMAIN_RESOLVER = IGovernorDomains(_domainResolver);
     }
 
     ////////////////////////////// External functions //////////////////////////////
@@ -224,7 +242,7 @@ contract GraphDomainCaveatEnforcer is CaveatEnforcer {
         if (declaredVoter_ != _redeemer) revert VoterIsNotRedeemer(declaredVoter_, _redeemer);
 
         uint256 proposalId_ = uint256(bytes32(_callData[4:36]));
-        domainId_ = IGovernorDomains(GOVERNOR).proposalDomain(proposalId_);
+        domainId_ = DOMAIN_RESOLVER.proposalDomain(proposalId_);
         if (domainId_ == bytes32(0)) revert UnresolvedProposalDomain(proposalId_);
     }
 
