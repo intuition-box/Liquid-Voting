@@ -1,87 +1,172 @@
-# ERC-7710 Liquid Democracy POC — Intuition Graph Domain Caveats
+# Graph-scoped governance delegation
 
-Intuition Box DAO bounty (Mission 10). An ERC-7710 delegation chain across three accounts
-(`A → B → C`) over a five-level domain graph, where voting weight is delegated by *domain*
-and the scope check is resolved by traversing the Intuition knowledge graph — so that
-adding `micro-grants — is a sub-domain of — builder-grants` extends every `treasury`-scoped
-delegation, **with no contract redeploy and no re-signature**.
+Delegate a vote **by domain**, and let a knowledge graph decide what that domain covers.
 
-The mechanism: each delegation carries a custom caveat, `GraphDomainScope`.
-The redeemer supplies the domain path as a witness (`_args`); the enforcer verifies
-every hop against live MultiVault state — existence as a positive triple
-(`getVaultType == 1`) *and* attestation by stake position (`getShares(attestor) > 0`).
-The graph is the authority; stake is the trust signal.
+An account hands its voting weight to another on `treasury`. The delegate can then vote on
+`payroll`, `grants` and `micro-grants` — because the Intuition graph says those sit under
+`treasury` — but not on `events`, which does not. Add `audit-fund — is a sub-domain of —
+treasury` to the graph and every `treasury` delegation already signed reaches it, with no
+contract redeployed and no signature reissued.
 
-## Status
+Built as a proof of concept for the Intuition Box DAO bounty (Mission 10), live on
+Intuition testnet.
 
-| Phase | State |
+## How it works
+
+Each delegation is an [ERC-7710](https://eips.ethereum.org/EIPS/eip-7710) delegation
+carrying one custom caveat, `GraphDomainScope`. At vote time the caveat has to answer a
+single question: *is this proposal's domain inside the domain this delegation was signed
+for?*
+
+The Intuition MultiVault cannot be asked that directly. Its storage is keyed by
+`hash(subject, predicate, object)`, so a contract can verify that a given triple exists
+but can never enumerate the children of a node. There is no reverse index, which makes
+on-chain graph traversal impossible rather than merely expensive.
+
+So the redeemer supplies the path as a **witness** in the delegation's `args`, and the
+enforcer verifies every hop against live chain state — the same split as a Merkle proof:
+the prover offers a witness, never a fact. Per hop, at roughly 14k gas:
+
+```
+calculateTripleId(child, predicate, parent)   recompute the edge's id
+getVaultType(id) == 1                         a positive triple, never a counter-triple
+getShares(attestor, id, curveId) > 0          somebody staked on it
+```
+
+That last line is the trust model. Triples are permissionless — anyone can mint
+`events — is a sub-domain of — treasury` for a fraction of a cent — so **existence is not
+attestation**. Creating a term forces a deposit, which makes a stake position the readable
+proof that a named attestor stands behind an edge. Whose stake counts is a signed term:
+an organisation's address for institutional curation, or `address(0)`, which resolves to
+the delegator so each level of a chain is read through its own signer's view of the graph.
+
+Narrowing needs no code. The Delegation Framework runs every caveat in a chain and
+requires all of them to pass, so a delegation narrowed from `treasury` to `grants` is the
+intersection of the two scopes.
+
+## Deployed on Intuition testnet (chain 13579)
+
+The app runs on a stock OpenZeppelin `Governor`. Nothing in their package is modified or
+copied: `Governor`, `GovernorSettings`, `GovernorCountingSimple` and `GovernorVotes` are
+inherited as published, and the whole integration is one override of `_getVotes`, which
+`Governor` declares `virtual` for exactly this purpose. OpenZeppelin's own `delegate()`
+moves an account's entire weight to one delegate; per-domain delegation is finer, so a
+second register answers *who may exercise weight where* while the token keeps answering
+*how much*.
+
+| Contract | Address | Role |
+|---|---|---|
+| `OZGovernor` | [`0xCfAFf046…F828`](https://testnet.explorer.intuition.systems/address/0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828) | OpenZeppelin Governor + `DomainVotes`. What the app votes through. |
+| `OZGraphDomainScope` | [`0x8D1D5722…65B2`](https://testnet.explorer.intuition.systems/address/0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2) | The caveat, bound to that governor and its resolver. |
+| `ProposalDomains` | [`0xa0806eF5…F00B`](https://testnet.explorer.intuition.systems/address/0xa0806eF53d27fD938040a32ba20743700746F00B) | Which domain a proposal belongs to. OZ proposals have no field for it. |
+| `DemoVotes` | [`0x0f44F7d9…2b50`](https://testnet.explorer.intuition.systems/address/0x0f44F7d916e19B04A6291a1fAB37fC5178EEA14e) | The `ERC20Votes` weight is read from. |
+| `DemoGovernor` | [`0x2bEE53dd…6cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) | The first implementation: OZ-shaped, self-contained. Test harness and point of comparison. |
+| `GraphDomainScope` | [`0x948CFe84…5302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) | The same caveat bound to `DemoGovernor`. |
+
+Reading the graph: MultiVault
+[`0x2Ece8D4d…AB91`](https://testnet.explorer.intuition.systems/address/0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91),
+17 domain atoms and 16 `is a sub-domain of` triples, each staked by the curator
+`0xAA7a2Dfe…615A`. MetaMask's Delegation Framework **v1.3.0** is deployed at its canonical
+CREATE2 addresses, all 31 standard enforcers included.
+
+Every address lives in [`manifest/13579.json`](manifest/13579.json), the single source of
+truth shared by the scripts, the tests and the frontend.
+
+## Running it
+
+Requires [bun](https://bun.sh) and [Foundry](https://getfoundry.sh).
+
+```bash
+bun install
+bun run verify     # read-only: asserts the demo's claims against live chain state
+bun run dev        # http://localhost:5173
+```
+
+The frontend needs two gitignored files the scripts produce — `data/accounts.json` (owner
+keys) and `data/delegations.json` (the pre-signed chain) — plus `contracts/.env` with a
+funded `PRIVATE_KEY`. See [`contracts/.env.example`](contracts/.env.example). From a clean
+chain:
+
+```bash
+bun run seed       # create the domain vocabulary and stake every edge
+bun run setup      # deploy and fund the three HybridDeleGator accounts
+bun run delegate   # sign the delegation chain
+```
+
+Secrets reach the browser only in dev, through a generated `.env.local`; a production
+build carries none and opens read-only. See
+[ADR 0011](docs/adr/0011-frontend-demo-keys.md).
+
+### Scripts
+
+| Command | What it does |
 |---|---|
-| 0 — Bootstrap (verify framework, audit vocabulary, ADRs, red tests) | done — [gate report](docs/phase0/gate-report.md) |
-| 1 — Enforcer (implement, gas table, review, deploy + verify) | done — 111 tests green, [gas table](docs/phase1/gas-report.md), [security review](contracts/SECURITY_REVIEW.md) clean, deployed + verified on 13579 ([manifest](manifest/13579.json)) |
-| 2 — Graph seed (attestor deposits + term_id manifest) | done — idempotent [seeder](scripts/seed-graph.ts), org-attestor staked on every edge, [manifest](manifest/13579.json) filled; live enforcer smoke-tested (a domain under the delegated root passes, one outside it reverts) |
-| 3 — Delegation chain (3 HybridDeleGator accounts, live redemption) | done — the delegated-voting flows verified live on 13579 (`bun run votes`): chain redemption, narrowing, scope rejection, revocation |
-| 4 — Frontend (5 panels, incl. live graph extension) | done — `bun run dev`, five panels on the shared service layer; `bun run verify` green against live state |
-| 5 — Writeup | done — [WRITEUP.md](docs/WRITEUP.md) |
-| 6 — Presentation (demo script, slides, rehearsal) | done — [DEMO.md](docs/DEMO.md), [slide outline](docs/slides.md), rehearsed live (`bun run rehearse`: 4.1 s, 0.0071 tTRUST) |
-| 7 — OpenZeppelin integration | done — the same scheme on a stock OZ `Governor`, nothing in their package touched; deployed on 13579 and exercised: a vote inside the delegated domain counts both voices, the same vote outside it counts one ([WRITEUP §5](docs/WRITEUP.md)) |
+| `bun run verify` | Read-only. Asserts every panel's behaviour against live state. Run before presenting. |
+| `bun run reset` | Back to the opening state: delegations taken back, a fresh proposal per domain. |
+| `bun run seed` | Creates the vocabulary if absent, then stakes each edge. Idempotent. |
+| `bun run setup` | Deploys and funds the three smart accounts. Idempotent. |
+| `bun run delegate` | Signs the delegation chain off-chain. Free. |
+| `bun run seed:proposals` | Records one proposal per domain — on `DemoGovernor`, not the OZ one. |
+| `bun run votes` | The acceptance flows end to end, against `DemoGovernor`. |
+| `bun run rehearse` | Runs the live graph extension under a throwaway label. |
+| `bun run dev` / `build` | The frontend. |
+
+There is no bundler on chain 13579 and `DeleGatorCore.execute` is `onlyEntryPoint`, so
+every smart-account action is a self-bundled user operation: a funded EOA submits
+`EntryPoint.handleOps`, each account pre-pays its own gas. No relayer, no paymaster.
+
+## Tests
+
+```bash
+cd contracts
+forge test                                  # 120 tests, 6 suites
+forge test --no-match-path "test/**/*fork*" # 108 offline, against a MockMultiVault
+forge test --match-path "test/**/*fork*"    # 12 fork tests, live RPC
+```
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `enforcers/GraphDomainScope.t.sol` | 33 | Every revert path of the caveat, plus fuzzing on the witness. |
+| `enforcers/DelegationChain.fork.t.sol` | 9 | The chain end to end against the real MultiVault and DelegationManager. |
+| `governance/DemoGovernor.t.sol` | 53 | Proposal lifecycle, counting, the per-domain register. |
+| `governance/OZGovernor.t.sol` | 16 | The `_getVotes` override on a stock OZ Governor. |
+| `gas/Bench.t.sol` | 6 | Gas per witness depth, 0 to 5. |
+| `gas/Bench.fork.t.sol` | 3 | The same against live vault storage. |
+
+`GraphDomainScope` is at **100 %** on lines, statements, branches and functions. The rest
+of `src/` is covered in the high eighties to high nineties, except `DemoVotes`, a plain
+`ERC20Votes` with no logic of its own.
+
+The fork suites need the public RPC, which enforces a bandwidth quota and answers
+`-31002 Bandwidth limit exceeded` when it is exhausted — a fork suite that cannot
+instantiate reports as a failure without anything being wrong in the code.
 
 ## Layout
 
 ```
-docs/OVERVIEW.md       what we built and why, in plain terms — start here
-docs/WRITEUP.md        design decisions, gas, limitations, Mission 11 notes
-docs/DEMO.md           ordered demo script with expected output and recovery moves
-docs/adr/              ADRs 0001–0018 — every architectural decision, with rejected alternatives
-docs/phase0/           gate report + vocabulary audit (re-runnable queries)
-docs/notes/            working notes: the code audit and the refactor plans it produced
-docs/delegation-flow.excalidraw   sequence diagram of the signature + execution flow
-docs/scope-check.excalidraw       how a delegation's scope is verified against the graph
-contracts/src/enforcers/    GraphDomainScope — the ERC-7710 caveat, scope resolved by the graph
-contracts/src/governance/   OZGovernor + DomainVotes (what the app runs on) · DemoGovernor (first implementation)
-contracts/src/resolvers/    ProposalDomains — which domain a proposal belongs to
+contracts/src/enforcers/    GraphDomainScope — the ERC-7710 caveat
+contracts/src/governance/   OZGovernor + DomainVotes (what the app runs on) · DemoGovernor
+contracts/src/resolvers/    ProposalDomains — a proposal's domain, beside the governor
+contracts/src/token/        DemoVotes — the ERC20Votes
 contracts/test/             mirrors src/, plus gas benchmarks and fork suites
-scripts/               CLI: seed, account setup, funding, delegation signing, reset, verify
-src/lib/               services by subject — chain/, graph/, delegation/, config/, actions/
-src/components/        panels; src/hooks/ owns the reads they display
+scripts/                    the CLI above; scripts/lib/ is their shared setup
+src/lib/                    services by subject — chain/ graph/ delegation/ config/ actions/
+src/components/             the panels; src/hooks/ owns the reads they display
+manifest/13579.json         addresses, vocabulary term_ids, curator stakes
 ```
 
-## Demo quickstart
+## Documentation
 
-```bash
-bun install
-bun run reset    # back to the opening state: delegations taken back, fresh proposals
-bun run verify   # read-only: asserts every panel's behaviour against live chain state
-bun run dev      # http://localhost:5173
-```
+| Document | For |
+|---|---|
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | What was built and why, in plain terms. Start here. |
+| [docs/WRITEUP.md](docs/WRITEUP.md) | Design decisions, gas, limitations, what production needs. |
+| [docs/DEMO.md](docs/DEMO.md) | An ordered demo script, expected output and recovery moves. |
+| [docs/slides.md](docs/slides.md) | Slide outline for the presentation. |
+| [docs/adr/](docs/adr/) | ADRs 0001–0019: every architectural decision, with the alternatives rejected. |
+| [contracts/SECURITY_REVIEW.md](contracts/SECURITY_REVIEW.md) | Threat-model walk, reviewed with no code findings. |
+| [docs/phase0/](docs/phase0/) | The opening audit: framework verification and the graph vocabulary. |
 
-The frontend reads the same artefacts the scripts write (`manifest/13579.json`,
-`data/accounts.json`, `data/delegations.json`). On a fresh clone, create them first:
-
-```bash
-bun run seed            # attestor stakes on every graph edge (Phase 2)
-bun run setup           # deploy + fund the three HybridDeleGator accounts
-bun run delegate        # sign the delegations (treasury → narrowed to grants)
-bun run votes           # optional: the acceptance flows, end to end
-```
-
-Both the app and the CLI runner go through `src/lib`, so what the demo shows on screen
-is the code the acceptance runner proved on chain.
-
-## Contracts quickstart
-
-```bash
-cd contracts
-forge build
-forge test --no-match-path "test/fork/**"   # unit suite (offline, MockMultiVault)
-forge test --match-path "test/fork/*"       # fork suite (live Intuition testnet RPC)
-```
-
-46 tests, all green: 25 unit (offline, against a `MockMultiVault` that reproduces two
-probed live behaviours), 9 fork tests driving the real MultiVault and DelegationManager,
-9 gas benchmarks, 3 governor. **100 %** line, statement, branch and function coverage on
-the enforcer.
-
-Network: Intuition testnet, chain id **13579** — every address is in
-[`manifest/13579.json`](manifest/13579.json), the single source of truth for scripts,
-tests and frontend alike. MetaMask Delegation Framework **v1.3.0** is deployed there at
-its canonical CREATE2 addresses (verified — see [ADR 0002](docs/adr/0002-delegation-framework-v130-on-13579.md)).
+Two diagrams sit beside them as `.excalidraw` files, openable at excalidraw.com:
+`docs/delegation-flow.excalidraw` for the signature and execution flow, and
+`docs/scope-check.excalidraw` for how a scope is verified against the graph.
