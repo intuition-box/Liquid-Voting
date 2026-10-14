@@ -107,8 +107,6 @@ export function App() {
         onStart={() => void demo.startSession()}
       />
 
-      {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
-
       <div className={reading ? "workspace workspace-reading" : "workspace"}>
         {reading ? null : (
         <DomainNav

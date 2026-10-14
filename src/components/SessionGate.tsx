@@ -95,7 +95,14 @@ export function SessionGate({
       <button type="button" className="gate-start" onClick={onStart}>
         {funder === "wallet" ? "Connect a wallet and begin" : "Create three wallets"}
       </button>
-      {error ? <p className="gate-error">{error}</p> : null}
+      {/* One line, and the reason itself is in the log at the foot of the page, which
+          opens itself when a failure lands. A button you just pressed should not go
+          quiet, but it should not print an RPC stack trace across the page either. */}
+      {error ? (
+        <p className="gate-error">
+          That did not work — the reason is in the transaction log, at the foot of the page.
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -114,6 +114,23 @@ export function recordStep(intent: StepIntent, outcome: StepOutcome): string {
   return id;
 }
 
+/**
+ * Something went wrong that was not a transaction.
+ *
+ * A failed chain read used to be a banner across the page, and the public RPC's error
+ * text is a wall: the method, the full call arguments, the contract, the docs link. It
+ * pushed the whole interface down to say something a reader could do nothing with.
+ *
+ * It belongs with the rest of what the chain did. The log bar counts failures and opens
+ * itself when one lands, so it is not hidden — only out of the way.
+ */
+export function logError(label: string, detail: string): string {
+  return recordStep(
+    { kind: "local", label, calls: [] },
+    { status: "failed", error: detail.split("\n")[0]?.slice(0, 240) ?? detail },
+  );
+}
+
 export function readLog(): readonly LogStep[] {
   return steps;
 }

@@ -5,6 +5,7 @@ import { createChainClient } from "../lib/chain/network";
 import { isDelegationDisabled } from "../lib/delegation/encoding";
 import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
 import { clearSession, readSession, type Session } from "../lib/chain/session";
+import { logError } from "../lib/chain/tx-log";
 import {
   canWrite,
   clearSessionDomains,
@@ -63,7 +64,6 @@ export interface AppState {
   rootDisabled: boolean;
   leafDisabled: boolean;
   loading: boolean;
-  error: string | null;
   refresh: () => void;
   /** Registers a domain minted this session so the graph and pickers pick it up at once. */
   registerDomain: (domain: SessionDomain) => void;
@@ -158,7 +158,6 @@ export function useApp(): AppState {
   const [rootDisabled, setRootDisabled] = useState(false);
   const [leafDisabled, setLeafDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => setTick((value) => value + 1), []);
@@ -213,7 +212,6 @@ export function useApp(): AppState {
     }
     let cancelled = false;
     setLoading(true);
-    setError(null);
 
     void (async () => {
       try {
@@ -244,7 +242,10 @@ export function useApp(): AppState {
         setRootDisabled(root);
         setLeafDisabled(leaf);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+        // Into the log, not across the page. The public RPC's failure text is a wall —
+        // method, full call arguments, contract, docs link — and a banner carrying it
+        // pushed the whole interface down to say something nobody can act on.
+        if (!cancelled) logError("a chain read failed", cause instanceof Error ? cause.message : String(cause));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -307,7 +308,7 @@ export function useApp(): AppState {
           ...Object.fromEntries(onScreen.map((id, index) => [id.toLowerCase(), read[index]!])),
         }));
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+        if (!cancelled) logError("reading the weights failed", cause instanceof Error ? cause.message : String(cause));
       }
     })();
     return () => {
@@ -357,9 +358,10 @@ export function useApp(): AppState {
     if (!baseConfig || !client) return;
     const funder = resolveFunder(baseConfig);
     if (!funder) {
-      setBootstrapError(
-        "This build has no way to pay for a session: no local key and no faucet configured. Set VITE_FAUCET_URL, or run it with contracts/.env in place.",
-      );
+      const said =
+        "No wallet in this browser, no local key, and no faucet configured — so there is no way to pay for a session.";
+      logError("the session could not be set up", said);
+      setBootstrapError(said);
       return;
     }
     setBootstrapError(null);
@@ -380,7 +382,9 @@ export function useApp(): AppState {
       saveSessionGrants([]);
       refresh();
     } catch (cause) {
-      setBootstrapError(cause instanceof Error ? cause.message : String(cause));
+      const said = cause instanceof Error ? cause.message : String(cause);
+      logError("the session could not be set up", said);
+      setBootstrapError(said);
     } finally {
       setBootstrapping(null);
     }
@@ -421,7 +425,6 @@ export function useApp(): AppState {
     rootDisabled,
     leafDisabled,
     loading,
-    error,
     refresh,
     registerDomain,
     grants,

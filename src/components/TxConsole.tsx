@@ -28,6 +28,7 @@ const KINDS: Record<LogKind, { badge: string; title: string }> = {
 export function TxConsole() {
   const steps = useSyncExternalStore(subscribeLog, readLog, readLog);
   const [open, setOpen] = useState(false);
+  const [seenFailures, setSeenFailures] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const tail = useRef<HTMLDivElement | null>(null);
 
@@ -40,6 +41,19 @@ export function TxConsole() {
   useEffect(() => {
     if (open) tail.current?.scrollIntoView({ block: "end" });
   }, [open, steps.length]);
+
+  // Errors live here now rather than in a banner across the page, so the panel has to
+  // announce itself when one arrives — otherwise moving them out of the way would have
+  // moved them out of sight.
+  useEffect(() => {
+    if (failed > seenFailures) {
+      setOpen(true);
+      setSeenFailures(failed);
+    } else if (failed < seenFailures) {
+      // The log was cleared; forget what we had already shown for.
+      setSeenFailures(failed);
+    }
+  }, [failed, seenFailures]);
 
   const toggle = (id: string): void =>
     setExpanded((current) => {
