@@ -38,8 +38,9 @@ const READING: TabId[] = ["paper", "how"];
 export function App() {
   const demo = useApp();
   const [tab, setTab] = useState<TabId>("proposals");
-  const [domain, setDomain] = useState("treasury");
   const [role, setRole] = useState<Role>("B");
+  // The selection lives in the hook, because it decides which weights are worth reading.
+  const { domain, selectDomain } = demo;
   const { config, client } = demo;
   const reading = READING.includes(tab);
 
@@ -103,7 +104,7 @@ export function App() {
           writable={demo.writable}
           selected={domain}
           sessionDomainCount={demo.sessionDomainCount}
-          onSelect={setDomain}
+          onSelect={selectDomain}
           onRegistered={demo.registerDomain}
           onResetSession={demo.resetSessionDomains}
         />

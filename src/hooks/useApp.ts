@@ -23,8 +23,7 @@ import {
   type SessionDomain,
 } from "../lib/config/app-config";
 import {
-  readDelegatedTo,
-  readLendings,
+  readRegister,
   readGraphLimits,
   readProposals,
   readTokenHoldings,
@@ -35,6 +34,16 @@ import { DelegationSet } from "../lib/delegation/delegation-set";
 import { DomainGraph, type GraphLimits } from "../lib/graph/domain-graph";
 import { baseGrants, type Grant } from "../lib/delegation/grant";
 import { readEdgeStates, type EdgeState } from "../lib/graph/edges";
+
+/**
+ * How far back the proposal list reaches.
+ *
+ * `reset` lays out one proposal per domain, so this covers a whole fresh board with room
+ * for a few left over from before. It used to read forty, and each one costs three reads
+ * — its state, its tally and its domain — so most of a hundred and twenty reads went to
+ * proposals nothing was ever going to show.
+ */
+const PROPOSAL_WINDOW = 20;
 
 export interface AppState {
   configResult: ConfigResult;
@@ -71,6 +80,10 @@ export interface AppState {
   /** Bumped by every `refresh`. A panel that owns a read of its own watches this so it
    *  settles with the rest of the page instead of going stale behind it. */
   tick: number;
+  /** The domain the page is scoped to. Held here rather than in the view, because it
+   *  decides which weights are worth reading at all. */
+  domain: string;
+  selectDomain: (domain: string) => void;
   /** The three wallets this browser owns, or null when it is driving the manifest's. */
   session: Session | null;
   /** Set while a session is being set up, for the loader. */
@@ -108,6 +121,7 @@ export function useApp(): AppState {
   const [session, setSession] = useState<Session | null>(() =>
     typeof window === "undefined" || !baseConfig ? null : readSession(baseConfig.governor),
   );
+  const [domain, selectDomain] = useState("treasury");
   const [bootstrapping, setBootstrapping] = useState<{ stage: string; done: number; total: number } | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
@@ -193,7 +207,7 @@ export function useApp(): AppState {
       try {
         const [edgeStates, records, root, leaf, graphLimits] = await Promise.all([
           readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId),
-          readProposals(client, config, 40),
+          readProposals(client, config, PROPOSAL_WINDOW),
           isDelegationDisabled(client, config.delegations.root.hash),
           isDelegationDisabled(client, config.delegations.leaf.hash),
           readGraphLimits(client, config),
@@ -204,32 +218,17 @@ export function useApp(): AppState {
         // What the governor actually has on its books. Read for every domain, not just
         // the seeded pair's: a grant signed in the browser is checked against this too, so
         // a domain missing from the query would hide a delegation that is genuinely live.
-        const [register, tokens, lendings] = await Promise.all([
-          readDelegatedTo(client, config, config.nodes.map((node) => node.label)),
+        const [register, tokens] = await Promise.all([
+          readRegister(client, config, config.nodes.map((node) => node.label)),
           readTokenHoldings(client, config),
-          readLendings(client, config, config.nodes.map((node) => node.label)),
         ]);
         if (cancelled) return;
         setHoldings(tokens);
-        setLent(lendings);
-        if (cancelled) return;
-        setDelegatedTo(register);
+        setLent(register.lent);
+        setDelegatedTo(register.delegatedTo);
         setEdges(edgeStates);
         setProposals(records);
 
-        // One read per domain that has a proposal — the governor is the authority on
-        // weight. The path lets a grant on a parent domain count here; the governor
-        // verifies every hop of it against the graph.
-        const domainIds = [...new Set(records.map((record) => record.domainId))];
-        const fresh = DomainGraph.from(config.nodes, edgeStates, graphLimits);
-        const perDomain = await Promise.all(
-          domainIds.map((id) => {
-            const label = fresh.labelOf(id);
-            return readWeights(client, config, id, label ? fresh.domainPathOf(label) : []);
-          }),
-        );
-        if (cancelled) return;
-        setWeights(Object.fromEntries(domainIds.map((id, index) => [id.toLowerCase(), perDomain[index]!])));
         setRootDisabled(root);
         setLeafDisabled(leaf);
       } catch (cause) {
@@ -249,6 +248,55 @@ export function useApp(): AppState {
     () => DomainGraph.from(config?.nodes ?? [], edges, limits ?? undefined),
     [config?.nodes, edges, limits],
   );
+
+  /**
+   * What each identity would cast, for the domains the page is actually showing.
+   *
+   * Its own effect, and keyed on the selection, for two reasons. It is the most expensive
+   * read in the app — the governor reverifies every hop of a domain path against the
+   * MultiVault to answer it — and the panel only ever shows the selected domain and what
+   * sits beneath it. Reading all seventeen meant paying for fourteen answers nobody
+   * looked at. Keeping it apart from the main refresh is what lets changing the selection
+   * cost those few reads instead of re-reading the whole board.
+   */
+  useEffect(() => {
+    if (!config || !client || proposals.length === 0) return;
+    const onScreen = [
+      ...new Set(
+        proposals
+          .filter((proposal) => {
+            const label = graph.labelOf(proposal.domainId);
+            return label !== undefined && graph.isDescendantOf(label, domain);
+          })
+          .map((proposal) => proposal.domainId),
+      ),
+    ];
+    if (onScreen.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const read = await Promise.all(
+          onScreen.map((id) => {
+            const label = graph.labelOf(id);
+            return readWeights(client, config, id, label ? graph.domainPathOf(label) : []);
+          }),
+        );
+        if (cancelled) return;
+        // Merged rather than replaced, so weights read for a domain visited earlier stay
+        // on screen instead of blanking each time the selection moves.
+        setWeights((current) => ({
+          ...current,
+          ...Object.fromEntries(onScreen.map((id, index) => [id.toLowerCase(), read[index]!])),
+        }));
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [config, client, graph, domain, proposals, tick]);
 
   // The seeded pair carries its on-chain revoked state; session grants are always live.
   // DelegationSet settles the cascade on top: a grant chained to a revoked one dies too.
@@ -333,6 +381,8 @@ export function useApp(): AppState {
 
   return {
     tick,
+    domain,
+    selectDomain,
     session,
     bootstrapping,
     bootstrapError,

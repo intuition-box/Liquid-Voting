@@ -12,7 +12,7 @@
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
-import { readDelegatedTo, readProposals } from "../src/lib/actions";
+import { readProposals, readRegister } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { readEdgeStates } from "../src/lib/graph/edges";
 
@@ -97,7 +97,9 @@ async function main(): Promise<void> {
   // The demo must open on a clean slate: nothing delegated, everyone holding one vote.
   // A leftover transfer from a rehearsal is the one thing that makes the opening screen
   // lie, so it is checked rather than assumed.
-  const register = await readDelegatedTo(client, config, [...new Set(config.nodes.map((node) => node.label))]);
+  const { delegatedTo: register } = await readRegister(client, config, [
+    ...new Set(config.nodes.map((node) => node.label)),
+  ]);
   const held = Object.entries(register).flatMap(([scope, byRole]) =>
     Object.entries(byRole).map(([from, to]) => `${from} → ${to} on “${scope}”`),
   );

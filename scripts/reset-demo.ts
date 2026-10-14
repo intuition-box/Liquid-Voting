@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
-import { readAllBallots, readDelegatedTo, readProposals, recordProposal, revokeWeight } from "../src/lib/actions";
+import { readAllBallots, readProposals, readRegister, recordProposal, revokeWeight } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { readEdgeStates } from "../src/lib/graph/edges";
 import { ROLES, type Role } from "../src/lib/roles";
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   const labels = config.nodes.map((node) => node.label);
 
   // 1. Every delegation goes back to whoever made it.
-  const register = await readDelegatedTo(client, config, labels);
+  const { delegatedTo: register } = await readRegister(client, config, labels);
   const held = Object.entries(register).flatMap(([scope, byRole]) =>
     Object.keys(byRole).map((from) => ({ from: from as Role, scope })),
   );

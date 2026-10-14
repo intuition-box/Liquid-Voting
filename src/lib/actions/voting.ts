@@ -55,6 +55,21 @@ const VOTE_CAST_WITH_PARAMS = parseAbiItem(
 const VOTE_CAST_ON_BEHALF = parseAbiItem(
   "event VoteCastOnBehalf(uint256 indexed proposalId, address indexed principal, address indexed voter, uint256 weight)",
 );
+/**
+ * Every change to the register, which can be replayed instead of polled.
+ *
+ * `delegateWeight` emits this on both paths — a grant, and a withdrawal with a zero
+ * delegate — so the last event per (delegator, domain) is the current state. Reading the
+ * register by asking `lendingOf` for every account on every domain was fifty-one calls
+ * for an answer one log query gives whole.
+ */
+const WEIGHT_DELEGATED = parseAbiItem(
+  "event WeightDelegated(address indexed delegator, address indexed delegate, bytes32 indexed domainId, uint256 amount)",
+);
+/** Which domain a proposal was recorded under, for the same reason. */
+const PROPOSAL_SCOPED = parseAbiItem(
+  "event ProposalScoped(uint256 indexed proposalId, bytes32 indexed domainId, address indexed scopedBy)",
+);
 /** OZ does not index proposalId, so the id comes out of the event data. */
 const PROPOSAL_CREATED = parseAbiItem(
   "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)",
@@ -662,22 +677,31 @@ export async function readProposals(client: PublicClient, config: AppConfig, lim
   // From the block the governor was deployed in, not from `earliest`. It has nothing to
   // say about the nine million blocks that came before it, and asking anyway is what
   // exhausted the public RPC's bandwidth allowance in the middle of a session.
-  const created = await client.getLogs({
-    address: config.governor,
-    event: PROPOSAL_CREATED,
-    fromBlock: config.governorFromBlock,
-  });
+  // Both log queries at once: the proposals, and the domain each was recorded under.
+  // The domain used to be a contract read per proposal — twenty reads for something one
+  // query answers whole.
+  const [created, scoped] = await Promise.all([
+    client.getLogs({ address: config.governor, event: PROPOSAL_CREATED, fromBlock: config.governorFromBlock }),
+    client.getLogs({ address: config.resolver, event: PROPOSAL_SCOPED, fromBlock: config.governorFromBlock }),
+  ]);
+  const domainOf = new Map<string, Hex>();
+  for (const log of scoped) {
+    if (log.args.proposalId !== undefined && log.args.domainId) {
+      // A proposal's domain is recorded once and refused thereafter, so the first wins.
+      domainOf.set(log.args.proposalId.toString(), log.args.domainId);
+    }
+  }
   const recent = created.slice(-limit).reverse();
 
   const records = await Promise.all(
     recent.map(async (log) => {
       const { proposalId, proposer, description } = log.args;
       if (proposalId === undefined || !proposer || description === undefined) return null;
-      const [state, votes, domainId] = await Promise.all([
+      const [state, votes] = await Promise.all([
         client.readContract({ address: config.governor, abi: ozGovernorAbi, functionName: "state", args: [proposalId] }),
         client.readContract({ address: config.governor, abi: ozGovernorAbi, functionName: "proposalVotes", args: [proposalId] }),
-        client.readContract({ address: config.resolver, abi: proposalDomainsAbi, functionName: "proposalDomain", args: [proposalId] }),
       ]);
+      const domainId = domainOf.get(proposalId.toString()) ?? ("0x" + "0".repeat(64) as Hex);
       const [againstVotes, forVotes, abstainVotes] = votes;
       return {
         id: proposalId,
@@ -872,74 +896,70 @@ export async function readWeights(
   return Object.fromEntries(ROLES.map((role, index) => [role, weights[index] ?? 0n])) as Record<Role, bigint>;
 }
 
-/**
- * Who the governor currently has each account delegating to, per domain.
- *
- * The register is the authority on weight: a signed delegation says the delegate MAY
- * vote, this says whose weight it actually carries. Read for the domains a delegation
- * could be scoped to, which is all the UI needs to know whether a seeded pair is live.
- */
-export async function readDelegatedTo(
-  client: PublicClient,
-  config: AppConfig,
-  scopes: string[],
-): Promise<Record<string, Partial<Record<Role, Role>>>> {
-  const addressOf = new Map(ROLES.map((role) => [config.accounts[role].smartAccount.toLowerCase(), role]));
-  const pairs = scopes.flatMap((scope) => ROLES.map((role) => ({ scope, role })));
-  const held = await Promise.all(
-    pairs.map(async ({ scope, role }) => {
-      const domainId = config.nodes.find((node) => node.label === scope)?.termId;
-      if (!domainId) return null;
-      const [to, amount] = await client.readContract({
-        address: config.governor,
-        abi: ozGovernorAbi,
-        functionName: "lendingOf",
-        args: [config.accounts[role].smartAccount, domainId],
-      });
-      const holder = addressOf.get(to.toLowerCase());
-      return holder ? { holder, amount } : null;
-    }),
-  );
-  const out: Record<string, Partial<Record<Role, Role>>> = {};
-  pairs.forEach(({ scope, role }, index) => {
-    const lending = held[index];
-    if (lending) (out[scope] ??= {})[role] = lending.holder;
-  });
-  return out;
+/** The register, in full: who holds each domain, and how much they were lent. */
+export interface Register {
+  /** Who an account handed each domain to, keyed by domain label then role. */
+  delegatedTo: Record<string, Partial<Record<Role, Role>>>;
+  /** What each account is lending, and where. First one found per account. */
+  lent: Partial<Record<Role, { amount: bigint; scope: string }>>;
 }
 
 /**
- * What each account is currently lending, and where.
+ * Who the governor has each account delegating to, and how much — in one pass.
  *
- * The masthead shows a token balance, which a lending never moves: the register records
- * who may exercise the weight, and the tokens stay where they are. Without this the
- * screen would answer "one hundred" both before and after a handover, so the lending is
- * read separately and shown beside the balance.
+ * The register is the authority on weight: a signed delegation says the delegate MAY
+ * vote, this says whose weight it actually carries. A lending moves no token, so no
+ * balance can be read to infer it; `lendingOf` is the only honest source.
+ *
+ * Both answers come from the same read, which they always did — this used to be two
+ * functions asking `lendingOf(role, domain)` for every pair and each throwing away the
+ * half it did not want. Over seventeen domains and three accounts that was a hundred and
+ * two reads for fifty-one answers, on an RPC whose bandwidth allowance a single refresh
+ * was already enough to exhaust.
  */
-export async function readLendings(
+export async function readRegister(
   client: PublicClient,
   config: AppConfig,
   scopes: string[],
-): Promise<Partial<Record<Role, { amount: bigint; scope: string }>>> {
-  const out: Partial<Record<Role, { amount: bigint; scope: string }>> = {};
-  await Promise.all(
-    ROLES.flatMap((role) =>
-      scopes.map(async (scope) => {
-        const domainId = config.nodes.find((node) => node.label === scope)?.termId;
-        if (!domainId || out[role]) return;
-        const [to, amount] = await client.readContract({
-          address: config.governor,
-          abi: ozGovernorAbi,
-          functionName: "lendingOf",
-          args: [config.accounts[role].smartAccount, domainId],
-        });
-        if (to === "0x0000000000000000000000000000000000000000") return;
-        out[role] = { amount, scope };
-      }),
-    ),
-  );
-  return out;
+): Promise<Register> {
+  const logs = await client.getLogs({
+    address: config.governor,
+    event: WEIGHT_DELEGATED,
+    fromBlock: config.governorFromBlock,
+  });
+
+  // Replayed in order, so the last word on a pair is the one that stands. A withdrawal
+  // names the zero address, which removes the entry rather than recording a lending of
+  // nothing.
+  const current = new Map<string, { delegate: `0x${string}`; amount: bigint }>();
+  for (const log of logs) {
+    const { delegator, delegate, domainId, amount } = log.args;
+    if (!delegator || !delegate || !domainId || amount === undefined) continue;
+    const key = `${delegator.toLowerCase()}|${domainId.toLowerCase()}`;
+    if (delegate === "0x0000000000000000000000000000000000000000") current.delete(key);
+    else current.set(key, { delegate, amount });
+  }
+
+  const roleOf = new Map(ROLES.map((role) => [config.accounts[role].smartAccount.toLowerCase(), role]));
+  const delegatedTo: Register["delegatedTo"] = {};
+  const lent: Register["lent"] = {};
+
+  for (const scope of scopes) {
+    const domainId = config.nodes.find((node) => node.label === scope)?.termId;
+    if (!domainId) continue;
+    for (const role of ROLES) {
+      const held = current.get(`${config.accounts[role].smartAccount.toLowerCase()}|${domainId.toLowerCase()}`);
+      if (!held) continue;
+      const holder = roleOf.get(held.delegate.toLowerCase());
+      // Only a lending to one of the demo's own accounts can be drawn as an arrow between
+      // two of them; one to an outside address is still a lending and still counted.
+      if (holder) (delegatedTo[scope] ??= {})[role] = holder;
+      lent[role] ??= { amount: held.amount, scope };
+    }
+  }
+  return { delegatedTo, lent };
 }
+
 
 /**
  * The governor's own path cap, read rather than copied.
