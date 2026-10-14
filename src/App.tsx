@@ -102,6 +102,7 @@ export function App() {
         bootstrapping={demo.bootstrapping}
         error={demo.bootstrapError}
         canStart={demo.canStartSession}
+        funder={demo.funder}
         writable={demo.writable}
         onStart={() => void demo.startSession()}
       />

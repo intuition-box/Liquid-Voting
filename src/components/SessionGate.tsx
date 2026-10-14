@@ -19,6 +19,7 @@ export function SessionGate({
   error,
   canStart,
   writable,
+  funder,
   onStart,
 }: {
   session: Session | null;
@@ -27,6 +28,8 @@ export function SessionGate({
   canStart: boolean;
   /** Whether the app can already write with the identities it has. */
   writable: boolean;
+  /** How this build would pay, so the offer can say so before anyone clicks. */
+  funder: "key" | "wallet" | "faucet" | null;
   onStart: () => void;
 }) {
   if (bootstrapping) {
@@ -61,24 +64,36 @@ export function SessionGate({
       <section className="gate gate-shut">
         <strong>Read-only.</strong>{" "}
         <span>
-          This build has no way to pay for a session — no local key, and no faucet configured. Everything on
-          chain is still readable: the graph, the delegations, every vote and who carried it.
+          This build has no way to pay for a session: no wallet in this browser, no local key, and no faucet
+          configured. Everything on chain is still readable — the graph, the delegations, every vote and who
+          carried it.
         </span>
       </section>
     );
   }
+
+  // The offer has to say who pays, because the answer differs by build and one of them
+  // asks the visitor to sign. Promising wallets "funded for you" and then opening
+  // MetaMask would be a small lie at the worst moment.
+  const PAYS = {
+    key: "Funded by this development build's own key.",
+    wallet:
+      "Your wallet pays, once: a single transaction of 0.03 tTRUST funds the session, and the three accounts cover everything after it themselves.",
+    faucet: "Funded by a faucet, so you need nothing of your own.",
+  } as const;
 
   return (
     <section className="gate gate-offer">
       <div className="gate-offer-text">
         <strong>Try it with wallets of your own.</strong>
         <p>
-          Three accounts, generated in this browser and funded for you. About thirty seconds, and every step
-          of it shows in the transaction log. {writable ? "The accounts already loaded stay where they are." : ""}
+          Three accounts, generated in this browser. About thirty seconds, and every step of it shows in the
+          transaction log. {funder ? PAYS[funder] : ""}{" "}
+          {writable ? "The accounts already loaded stay where they are." : ""}
         </p>
       </div>
       <button type="button" className="gate-start" onClick={onStart}>
-        Create three wallets
+        {funder === "wallet" ? "Connect a wallet and begin" : "Create three wallets"}
       </button>
       {error ? <p className="gate-error">{error}</p> : null}
     </section>

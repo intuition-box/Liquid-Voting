@@ -1,6 +1,12 @@
-# Session faucet
+# Session faucet — the alternative, not the default
 
-One small transfer per visitor, so anyone can drive the demo without a key being published.
+**The app funds a session from the visitor's own wallet.** One transaction, no key
+anywhere, nothing to deploy. See [ADR 0027](../docs/adr/0027-the-visitor-pays.md).
+
+This worker is here for the deployment that would rather nobody needed a wallet at all:
+set `VITE_FAUCET_URL` and `resolveFunder` falls through to it when the browser has no
+wallet. It costs a Cloudflare account, a funded key living somewhere, and somebody to
+notice when it runs dry — which is why it is not the default.
 
 The frontend generates a visitor's three wallets in their browser. That part costs nothing
 and needs nobody's permission. But the first tTRUST has to come from somewhere, and an

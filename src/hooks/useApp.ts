@@ -9,6 +9,7 @@ import {
   canWrite,
   clearSessionDomains,
   loadAppConfig,
+  funderKind,
   resolveFunder,
   withSession,
   readSessionDomains,
@@ -95,8 +96,10 @@ export interface AppState {
   bootstrapError: string | null;
   startSession: () => Promise<void>;
   endSession: () => void;
-  /** Whether this build can pay for a session at all — a local key, or a faucet. */
+  /** Whether this build can pay for a session at all. */
   canStartSession: boolean;
+  /** Which way it would pay, so the offer can say so before anyone clicks. */
+  funder: "key" | "wallet" | "faucet" | null;
   /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
   resetSessionDomains: () => void;
 }
@@ -405,6 +408,7 @@ export function useApp(): AppState {
     startSession,
     endSession,
     canStartSession: baseConfig !== null && resolveFunder(baseConfig) !== null,
+    funder: baseConfig ? funderKind(baseConfig) : null,
     configResult,
     config,
     client,

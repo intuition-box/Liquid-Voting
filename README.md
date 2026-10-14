@@ -104,9 +104,12 @@ browser, three smart accounts are deployed, funded, given a hundred `DVOTE` each
 self-delegated, and the whole thing plays out in the transaction log at the foot of the
 page. About thirty seconds.
 
-Hosting that needs somewhere for the first tTRUST to come from, since a funded key must
-never reach `dist/`. See [`faucet/`](faucet/README.md) — a Cloudflare Worker that keeps the
-key as a secret and rate-limits — and [ADR 0023](docs/adr/0023-sessions-are-made-in-the-browser.md).
+Hosted, the first tTRUST comes from your own wallet: one transaction of 0.03 tTRUST funds
+the session, and the three accounts pay for everything after it themselves. No funded key
+exists anywhere, which is the point — one in `dist/` would be published to whoever reads
+the bundle. [ADR 0023](docs/adr/0023-sessions-are-made-in-the-browser.md) has the
+reasoning, and [`faucet/`](faucet/README.md) is the alternative for a deployment that
+would rather nobody needed a wallet.
 
 The frontend needs two gitignored files the scripts produce — `data/accounts.json` (owner
 keys) and `data/delegations.json` (the pre-signed chain) — plus `contracts/.env` with a
@@ -179,7 +182,7 @@ contracts/src/resolvers/    ProposalDomains — a proposal's domain, beside the 
 contracts/src/token/        DemoVotes — the ERC20Votes
 contracts/test/             mirrors src/, plus gas benchmarks and fork suites
 scripts/                    the CLI above; scripts/lib/ is their shared setup
-faucet/                     the Worker that funds a visitor's session
+faucet/                     optional: a Worker that funds a session instead of a wallet
 src/lib/                    services by subject — chain/ graph/ delegation/ config/ actions/
 src/components/             the panels; src/hooks/ owns the reads they display
 manifest/13579.json         addresses, vocabulary term_ids, curator stakes
@@ -193,7 +196,7 @@ manifest/13579.json         addresses, vocabulary term_ids, curator stakes
 | [docs/WRITEUP.md](docs/WRITEUP.md) | Design decisions, gas, limitations, what production needs. |
 | [docs/DEMO.md](docs/DEMO.md) | An ordered demo script, expected output and recovery moves. |
 | [docs/slides.md](docs/slides.md) | Slide outline for the presentation. |
-| [docs/adr/](docs/adr/) | ADRs 0001–0026: every architectural decision, with the alternatives rejected. |
+| [docs/adr/](docs/adr/) | ADRs 0001–0027: every architectural decision, with the alternatives rejected. |
 | [contracts/SECURITY_REVIEW.md](contracts/SECURITY_REVIEW.md) | Threat-model walk, reviewed with no code findings. |
 | [docs/phase0/](docs/phase0/) | The opening audit: framework verification and the graph vocabulary. |
 
