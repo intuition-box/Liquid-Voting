@@ -8,11 +8,13 @@
  * above it.
  *
  * So the standing is gone, being a duplicate, and the part that existed nowhere else
- * lives here, beneath the cards, reporting on whichever identity you are acting as. One
- * line when there is anything to say, nothing at all when there is not.
+ * sits at the foot of the Delegations tab, reporting on whichever identity you are
+ * acting as. One line when there is anything to say, nothing at all when there is not.
  *
- * It cannot live *inside* a card: the card is a button, and a disclosure inside it would
- * be a button inside a button.
+ * Delegations and not Proposals, which is where it first went and where it did not
+ * belong: that tab names every voter on every row now, so a second account of the same
+ * votes, filtered to one identity, was saying it twice. Here it completes a reading —
+ * who holds this domain, how to hand it over, and what came of having done so.
  */
 import { useEffect, useState } from "react";
 import type { PublicClient } from "viem";
@@ -69,12 +71,17 @@ export function VoiceTrail({
         <span>
           <span className={ROLE_CLASS[role]}>{role}</span>&rsquo;s voice has reached{" "}
           <Mono>{voices.length}</Mono> {voices.length === 1 ? "ballot" : "ballots"}
-          {byOthers > 0 ? (
+          {byOthers === 0 ? (
+            voices.length === 1 ? ", cast by itself" : ", all cast by itself"
+          ) : byOthers === voices.length ? (
+            <>
+              , {voices.length === 1 ? "" : "all "}carried by{" "}
+              <strong>somebody else</strong>
+            </>
+          ) : (
             <>
               {" "}— <strong>{byOthers}</strong> of them carried by somebody else
             </>
-          ) : (
-            ", all of them cast by itself"
           )}
         </span>
       </button>

@@ -4,6 +4,7 @@ import { privateKeyToAddress } from "viem/accounts";
 
 import type { Funder } from "../chain/bootstrap";
 import type { Session } from "../chain/session";
+import { hasWallet } from "../chain/wallet";
 import type { DomainEdge, DomainNode } from "../graph/edges";
 import { parseEdgeKey } from "../graph/domain-graph";
 import { ROLES, type Role } from "../roles";
@@ -218,14 +219,28 @@ export function withSession(config: AppConfig, session: Session): AppConfig {
 /**
  * How a session gets its first tTRUST, or null when this build has no way to.
  *
- * A development build was handed a key and uses it. A hosted build has none — shipping
- * one would publish a funded account to anyone who reads the bundle, which ADR 0011
- * exists to prevent — and uses the faucet, which holds its key server side.
+ * Three paths, tried in that order.
+ *
+ * A development build was handed a key in `contracts/.env` and uses it, so nothing extra
+ * has to be running locally. A hosted build has none — shipping one would publish a
+ * funded account to whoever reads the bundle, which is what ADR 0011 exists to prevent —
+ * and asks the visitor's own wallet: they sign one transaction funding the session's
+ * submitter, and everything after that is paid for out of it.
+ *
+ * The faucet is last and optional, for a deployment that would rather nobody needed a
+ * wallet at all. It costs an endpoint, a funded key living somewhere, and somebody to
+ * keep it fed, which is why it is not the default.
  */
 export function resolveFunder(config: AppConfig): Funder | null {
   if (isHexKey(config.submitterKey)) return { kind: "key", key: config.submitterKey };
+  if (hasWallet()) return { kind: "wallet" };
   if (config.faucetUrl) return { kind: "faucet", url: config.faucetUrl };
   return null;
+}
+
+/** Which of the three a build would use, so the interface can say so before asking. */
+export function funderKind(config: AppConfig): Funder["kind"] | null {
+  return resolveFunder(config)?.kind ?? null;
 }
 
 /** Write actions need a funded submitter and all three owner keys (dev only, ADR 0011). */

@@ -97,16 +97,6 @@ export function App() {
         />
       )}
 
-      {reading ? null : (
-        <VoiceTrail
-          config={config}
-          client={client}
-          role={role}
-          proposals={demo.proposals}
-          tick={demo.tick}
-        />
-      )}
-
       <SessionGate
         session={demo.session}
         bootstrapping={demo.bootstrapping}
@@ -167,6 +157,15 @@ export function App() {
                   domain={domain}
                   onSigned={demo.addGrant}
                   onRevoked={demo.revokeGrant}
+                />
+                {/* What came of handing it over, which completes the reading this tab
+                    starts. Not on Proposals: that tab names every voter on every row. */}
+                <VoiceTrail
+                  config={config}
+                  client={client}
+                  role={role}
+                  proposals={demo.proposals}
+                  tick={demo.tick}
                 />
               </div>
             ) : null}

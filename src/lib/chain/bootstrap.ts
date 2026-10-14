@@ -39,6 +39,7 @@ import type { HybridAccount } from "./smart-accounts";
 import { logStep, recordStep, settleStep, trackTransaction } from "./tx-log";
 import { defaultFees, sendUserOp } from "./user-op";
 import { addressesOf, deriveAccounts, freshKeys, writeSession, type Session } from "./session";
+import { connectWallet, WalletError } from "./wallet";
 import { ROLES, type Role } from "../roles";
 
 /**
@@ -85,7 +86,11 @@ const GAS_TRANSFER = 60_000n;
 export type Funder =
   /** A key this build was given — the local development path. */
   | { kind: "key"; key: Hex }
-  /** An endpoint that holds the key server side, for a build anyone can open. */
+  /** The visitor's own wallet. The hosted path, and the one that needs no key to exist
+   *  anywhere: they sign once, and the session pays for itself after that. */
+  | { kind: "wallet" }
+  /** An endpoint that holds a key server side. Kept for a deployment that wants nobody
+   *  to need a wallet at all, and needs somebody to keep it fed. */
   | { kind: "faucet"; url: string };
 
 export interface BootstrapParams {
@@ -464,22 +469,42 @@ async function fundSubmitter(
   submitter: `0x${string}`,
   rpcUrl: string | undefined,
 ): Promise<void> {
+  const FROM: Record<Funder["kind"], string> = {
+    key: "From the key this development build was given. A hosted build has none.",
+    wallet:
+      "From your own wallet — the only transaction you are asked to sign. Everything after this is paid for out of it, so no funded key has to exist anywhere (ADR 0011).",
+    faucet:
+      "From a faucet holding its key server side and rate-limiting by caller, so no funded key ships in the bundle (ADR 0011).",
+  };
   const intent = {
     actor: submitter,
     label: `the session submitter is funded with ${formatEther(SESSION_BUDGET)} tTRUST`,
-    detail:
-      funder.kind === "key"
-        ? "From the key this development build was given. A hosted build has none and asks a faucet instead."
-        : "From a faucet that holds its key server side and rate-limits by caller, so no funded key has to ship in the bundle (ADR 0011).",
+    detail: FROM[funder.kind],
     calls: [
       {
-        contract: funder.kind === "key" ? "local funder" : "faucet",
+        contract: { key: "local funder", wallet: "your wallet", faucet: "faucet" }[funder.kind],
         fn: "transfer",
         args: { to: submitter },
         value: SESSION_BUDGET,
       },
     ],
   };
+
+  if (funder.kind === "wallet") {
+    const wallet = await connectWallet();
+    const payer = wallet.account.address;
+    const balance = await client.getBalance({ address: payer });
+    if (balance < SESSION_BUDGET) {
+      // Said in full, because a visitor can act on it and a revert cannot be acted on.
+      throw new WalletError(
+        `${payer.slice(0, 6)}…${payer.slice(-4)} holds ${formatEther(balance)} tTRUST and a session costs ${formatEther(SESSION_BUDGET)}. Intuition's portal has a faucet.`,
+      );
+    }
+    await trackTransaction(client, { ...intent, actor: payer }, () =>
+      wallet.sendTransaction({ to: submitter, value: SESSION_BUDGET, gas: GAS_TRANSFER }),
+    );
+    return;
+  }
 
   if (funder.kind === "key") {
     const wallet = createWalletClient({

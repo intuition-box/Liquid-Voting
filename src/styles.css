@@ -1939,7 +1939,9 @@ select:focus-visible,
    line, and does not appear at all until there is something to report. */
 
 .trail {
-  margin: calc(var(--s5) * -1) 0 var(--s6);
+  /* It sits in the Delegations stack now, which spaces its own children, so it needs no
+     margin of its own. It had a negative one to tuck under the identity cards. */
+  margin: 0;
 }
 
 .trail-bar {
