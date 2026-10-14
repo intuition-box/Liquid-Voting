@@ -65,6 +65,8 @@ export function App() {
 
   return (
     <main className="shell">
+      <Masthead />
+
       <nav className="topnav" aria-label="sections">
         {TABS.map((entry) => (
           <button
@@ -78,8 +80,6 @@ export function App() {
           </button>
         ))}
       </nav>
-
-      <Masthead />
 
       {reading ? null : (
         <IdentityBar

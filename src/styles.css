@@ -91,14 +91,14 @@ body {
 
 /* ── Masthead ─────────────────────────────────────────────────────────── */
 
+/* The page header, above the navigation. No rule of its own: the nav directly beneath it
+   already draws one, and two hairlines a few pixels apart say nothing the first does not. */
 .masthead {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s7);
-  margin-bottom: var(--s7);
-  padding-bottom: var(--s5);
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--s5);
 }
 
 .masthead h1 {
@@ -942,8 +942,8 @@ select:focus-visible,
   display: flex;
   flex-wrap: wrap;
   gap: var(--s3);
-  /* Its own top padding, because the shell's scrolls away with the content, and its own
-     background, because content now passes underneath it. */
+  /* Its own padding, because when it sticks the header above has scrolled away, and its
+     own background, because content then passes underneath it. */
   padding: var(--s3) 0 var(--s4);
   margin-bottom: var(--s6);
   background: var(--bg);
@@ -1724,10 +1724,9 @@ select:focus-visible,
    times, and that subject is the whole demonstration. */
 
 .identities {
-  /* Room below as well as above: with none, the cards pressed straight into the domain
-     tree and the proposals table, and the session line that used to sit between them
-     landed on top of the table's own header. */
-  margin: var(--s5) 0 var(--s6);
+  /* First thing under the nav now: the cards are what you act on, the masthead is read
+     once. The top margin is gone because the nav already spaces itself below. */
+  margin: 0 0 var(--s6);
 }
 
 .identity-cards {
