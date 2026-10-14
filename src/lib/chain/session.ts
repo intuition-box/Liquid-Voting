@@ -21,7 +21,7 @@
 import type { Hex, PublicClient } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-import { toHybridAccount } from "./smart-accounts";
+import { toHybridAccount, type HybridAccount } from "./smart-accounts";
 import { ROLES, type Role } from "../roles";
 
 /** One session's worth of identity. */
@@ -53,17 +53,30 @@ export function freshKeys(): { submitterKey: Hex; owners: Record<Role, Hex> } {
  * A HybridDeleGator's address is determined by its owner and its factory, so it can be
  * known — and funded, and delegated to — before there is any code at it. That is what
  * lets the whole set be planned in one pass and deployed in another.
+ *
+ * Returns the account objects, not the addresses, because the setup needs to sign with
+ * them straight after. Building them twice was three wasted round trips against an RPC
+ * with a bandwidth allowance this demo has already exhausted more than once.
  */
 export async function deriveAccounts(
   client: PublicClient,
   owners: Record<Role, Hex>,
-): Promise<Record<Role, `0x${string}`>> {
-  const accounts = {} as Record<Role, `0x${string}`>;
-  for (const role of ROLES) {
-    const account = await toHybridAccount(client, privateKeyToAccount(owners[role]));
-    accounts[role] = account.address;
-  }
+): Promise<Record<Role, HybridAccount>> {
+  const derived = await Promise.all(
+    ROLES.map((role) => toHybridAccount(client, privateKeyToAccount(owners[role]))),
+  );
+  const accounts = {} as Record<Role, HybridAccount>;
+  ROLES.forEach((role, index) => {
+    accounts[role] = derived[index]!;
+  });
   return accounts;
+}
+
+/** Just the addresses, for the record kept in storage. */
+export function addressesOf(accounts: Record<Role, HybridAccount>): Record<Role, `0x${string}`> {
+  const out = {} as Record<Role, `0x${string}`>;
+  for (const role of ROLES) out[role] = accounts[role].address;
+  return out;
 }
 
 /**

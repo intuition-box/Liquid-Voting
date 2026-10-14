@@ -33,7 +33,8 @@
     "OZGovernor": {
       "address": "0xd3eAA81C5D283E4270EFB568045A7b406197917F",
       "deployedAt": "2026-10-14",
-      "verified": false
+      "verified": false,
+      "deployedBlock": 9371656
     },
     "OZGraphDomainScope": {
       "address": "0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59",

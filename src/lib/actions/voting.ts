@@ -475,6 +475,11 @@ export async function recordProposal(
   for (let attempt = 0; attempt < 20; attempt++) {
     const state = await client.readContract({ ...gov, functionName: "state", args: [proposalId] });
     if (state !== 0) break;
+    // A pause before each nudge, not after. The governor counts its delay in `clock()`,
+    // which on this Arbitrum chain is the parent chain's height — resampled only when an
+    // L2 block is produced, and the parent moves about once a second. Transactions sent
+    // back to back therefore read the same height and buy nothing but gas (ADR 0026).
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1200));
     const filler = await wallet.sendTransaction({ to: wallet.account.address, value: 0n });
     await client.waitForTransactionReceipt({ hash: filler });
     mined += 1;
@@ -561,7 +566,15 @@ export async function readProposals(client: PublicClient, config: AppConfig, lim
   // OpenZeppelin has no proposal counter and stores no struct: an id is a hash of the
   // call it would execute, and the details live in the event. So the list comes from
   // ProposalCreated, newest first, and the domain from the resolver beside the governor.
-  const created = await client.getLogs({ address: config.governor, event: PROPOSAL_CREATED, fromBlock: "earliest" });
+  //
+  // From the block the governor was deployed in, not from `earliest`. It has nothing to
+  // say about the nine million blocks that came before it, and asking anyway is what
+  // exhausted the public RPC's bandwidth allowance in the middle of a session.
+  const created = await client.getLogs({
+    address: config.governor,
+    event: PROPOSAL_CREATED,
+    fromBlock: config.governorFromBlock,
+  });
   const recent = created.slice(-limit).reverse();
 
   const records = await Promise.all(
@@ -631,9 +644,9 @@ export async function readAllBallots(
   // split. Both are needed: a tally without a breakdown says nothing about who is
   // accountable, and a breakdown without the support says nothing about what was decided.
   const [plain, withParams, onBehalf] = await Promise.all([
-    client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: "earliest" }),
-    client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock: "earliest" }),
-    client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, fromBlock: "earliest" }),
+    client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: config.governorFromBlock }),
+    client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock: config.governorFromBlock }),
+    client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, fromBlock: config.governorFromBlock }),
   ]);
 
   // Filed by proposal and by the account that submitted the vote, which together identify
@@ -701,7 +714,7 @@ export async function readVoicesCarriedFor(
     address: config.governor,
     event: VOTE_CAST_ON_BEHALF,
     args: { principal },
-    fromBlock: "earliest",
+    fromBlock: config.governorFromBlock,
   });
 
   const roleOf = (address: `0x${string}`): Role | null =>

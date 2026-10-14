@@ -363,4 +363,18 @@ export const votesTokenAbi = [
   { type: "function", name: "getVotes", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "delegate", stateMutability: "nonpayable", inputs: [{ name: "delegatee", type: "address" }], outputs: [] },
   { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+  // What the governor actually reads. `getVotes` is the current value and ERC-5805 refuses
+  // to answer for the current block, so a checkpoint written in the newest block is
+  // invisible here until the next one exists — which is the difference between the token
+  // saying an account has weight and the governor agreeing.
+  // The token's own clock, which is the only timepoint `getPastVotes` will accept. On this
+  // chain it is NOT `eth_blockNumber`: see ADR 0026.
+  { type: "function", name: "clock", stateMutability: "view", inputs: [], outputs: [{ type: "uint48" }] },
+  {
+    type: "function",
+    name: "getPastVotes",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }, { name: "timepoint", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
 ] as const;

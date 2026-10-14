@@ -49,6 +49,11 @@ contract RedeployOZ is Script {
         );
         vm.stopBroadcast();
 
+        // The block matters as much as the address: manifest/13579.json records it as
+        // OZGovernor.deployedBlock, and every log read in the frontend starts there
+        // rather than at `earliest`. Forgetting it means scanning nine million empty
+        // blocks on every refresh, which exhausts the public RPC's allowance.
+        console2.log("record OZGovernor.deployedBlock:", block.number);
         console2.log("DemoVotes (kept):    ", token);
         console2.log("ProposalDomains:     ", address(resolver));
         console2.log("OZGovernor:          ", address(governor));

@@ -87,6 +87,7 @@ export function configFromManifest(submitterKey?: string): AppConfig {
     submitterKey: (submitterKey ?? "0x") as `0x${string}`,
     // No faucet from a CLI script: it already has the funded key in contracts/.env.
     faucetUrl: undefined,
+    governorFromBlock: BigInt(manifest.contracts.OZGovernor.deployedBlock ?? 0),
     rpcUrl: process.env["INTUITION_TESTNET_RPC"],
   };
 }

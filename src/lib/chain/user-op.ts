@@ -49,14 +49,16 @@ export async function sendUserOp(
   /** What this operation is, for the transaction log. Omitted by the CLI scripts, which
    *  print their own progress; the log then simply has nothing to say about them. */
   describe?: Omit<StepIntent, "kind">,
+  /** Fees already known, so this does not ask the node for a gas price it was just told.
+   *  A caller sending a run of operations reads it once and passes it down; the public
+   *  RPC here has a bandwidth allowance that a dozen redundant lookups will exhaust. */
+  fees?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
 ): Promise<UserOpResult> {
   const environment = ensureEnvironment();
   const step = describe ? logStep({ ...describe, kind: "userop" }) : null;
   const callData = await smartAccount.encodeCalls(calls);
   const nonce = await smartAccount.getNonce();
-  const gasPrice = await publicClient.getGasPrice();
-  const maxPriorityFeePerGas = gasPrice / 2n > 0n ? gasPrice / 2n : 1n;
-  const maxFeePerGas = gasPrice * 2n + maxPriorityFeePerGas;
+  const { maxFeePerGas, maxPriorityFeePerGas } = fees ?? (await defaultFees(publicClient));
 
   const signature = await smartAccount.signUserOperation({
     sender: smartAccount.address,
@@ -134,6 +136,15 @@ export async function sendUserOp(
     });
   }
   return result;
+}
+
+/** Fees from the current gas price, set generously for the same reason the gas limits are. */
+export async function defaultFees(
+  publicClient: PublicClient,
+): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+  const gasPrice = await publicClient.getGasPrice();
+  const maxPriorityFeePerGas = gasPrice / 2n > 0n ? gasPrice / 2n : 1n;
+  return { maxFeePerGas: gasPrice * 2n + maxPriorityFeePerGas, maxPriorityFeePerGas };
 }
 
 /** The first line of a thrown reason, which is the part worth putting in a log row. */

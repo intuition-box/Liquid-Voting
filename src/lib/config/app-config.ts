@@ -37,7 +37,7 @@ interface ManifestShape {
   contracts: {
     GraphDomainScope: { address: `0x${string}` };
     DemoGovernor: { address: `0x${string}` };
-    OZGovernor: { address: `0x${string}` };
+    OZGovernor: { address: `0x${string}`; deployedBlock?: number };
     OZGraphDomainScope: { address: `0x${string}` };
     ProposalDomains: { address: `0x${string}` };
     DemoVotes: { address: `0x${string}` };
@@ -81,6 +81,15 @@ export interface AppConfig {
   ownerKeys: Partial<Record<Role, `0x${string}`>>;
   /** Set in a hosted build: where a visitor's session asks for its gas. */
   faucetUrl: string | undefined;
+  /**
+   * The block the governor was deployed in, which is where its history starts.
+   *
+   * Every log read here used to begin at `earliest`. The governor has nothing to say
+   * about the nine million blocks that preceded it, and asking anyway is what exhausted
+   * the public RPC's bandwidth allowance mid-session. Zero if the manifest does not say,
+   * which falls back to the old behaviour rather than silently reading nothing.
+   */
+  governorFromBlock: bigint;
   delegations: {
     root: Delegation & { hash: Hex };
     /** The voice the delegate relays for the voter — chained to `root`. */
@@ -178,6 +187,7 @@ export function loadAppConfig(): ConfigResult {
       // Empty string in a production build — validated by canWrite() before any use.
       submitterKey: DEMO_SUBMITTER_KEY as `0x${string}`,
       faucetUrl: FAUCET_URL || undefined,
+      governorFromBlock: BigInt(manifest.contracts.OZGovernor.deployedBlock ?? 0),
       rpcUrl: DEMO_RPC || undefined,
     },
   };

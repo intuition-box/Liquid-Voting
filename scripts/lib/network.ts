@@ -13,6 +13,8 @@ export interface DeployedContract {
   deployTx: `0x${string}`;
   deployedAt: string;
   verified: boolean;
+  /** The block its history starts in, so a log read need not begin at `earliest`. */
+  deployedBlock?: number;
 }
 
 export interface Manifest {
