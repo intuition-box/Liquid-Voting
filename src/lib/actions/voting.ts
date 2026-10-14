@@ -94,7 +94,7 @@ export interface VotePlan {
 }
 
 /** One voice and the witnesses computed for each of its links, leaf first. */
-interface RedeemedVoice {
+export interface RedeemedVoice {
   chain: (Delegation & { hash: Hex })[];
   witnesses: Hex[][];
 }
@@ -108,7 +108,7 @@ interface RedeemedVoice {
  * the whole operation down with it. The deepest lineage is chosen, so the longest chain of
  * signatures in play is the one actually walked (ADR 0021).
  */
-function deepestVoice(voices: RedeemedVoice[]): RedeemedVoice | null {
+export function deepestVoice(voices: RedeemedVoice[]): RedeemedVoice | null {
   return voices.reduce<RedeemedVoice | null>(
     (best, voice) => (best === null || voice.chain.length > best.chain.length ? voice : best),
     null,

@@ -4,7 +4,6 @@
   "type": "module",
   "scripts": {
     "seed": "bun --env-file=contracts/.env scripts/seed-graph.ts",
-    "typecheck": "tsc --noEmit",
     "setup": "bun --env-file=contracts/.env scripts/setup-accounts.ts",
     "fund": "bun --env-file=contracts/.env scripts/fund-votes.ts",
     "delegate": "bun --env-file=contracts/.env scripts/sign-delegations.ts",
@@ -14,7 +13,9 @@
     "verify": "bun --env-file=contracts/.env scripts/verify.ts",
     "reset": "bun --env-file=contracts/.env scripts/reset-demo.ts",
     "rehearse": "bun --env-file=contracts/.env scripts/rehearse.ts",
-    "acceptance": "bun --env-file=contracts/.env scripts/acceptance-oz.ts"
+    "acceptance": "bun --env-file=contracts/.env scripts/acceptance-oz.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src/"
   },
   "dependencies": {
     "@metamask/smart-accounts-kit": "0.3.0",
