@@ -278,6 +278,32 @@ export const revertAbi = [
   { type: "error", name: "InvalidEOASignature", inputs: [] },
   { type: "error", name: "InvalidDelegate", inputs: [] },
   { type: "error", name: "InvalidAuthority", inputs: [] },
+
+  // OpenZeppelin's own reverts. Without them a refused vote came back as "no revert
+  // reason", which is the least helpful thing a demo aimed at developers can say.
+  { type: "error", name: "GovernorAlreadyCastVote", inputs: [{ name: "voter", type: "address" }] },
+  { type: "error", name: "GovernorNonexistentProposal", inputs: [{ name: "proposalId", type: "uint256" }] },
+  {
+    type: "error",
+    name: "GovernorUnexpectedProposalState",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "current", type: "uint8" },
+      { name: "expectedStates", type: "bytes32" },
+    ],
+  },
+  { type: "error", name: "GovernorInvalidVoteType", inputs: [] },
+  { type: "error", name: "GovernorInvalidSignature", inputs: [{ name: "voter", type: "address" }] },
+
+  // And this governor's own, which the register raises.
+  { type: "error", name: "DomainNotNamed", inputs: [{ name: "account", type: "address" }] },
+  { type: "error", name: "DomainPathMismatch", inputs: [{ name: "pathStart", type: "bytes32" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "DomainPathBroken", inputs: [{ name: "child", type: "bytes32" }, { name: "parent", type: "bytes32" }] },
+  { type: "error", name: "DomainPathTooLong", inputs: [{ name: "hops", type: "uint256" }] },
+  { type: "error", name: "AmountExceedsBalance", inputs: [{ name: "delegator", type: "address" }, { name: "amount", type: "uint256" }, { name: "balance", type: "uint256" }] },
+  { type: "error", name: "ZeroAmount", inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "ZeroAddress", inputs: [] },
+  { type: "error", name: "DomainAlreadySet", inputs: [{ name: "proposalId", type: "uint256" }, { name: "domainId", type: "bytes32" }] },
 ] as const;
 
 export const entryPointAbi = [
@@ -400,6 +426,43 @@ export const ozGovernorAbi = [
       { name: "domainPath", type: "bytes32[]" },
     ],
     outputs: [{ type: "uint256" }],
+  },
+  // What an account may still cast on one open proposal: `weightFor` less every voice
+  // already on that ballot. This is what a vote button should read.
+  {
+    type: "function",
+    name: "weightOn",
+    stateMutability: "view",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "account", type: "address" },
+      { name: "principals", type: "address[]" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // How much of an account's weight is already on a proposal, whoever put it there.
+  {
+    type: "function",
+    name: "voiceCast",
+    stateMutability: "view",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // One per voice a vote carried, indexed by principal — which is what turns "what was
+  // cast in my name?" into a single filtered query instead of a scan of every vote.
+  {
+    type: "event",
+    name: "VoteCastOnBehalf",
+    inputs: [
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "principal", type: "address", indexed: true },
+      { name: "voter", type: "address", indexed: true },
+      { name: "weight", type: "uint256", indexed: false },
+    ],
   },
   { type: "function", name: "state", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }], outputs: [{ type: "uint8" }] },
   { type: "function", name: "hasVoted", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }, { name: "account", type: "address" }], outputs: [{ type: "bool" }] },

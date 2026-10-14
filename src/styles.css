@@ -1646,3 +1646,93 @@ select:focus-visible,
 
   .console-latest { display: none; }
 }
+
+/* ── "My voice": what was cast in one account's name ───────────────────────────────
+   The recap a delegator needs, and the reason the governor logs a per-principal event
+   at all. Laid out as a definition list because that is what it is: a few named facts
+   about one account, not a table of comparable rows. */
+
+.voice-standing {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s3) var(--s5);
+  margin: 0;
+}
+
+.voice-standing > div {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: baseline;
+}
+
+.voice-standing dt {
+  color: var(--dim);
+  font-size: 12.5px;
+}
+
+.voice-standing dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.voice-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.voice-intro {
+  margin: 0 0 var(--s4);
+  max-width: 78ch;
+  color: var(--muted);
+}
+
+.voice-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voice-row {
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-row:first-child { padding-top: 0; }
+.voice-row:last-child { border-bottom: 0; }
+
+.voice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.voice-claim { line-height: 1.5; }
+
+.voice-who { font-weight: 600; }
+
+.voice-on {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.voice-block {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.voice-foot {
+  margin: var(--s4) 0 0;
+  padding-top: var(--s3);
+  max-width: 82ch;
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.6;
+}

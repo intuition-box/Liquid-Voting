@@ -11,9 +11,10 @@ import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
 import { TxConsole } from "./components/TxConsole";
+import { VoicePanel } from "./components/VoicePanel";
 import { AddressLink, Mono, Panel } from "./components/primitives";
 
-type TabId = "proposals" | "delegations" | "paper" | "how";
+type TabId = "proposals" | "delegations" | "voice" | "paper" | "how";
 
 /** The three demo identities. Each carries one colour, used everywhere the role appears. */
 const IDENTITIES = ROLES.map((role) => ({
@@ -25,6 +26,7 @@ const IDENTITIES = ROLES.map((role) => ({
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
   { id: "delegations", label: "Delegations" },
+  { id: "voice", label: "My voice" },
   { id: "paper", label: "Overview" },
   { id: "how", label: "How it works" },
 ];
@@ -130,6 +132,18 @@ export function App() {
                   onRevoked={demo.revokeGrant}
                 />
               </div>
+            ) : null}
+
+            {tab === "voice" ? (
+              <VoicePanel
+                config={config}
+                client={client}
+                role={role}
+                proposals={demo.proposals}
+                holdings={demo.holdings}
+                lent={demo.lent}
+                tick={demo.tick}
+              />
             ) : null}
 
             {tab === "paper" ? <LightPaper /> : null}

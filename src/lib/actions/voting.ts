@@ -2,7 +2,6 @@
  * Casting a vote: planning which signed chains carry it, simulating, and submitting.
  */
 import {
-  decodeAbiParameters,
   decodeEventLog,
   encodeAbiParameters,
   encodeFunctionData,
@@ -45,6 +44,15 @@ const VOTE_CAST = parseAbiItem(
 );
 const VOTE_CAST_WITH_PARAMS = parseAbiItem(
   "event VoteCastWithParams(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason, bytes params)",
+);
+/**
+ * One per voice a vote carried, emitted by this governor and not by OpenZeppelin.
+ *
+ * `principal` is indexed, which is the whole point of it: a delegator can ask what was
+ * cast in its name with a filtered query rather than a scan of every vote ever recorded.
+ */
+const VOTE_CAST_ON_BEHALF = parseAbiItem(
+  "event VoteCastOnBehalf(uint256 indexed proposalId, address indexed principal, address indexed voter, uint256 weight)",
 );
 /** OZ does not index proposalId, so the id comes out of the event data. */
 const PROPOSAL_CREATED = parseAbiItem(
@@ -229,7 +237,26 @@ export function planVote(
   return { ...base, calldata: encodeVote(config, chains, redeemer, principals, proposalId, support), blocked: null };
 }
 
-/** Encodes the redemption of a delegated vote for the given chains and witnesses. */
+/**
+ * Encodes the redemption of a delegated vote.
+ *
+ * One chain is redeemed, not one per voice, because OpenZeppelin allows an account a
+ * single vote per proposal. `redeemDelegations` pairs each permission context with its own
+ * execution, so redeeming three chains meant calling `castVoteFor` three times — the
+ * first counted and the second was refused by OZ's own guard, taking the whole operation
+ * down with it. A holder carrying more than one voice could therefore never vote at all.
+ *
+ * Which leaves the two halves of authority where they each belong. The caveat answers
+ * *may this account vote on this domain*: the chain redeemed here is walked link by link
+ * by the DelegationManager, and every caveat on it verifies the announced path against
+ * live graph state. The register answers *whose weight does it carry*, and the governor
+ * checks that itself — `DomainVotes` follows each named principal's chain of lendings and
+ * ignores any that does not end at the voter, on a domain that does not reach this
+ * proposal. Neither half is taken on trust, and neither half needs the other repeated.
+ *
+ * The deepest lineage is the one redeemed, so the longest chain of signatures in play is
+ * the one actually walked.
+ */
 function encodeVote(
   config: AppConfig,
   chains: { chain: Delegation[]; witnesses: Hex[][] }[],
@@ -238,12 +265,16 @@ function encodeVote(
   proposalId: bigint,
   support: number,
 ): Hex {
+  const deepest = chains.reduce<(typeof chains)[number] | null>(
+    (best, entry) => (best === null || entry.chain.length > best.chain.length ? entry : best),
+    null,
+  );
   // The governor needs the same path the caveats verify: a grant on a parent domain
   // covers this proposal, and the path is what proves the parent relation. Every chain
-  // climbs to the same proposal domain, so the first one's top witness speaks for all.
-  const witnesses = chains[0]?.witnesses ?? [];
+  // climbs to the same proposal domain, so the top witness speaks for all of them.
+  const witnesses = deepest?.witnesses ?? [];
   return buildVoteCalldata({
-    chains,
+    chains: deepest ? [deepest] : [],
     governor: config.governor,
     proposalId,
     support,
@@ -577,12 +608,17 @@ export interface Ballot {
 }
 
 /**
- * Who voted on every proposal, in one pass.
+ * Who voted on every proposal, and whose voice each share of it was.
  *
- * `readBallots` asks per proposal, which is fine for one open row and wasteful for a
- * page of them. This reads the governor's whole log once and files each vote under its
- * own proposal — a vote on one proposal must never look like a vote on another, which is
- * exactly what a per-row read made easy to get wrong.
+ * Read from `VoteCastOnBehalf`, which the governor emits once per voice a vote carried.
+ * It used to be reconstructed here instead — decode the principals a vote *claimed* out
+ * of its params, then ask the register what each of them had lent, then walk the domain's
+ * ancestors because a grant on a parent covers everything beneath it, then cap each share
+ * by what the principal still held. Four helpers and a sequential read per principal per
+ * ballot, to arrive at a number the governor had already worked out and thrown away.
+ *
+ * Now it is stated on chain, so this reads it. The shares are the ones that were counted
+ * rather than a client's best reconstruction of them, and one `getLogs` replaces the lot.
  */
 export async function readAllBallots(
   client: PublicClient,
@@ -591,133 +627,102 @@ export async function readAllBallots(
   const roleOf = (address: `0x${string}`): Role | null =>
     ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
 
-  const [plain, withParams] = await Promise.all([
+  // The vote events carry the support and the total; the on-behalf events carry the
+  // split. Both are needed: a tally without a breakdown says nothing about who is
+  // accountable, and a breakdown without the support says nothing about what was decided.
+  const [plain, withParams, onBehalf] = await Promise.all([
     client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: "earliest" }),
     client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock: "earliest" }),
+    client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, fromBlock: "earliest" }),
   ]);
+
+  // Filed by proposal and by the account that submitted the vote, which together identify
+  // one ballot: OZ allows an account only one per proposal.
+  const shares = new Map<string, BallotEntry[]>();
+  for (const log of onBehalf) {
+    const { proposalId, principal, voter, weight } = log.args;
+    if (proposalId === undefined || !principal || !voter || weight === undefined) continue;
+    const entry: BallotEntry = {
+      principal: roleOf(principal),
+      principalAddress: principal,
+      carriedBy: roleOf(voter),
+      carriedByAddress: voter,
+      weight,
+    };
+    const key = `${proposalId.toString()}:${voter.toLowerCase()}`;
+    const list = shares.get(key) ?? [];
+    // The voter's own share first, then the voices it carried — the order the panel
+    // reads them in.
+    if (principal.toLowerCase() === voter.toLowerCase()) list.unshift(entry);
+    else list.push(entry);
+    shares.set(key, list);
+  }
 
   const out: Record<string, Ballot[]> = {};
   for (const log of [...plain, ...withParams]) {
     const { voter, proposalId, support, weight } = log.args;
     if (!voter || proposalId === undefined || support === undefined || weight === undefined) continue;
-
-    // Who carried what has to come from the register, not from balances. A lending can
-    // be partial, so the gap between what an account holds and what it cast says nothing
-    // about how much it lent: only the register knows.
-    const claimed = "params" in log.args ? decodeClaimedPrincipals(log.args.params as Hex) : [];
-    const domainId = "params" in log.args ? decodeClaimedDomain(log.args.params as Hex) : null;
-
-    const carried: BallotEntry[] = [];
-    for (const principal of claimed) {
-      if (principal.toLowerCase() === voter.toLowerCase()) continue;
-      if (!domainId) continue;
-      const share = await lentToward(client, config, principal, voter, domainId);
-      if (share === 0n) continue;
-      carried.push({
-        principal: roleOf(principal),
-        principalAddress: principal,
-        carriedBy: roleOf(voter),
-        carriedByAddress: voter,
-        weight: share,
-      });
-    }
-
-    // Whatever the total is not accounted for by borrowed voices is the voter's own. It
-    // is derived rather than read so the parts always add up to the number the governor
-    // actually counted, even when a balance moved between the vote and this read.
-    const borrowed = carried.reduce((sum, entry) => sum + entry.weight, 0n);
-    const own = weight > borrowed ? weight - borrowed : 0n;
-
-    const entries: BallotEntry[] = [
-      { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight: own },
-      ...carried,
+    const entries = shares.get(`${proposalId.toString()}:${voter.toLowerCase()}`) ?? [
+      // A vote worth nothing logs no share, and a vote cast before the governor logged
+      // its split has none to find. Show it whole under the voter rather than losing it.
+      { principal: roleOf(voter), principalAddress: voter, carriedBy: roleOf(voter), carriedByAddress: voter, weight },
     ];
     (out[proposalId.toString()] ??= []).push({ support: Number(support), entries, total: weight });
   }
   return out;
 }
 
-/** The principals a vote claimed, out of the params it carried. */
-function decodeClaimedPrincipals(params: Hex): `0x${string}`[] {
-  try {
-    const [, , principals] = decodeAbiParameters(
-      [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
-      params,
-    );
-    return [...principals];
-  } catch {
-    return [];
-  }
-}
-
-/** A domain's ancestors, by term id, nearest first. */
-function ancestorTermIds(config: AppConfig, domainId: Hex): Hex[] {
-  const labelOf = new Map(config.nodes.map((node) => [node.termId.toLowerCase(), node.label]));
-  const parentOf = new Map(config.edges.map((edge) => [edge.child, edge.parent]));
-  const idOf = new Map(config.nodes.map((node) => [node.label, node.termId]));
-
-  const out: Hex[] = [];
-  let label = labelOf.get(domainId.toLowerCase());
-  // The graph is a tree in practice, but a cycle in the manifest must not hang the UI.
-  const seen = new Set<string>();
-  while (label && !seen.has(label)) {
-    seen.add(label);
-    label = parentOf.get(label);
-    const id = label ? idOf.get(label) : undefined;
-    if (id) out.push(id);
-  }
-  return out;
-}
-
-/** The domain a vote was cast on, which is the first hop of the path it carried. */
-function decodeClaimedDomain(params: Hex): Hex | null {
-  try {
-    const [, path] = decodeAbiParameters(
-      [{ type: "uint256" }, { type: "bytes32[]" }, { type: "address[]" }],
-      params,
-    );
-    return path[0] ?? null;
-  } catch {
-    return null;
-  }
+/** One share of an account's weight, as it was cast on some proposal. */
+export interface CarriedVoice {
+  proposalId: bigint;
+  weight: bigint;
+  /** Who carried it. The account itself when it voted for itself. */
+  carriedBy: Role | null;
+  carriedByAddress: `0x${string}`;
+  byItself: boolean;
+  txHash: `0x${string}`;
+  block: bigint;
 }
 
 /**
- * How much `principal` lent to `voter`, reachable from this domain.
+ * Every share of weight ever cast in one account's name, newest first.
  *
- * The lending may sit on an ancestor rather than on the domain itself, since a grant on a
- * parent covers everything beneath it. The register is asked about each domain on the way
- * up until one answers, which is the same walk the governor does when it counts.
- *
- * The amount is capped by what the principal still holds: a promise of weight nobody has
- * any more is not honoured on chain, so it must not be displayed either.
+ * The question a delegator actually has — "what was done with my voice?" — and the reason
+ * the event indexes the principal. OpenZeppelin indexes the account that *submitted* a
+ * vote, so answering this used to mean fetching every vote the governor ever recorded and
+ * decoding each one's params. Here it is one query filtered on one topic.
  */
-async function lentToward(
+export async function readVoicesCarriedFor(
   client: PublicClient,
   config: AppConfig,
   principal: `0x${string}`,
-  voter: `0x${string}`,
-  domainId: Hex,
-): Promise<bigint> {
-  const path = [domainId, ...ancestorTermIds(config, domainId)];
-  for (const id of path) {
-    const [delegate, amount] = await client.readContract({
-      address: config.governor,
-      abi: ozGovernorAbi,
-      functionName: "lendingOf",
-      args: [principal, id],
-    });
-    if (delegate === "0x0000000000000000000000000000000000000000") continue;
-    if (delegate.toLowerCase() !== voter.toLowerCase()) return 0n;
-    const held = await client.readContract({
-      address: config.votesToken,
-      abi: votesTokenAbi,
-      functionName: "getVotes",
-      args: [principal],
-    });
-    return amount > held ? held : amount;
-  }
-  return 0n;
+): Promise<CarriedVoice[]> {
+  const logs = await client.getLogs({
+    address: config.governor,
+    event: VOTE_CAST_ON_BEHALF,
+    args: { principal },
+    fromBlock: "earliest",
+  });
+
+  const roleOf = (address: `0x${string}`): Role | null =>
+    ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
+
+  return logs
+    .map((log) => {
+      const { proposalId, voter, weight } = log.args;
+      if (proposalId === undefined || !voter || weight === undefined) return null;
+      return {
+        proposalId,
+        weight,
+        carriedBy: roleOf(voter),
+        carriedByAddress: voter,
+        byItself: voter.toLowerCase() === principal.toLowerCase(),
+        txHash: log.transactionHash,
+        block: log.blockNumber,
+      } satisfies CarriedVoice;
+    })
+    .filter((entry): entry is CarriedVoice => entry !== null)
+    .reverse();
 }
 
 /**

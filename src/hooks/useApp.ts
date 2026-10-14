@@ -64,6 +64,9 @@ export interface AppState {
   /** Marks a grant on a domain revoked, so it can be handed to someone else. */
   revokeGrant: (from: Role, domain: string) => void;
   sessionDomainCount: number;
+  /** Bumped by every `refresh`. A panel that owns a read of its own watches this so it
+   *  settles with the rest of the page instead of going stale behind it. */
+  tick: number;
   /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
   resetSessionDomains: () => void;
 }
@@ -256,6 +259,7 @@ export function useApp(): AppState {
   const grants = delegations.all() as Grant[];
 
   return {
+    tick,
     configResult,
     config,
     client,
