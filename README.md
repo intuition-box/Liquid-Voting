@@ -196,7 +196,7 @@ manifest/13579.json         addresses, vocabulary term_ids, curator stakes
 | [docs/WRITEUP.md](docs/WRITEUP.md) | Design decisions, gas, limitations, what production needs. |
 | [docs/DEMO.md](docs/DEMO.md) | An ordered demo script, expected output and recovery moves. |
 | [docs/slides.md](docs/slides.md) | Slide outline for the presentation. |
-| [docs/adr/](docs/adr/) | ADRs 0001–0027: every architectural decision, with the alternatives rejected. |
+| [docs/adr/](docs/adr/) | ADRs 0001–0028: every architectural decision, with the alternatives rejected. |
 | [contracts/SECURITY_REVIEW.md](contracts/SECURITY_REVIEW.md) | Threat-model walk, reviewed with no code findings. |
 | [docs/phase0/](docs/phase0/) | The opening audit: framework verification and the graph vocabulary. |
 
