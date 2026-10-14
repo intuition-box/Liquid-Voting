@@ -2029,3 +2029,50 @@ select:focus-visible,
   /* Still drawn, just not animated: the arc is the information, the movement is not. */
   .handover-layer { animation: none; }
 }
+
+/* ── The connected wallet ──────────────────────────────────────────────────────────
+   At the end of the pinned nav, so the account that is about to be asked to pay stays
+   on screen while you scroll. It was buried inside the session button before, where the
+   connection existed for an instant and was never visible again. */
+
+.wallet {
+  margin-left: auto;
+  align-self: center;
+  padding: var(--s1) var(--s3);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wallet:hover { color: var(--text); border-color: var(--muted); }
+
+.wallet:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.wallet:disabled { cursor: progress; opacity: 0.7; }
+
+.wallet-on {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  border-color: #2e4535;
+}
+
+.wallet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.wallet-address {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}

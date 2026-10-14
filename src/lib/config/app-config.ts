@@ -114,7 +114,9 @@ export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missin
 const delegationFiles = import.meta.glob<{ default: unknown }>("/data/delegations.json", { eager: true });
 const manifestFiles = import.meta.glob<{ default: unknown }>("/manifest/*.json", { eager: true });
 
-function isHexKey(value: unknown): value is `0x${string}` {
+/** A 32-byte hex private key. Exported because the hook has to know whether this
+ *  build was handed one before it decides to ask a visitor for a wallet. */
+export function isHexKey(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 }
 
@@ -217,30 +219,28 @@ export function withSession(config: AppConfig, session: Session): AppConfig {
 }
 
 /**
- * How a session gets its first tTRUST, or null when this build has no way to.
+ * How a session gets its first tTRUST when no wallet is connected.
  *
- * Three paths, tried in that order.
+ * The wallet case is deliberately absent: a connected wallet is a live object owned by
+ * the header, not something derivable from config, and `useApp` supplies it directly
+ * when there is one. What is left here are the two paths that need nothing at runtime.
  *
  * A development build was handed a key in `contracts/.env` and uses it, so nothing extra
- * has to be running locally. A hosted build has none — shipping one would publish a
- * funded account to whoever reads the bundle, which is what ADR 0011 exists to prevent —
- * and asks the visitor's own wallet: they sign one transaction funding the session's
- * submitter, and everything after that is paid for out of it.
- *
- * The faucet is last and optional, for a deployment that would rather nobody needed a
- * wallet at all. It costs an endpoint, a funded key living somewhere, and somebody to
- * keep it fed, which is why it is not the default.
+ * has to be running locally. The faucet is last and optional, for a deployment that
+ * would rather nobody needed a wallet at all — it costs an endpoint, a funded key living
+ * somewhere, and somebody to keep it fed, which is why it is not the default.
  */
 export function resolveFunder(config: AppConfig): Funder | null {
   if (isHexKey(config.submitterKey)) return { kind: "key", key: config.submitterKey };
-  if (hasWallet()) return { kind: "wallet" };
   if (config.faucetUrl) return { kind: "faucet", url: config.faucetUrl };
   return null;
 }
 
-/** Which of the three a build would use, so the interface can say so before asking. */
-export function funderKind(config: AppConfig): Funder["kind"] | null {
-  return resolveFunder(config)?.kind ?? null;
+export function funderKind(config: AppConfig): "key" | "wallet" | "faucet" | null {
+  if (isHexKey(config.submitterKey)) return "key";
+  if (hasWallet()) return "wallet";
+  if (config.faucetUrl) return "faucet";
+  return null;
 }
 
 /** Write actions need a funded submitter and all three owner keys (dev only, ADR 0011). */

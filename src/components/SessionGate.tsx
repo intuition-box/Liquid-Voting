@@ -20,6 +20,7 @@ export function SessionGate({
   canStart,
   writable,
   funder,
+  walletReady,
   onStart,
 }: {
   session: Session | null;
@@ -30,6 +31,8 @@ export function SessionGate({
   writable: boolean;
   /** How this build would pay, so the offer can say so before anyone clicks. */
   funder: "key" | "wallet" | "faucet" | null;
+  /** Whether a wallet is already connected in the header. */
+  walletReady: boolean;
   onStart: () => void;
 }) {
   if (bootstrapping) {
@@ -77,8 +80,9 @@ export function SessionGate({
   // MetaMask would be a small lie at the worst moment.
   const PAYS = {
     key: "Funded by this development build's own key.",
-    wallet:
-      "Your wallet pays, once: a single transaction of 0.03 tTRUST funds the session, and the three accounts cover everything after it themselves.",
+    wallet: walletReady
+      ? "Your connected wallet pays once — a single transaction of 0.03 tTRUST — and the three accounts cover everything after it themselves."
+      : "Your wallet pays once: connecting is the first step, then a single transaction of 0.03 tTRUST, and the three accounts cover everything after it themselves.",
     faucet: "Funded by a faucet, so you need nothing of your own.",
   } as const;
 
@@ -93,7 +97,7 @@ export function SessionGate({
         </p>
       </div>
       <button type="button" className="gate-start" onClick={onStart}>
-        {funder === "wallet" ? "Connect a wallet and begin" : "Create three wallets"}
+        {funder === "wallet" && !walletReady ? "Connect a wallet and begin" : "Create three wallets"}
       </button>
       {/* One line, and the reason itself is in the log at the foot of the page, which
           opens itself when a failure lands. A button you just pressed should not go

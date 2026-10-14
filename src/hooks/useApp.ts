@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { PublicClient } from "viem";
+import type { Account, Chain, PublicClient, Transport, WalletClient } from "viem";
 
 import { createChainClient } from "../lib/chain/network";
 import { isDelegationDisabled } from "../lib/delegation/encoding";
 import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
 import { clearSession, readSession, type Session } from "../lib/chain/session";
 import { logError } from "../lib/chain/tx-log";
+import { connectWallet, hasWallet, restoreWallet, watchWallet } from "../lib/chain/wallet";
 import {
   canWrite,
   clearSessionDomains,
   loadAppConfig,
   funderKind,
+  isHexKey,
   resolveFunder,
   withSession,
   readSessionDomains,
@@ -96,6 +98,10 @@ export interface AppState {
   bootstrapError: string | null;
   startSession: () => Promise<void>;
   endSession: () => void;
+  /** The wallet connected in the header, if any. It is what pays for a session. */
+  wallet: `0x${string}` | null;
+  connectingWallet: boolean;
+  connect: () => Promise<void>;
   /** Whether this build can pay for a session at all. */
   canStartSession: boolean;
   /** Which way it would pay, so the offer can say so before anyone clicks. */
@@ -130,6 +136,41 @@ export function useApp(): AppState {
   );
   const [domain, selectDomain] = useState("treasury");
   const [handover, setHandover] = useState<{ from: Role; to: Role; domain: string } | null>(null);
+  /**
+   * The connected wallet, held as the client rather than just the address: the bootstrap
+   * needs something to send with, and connecting a second time inside it would open a
+   * dialog for a wallet the header already shows as connected.
+   */
+  const [wallet, setWallet] = useState<WalletClient<Transport, Chain, Account> | null>(null);
+  const [connectingWallet, setConnectingWallet] = useState(false);
+
+  // Reconnect silently to whatever this browser authorised before, and follow the
+  // visitor if they switch account in the wallet itself.
+  useEffect(() => {
+    let live = true;
+    void restoreWallet().then((found) => {
+      if (live && found) setWallet(found);
+    });
+    const stop = watchWallet((address) => {
+      if (!address) setWallet(null);
+      else void restoreWallet().then((found) => setWallet(found));
+    });
+    return () => {
+      live = false;
+      stop();
+    };
+  }, []);
+
+  const connect = useCallback(async (): Promise<void> => {
+    setConnectingWallet(true);
+    try {
+      setWallet(await connectWallet());
+    } catch (cause) {
+      logError("the wallet did not connect", cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setConnectingWallet(false);
+    }
+  }, []);
   const clearHandover = useCallback(() => setHandover(null), []);
   const [bootstrapping, setBootstrapping] = useState<{ stage: string; done: number; total: number } | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -356,7 +397,26 @@ export function useApp(): AppState {
    */
   const startSession = useCallback(async (): Promise<void> => {
     if (!baseConfig || !client) return;
-    const funder = resolveFunder(baseConfig);
+    // The header's wallet is what pays, when there is one. Connecting inside the
+    // bootstrap would prompt for a wallet the header already shows as connected — but
+    // somebody who presses this without having connected should not be refused for it,
+    // so the connection happens here instead of becoming an error.
+    let payer = wallet;
+    if (!payer && !isHexKey(baseConfig.submitterKey) && hasWallet()) {
+      setConnectingWallet(true);
+      try {
+        payer = await connectWallet();
+        setWallet(payer);
+      } catch (cause) {
+        logError("the wallet did not connect", cause instanceof Error ? cause.message : String(cause));
+        setBootstrapError("The wallet did not connect.");
+        setConnectingWallet(false);
+        return;
+      }
+      setConnectingWallet(false);
+    }
+
+    const funder = payer ? ({ kind: "wallet", wallet: payer } as const) : resolveFunder(baseConfig);
     if (!funder) {
       const said =
         "No wallet in this browser, no local key, and no faucet configured — so there is no way to pay for a session.";
@@ -388,7 +448,7 @@ export function useApp(): AppState {
     } finally {
       setBootstrapping(null);
     }
-  }, [baseConfig, client, refresh]);
+  }, [baseConfig, client, refresh, wallet]);
 
   /** Forgets this browser's wallets. What they did stays on chain, as it should. */
   const endSession = useCallback((): void => {
@@ -402,6 +462,9 @@ export function useApp(): AppState {
 
   return {
     tick,
+    wallet: wallet?.account.address ?? null,
+    connectingWallet,
+    connect,
     handover,
     clearHandover,
     domain,

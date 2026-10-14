@@ -24,6 +24,8 @@ import { intuitionTestnet } from "./network";
 /** The slice of EIP-1193 this needs. Typed here rather than depended on. */
 interface Eip1193Provider {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+  on?(event: string, handler: (payload: unknown) => void): void;
+  removeListener?(event: string, handler: (payload: unknown) => void): void;
   isMetaMask?: boolean;
 }
 
@@ -46,6 +48,52 @@ export function hasWallet(): boolean {
 export class WalletError extends Error {}
 
 /**
+ * The wallet this browser already authorised, without prompting for anything.
+ *
+ * `eth_accounts` answers from what the visitor granted before; `eth_requestAccounts`
+ * asks. Reconnecting on load has to use the first, or every reload opens a dialog
+ * nobody pressed a button for.
+ *
+ * It deliberately does not switch the chain either. Nagging about the network before
+ * anyone has asked to do anything is the same discourtesy in a different costume — the
+ * switch happens when the wallet is actually needed.
+ */
+export async function restoreWallet(): Promise<WalletClient<Transport, Chain, Account> | null> {
+  const provider = window.ethereum;
+  if (!provider) return null;
+  try {
+    const accounts = (await provider.request({ method: "eth_accounts" })) as string[];
+    const address = accounts[0];
+    if (!address) return null;
+    return createWalletClient({
+      chain: intuitionTestnet,
+      transport: custom(provider),
+      account: address as `0x${string}`,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calls back when the visitor switches account or disconnects in the wallet itself.
+ *
+ * Without this the header would go on naming an address that is no longer in charge,
+ * which is worse than naming none: the next transaction would come from somewhere the
+ * page never mentioned.
+ */
+export function watchWallet(onAccount: (address: `0x${string}` | null) => void): () => void {
+  const provider = window.ethereum;
+  if (!provider?.on) return () => {};
+  const handler = (accounts: unknown): void => {
+    const first = Array.isArray(accounts) ? (accounts[0] as string | undefined) : undefined;
+    onAccount((first as `0x${string}`) ?? null);
+  };
+  provider.on("accountsChanged", handler);
+  return () => provider.removeListener?.("accountsChanged", handler);
+}
+
+/**
  * Connects, puts the wallet on Intuition testnet, and hands back a client.
  *
  * The chain switch is attempted before the add, because a wallet that already knows the
@@ -66,13 +114,24 @@ export async function connectWallet(): Promise<WalletClient<Transport, Chain, Ac
   const address = accounts[0];
   if (!address) throw new WalletError("The wallet connected but offered no account.");
 
-  await ensureChain(provider);
-
   return createWalletClient({
     chain: intuitionTestnet,
     transport: custom(provider),
     account: address as `0x${string}`,
   });
+}
+
+/**
+ * Puts the already-connected wallet on 13579, for the moment it is actually needed.
+ *
+ * Separate from connecting, because those are now two moments: the header connects, and
+ * the chain only has to be right when something is about to be sent. Asking somebody to
+ * switch network before they have asked to do anything is a prompt they cannot place.
+ */
+export async function ensureWalletChain(): Promise<void> {
+  const provider = window.ethereum;
+  if (!provider) throw new WalletError("The wallet went away. Reconnect and try again.");
+  await ensureChain(provider);
 }
 
 /** Puts the wallet on 13579, adding the network if it does not know it. */

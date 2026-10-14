@@ -39,7 +39,7 @@ import type { HybridAccount } from "./smart-accounts";
 import { logStep, recordStep, settleStep, trackTransaction } from "./tx-log";
 import { defaultFees, sendUserOp } from "./user-op";
 import { addressesOf, deriveAccounts, freshKeys, writeSession, type Session } from "./session";
-import { connectWallet, WalletError } from "./wallet";
+import { ensureWalletChain, WalletError } from "./wallet";
 import { ROLES, type Role } from "../roles";
 
 /**
@@ -86,9 +86,11 @@ const GAS_TRANSFER = 60_000n;
 export type Funder =
   /** A key this build was given — the local development path. */
   | { kind: "key"; key: Hex }
-  /** The visitor's own wallet. The hosted path, and the one that needs no key to exist
-   *  anywhere: they sign once, and the session pays for itself after that. */
-  | { kind: "wallet" }
+  /** The visitor's own wallet, connected in the header. The hosted path, and the one
+   *  that needs no key to exist anywhere: they sign once, and the session pays for
+   *  itself after that. The client is carried rather than reconnected for, so this
+   *  never prompts for a wallet the header already shows as connected. */
+  | { kind: "wallet"; wallet: WalletClient<Transport, Chain, Account> }
   /** An endpoint that holds a key server side. Kept for a deployment that wants nobody
    *  to need a wallet at all, and needs somebody to keep it fed. */
   | { kind: "faucet"; url: string };
@@ -491,7 +493,10 @@ async function fundSubmitter(
   };
 
   if (funder.kind === "wallet") {
-    const wallet = await connectWallet();
+    // Already connected by the header; this only has to put it on the right chain and
+    // check it can afford what it is about to be asked for.
+    const wallet = funder.wallet;
+    await ensureWalletChain();
     const payer = wallet.account.address;
     const balance = await client.getBalance({ address: payer });
     if (balance < SESSION_BUDGET) {

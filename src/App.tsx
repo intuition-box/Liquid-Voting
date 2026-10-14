@@ -13,6 +13,7 @@ import { IdentityBar } from "./components/IdentityBar";
 import { SessionGate } from "./components/SessionGate";
 import { SessionStrip } from "./components/SessionStrip";
 import { TxConsole } from "./components/TxConsole";
+import { WalletButton } from "./components/WalletButton";
 import { VoiceTrail } from "./components/VoiceTrail";
 import { AddressLink, Panel } from "./components/primitives";
 
@@ -79,6 +80,10 @@ export function App() {
             {entry.label}
           </button>
         ))}
+
+        {/* The account that signs is the account that spends, so it belongs where it can
+            be seen — and the nav is pinned, so it stays seen. */}
+        <WalletButton address={demo.wallet} connecting={demo.connectingWallet} onConnect={() => void demo.connect()} />
       </nav>
 
       {reading ? null : (
@@ -103,6 +108,7 @@ export function App() {
         error={demo.bootstrapError}
         canStart={demo.canStartSession}
         funder={demo.funder}
+        walletReady={demo.wallet !== null}
         writable={demo.writable}
         onStart={() => void demo.startSession()}
       />
