@@ -65,7 +65,6 @@ export function VoicePanel({
 
   const held = holdings?.[role];
   const lending = lent?.[role];
-  const byOthers = voices.filter((voice) => !voice.byItself);
   const describe = (id: bigint): string =>
     proposals.find((proposal) => proposal.id === id)?.description ?? `proposal ${id.toString().slice(0, 10)}…`;
 
@@ -107,11 +106,6 @@ export function VoicePanel({
       </Panel>
 
       <Panel title="Cast in its name">
-        <p className="voice-intro">
-          Every share of {role}&rsquo;s weight that has reached a ballot, whoever put it there. Read from the
-          governor&rsquo;s own log, so these are the figures that were counted.
-        </p>
-
         {error ? <p className="status status-fail">could not read the log: {error}</p> : null}
         {loading && voices.length === 0 ? <Empty>reading the governor&rsquo;s log…</Empty> : null}
 
@@ -150,17 +144,6 @@ export function VoicePanel({
               </li>
             ))}
           </ol>
-        ) : null}
-
-        {byOthers.length > 0 ? (
-          <p className="voice-foot">
-            {byOthers.length === 1
-              ? "One vote was cast by somebody else on this account's behalf."
-              : `${byOthers.length} votes were cast by somebody else on this account's behalf.`}{" "}
-            Taking a domain back stops the next one. It does not un-cast these: a governor that could
-            retract a counted vote would be a poor governor, and the weight stays spent for the rest of
-            each proposal.
-          </p>
         ) : null}
       </Panel>
     </div>
