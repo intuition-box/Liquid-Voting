@@ -70,6 +70,69 @@ function ballotFor(ballots: Ballot[] | undefined, role: Role): OwnBallot | null 
   return null;
 }
 
+/**
+ * Who voted on a proposal, and how, without opening it.
+ *
+ * All of this was already in hand on the collapsed path — `readAllBallots` runs once for
+ * the whole page and the row reads its result to work out whether *you* have voted. The
+ * expanded view bought no new data, only room. So the room comes to the row instead.
+ *
+ * On a second grid line rather than in a column of its own, which matters more than it
+ * sounds. At 901px — one pixel above the width where the domain rail collapses, and the
+ * narrowest a row ever gets — the title track is already down to 175px. A fixed column
+ * wide enough for three pills would take it to 51px, about six characters. Spanning the
+ * line borrows no width at all, and renders nothing when nobody has voted, so the common
+ * opening state costs exactly what it did before.
+ *
+ * Bounded at three by the chain: OpenZeppelin allows one ballot per account per proposal
+ * and there are three accounts, so this can never become a list that needs scrolling.
+ */
+function Voters({ ballots }: { ballots: Ballot[] | undefined }) {
+  if (!ballots || ballots.length === 0) return null;
+  return (
+    <span className="proposal-voters">
+      {ballots.map((ballot) => {
+        // Every entry on one ballot shares a carrier — it is the account that submitted
+        // it — so any entry answers who voted. The rest are the voices it brought along.
+        const voter = ballot.entries[0]?.carriedBy ?? null;
+        const carried = ballot.entries
+          .filter((entry) => entry.principal !== null && entry.principal !== voter)
+          .map((entry) => entry.principal as Role);
+        const said = SUPPORT_LABELS[ballot.support] ?? "?";
+        const who = voter ?? shortHex(ballot.entries[0]?.carriedByAddress ?? "0x", 6, 4);
+        return (
+          <span
+            key={`${who}-${ballot.support}`}
+            className="voter-pill"
+            // The row is a button, so a pill cannot be its own control. A title is what
+            // the weight badge beside it already does.
+            title={
+              carried.length > 0
+                ? `${who} voted ${said}, carrying ${carried.join(" and ")}`
+                : `${who} voted ${said} with its own weight`
+            }
+          >
+            <span className={`voter-who ${voter ? ROLE_CLASS[voter] : ""}`}>{who}</span>
+            <span className={`voter-said voter-said-${said}`}>{said}</span>
+            <Mono dim>{ballot.total.toString()}</Mono>
+            {carried.length > 0 ? (
+              <span className="voter-carried">
+                carrying{" "}
+                {carried.map((principal, index) => (
+                  <span key={principal} className={ROLE_CLASS[principal]}>
+                    {index > 0 ? ", " : ""}
+                    {principal}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 const OPTIONS = [
   { support: VOTE_FOR, label: "for" },
   { support: VOTE_AGAINST, label: "against" },
@@ -276,6 +339,7 @@ export function ProposalsPanel({
                       </span>
                     )}
                   </span>
+                  <Voters ballots={ballots[key]} />
                 </button>
 
                 {open ? (
@@ -303,12 +367,6 @@ export function ProposalsPanel({
                                 ? "your own vote"
                                 : "yours plus what was delegated to you"}
                         </span>
-                      </dd>
-                      <dt>votes</dt>
-                      <dd>
-                        <Mono>{proposal.forVotes.toString()}</Mono> for ·{" "}
-                        <Mono>{proposal.againstVotes.toString()}</Mono> against ·{" "}
-                        <Mono>{proposal.abstainVotes.toString()}</Mono> abstain
                       </dd>
                     </dl>
 

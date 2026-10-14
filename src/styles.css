@@ -395,7 +395,9 @@ code {
 .proposal-summary {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) 96px 56px 56px 56px 56px;
-  gap: var(--s3);
+  /* Column gap as before; the row gap is tight because the second line is a continuation
+     of the first, not a separate thing. */
+  gap: var(--s1) var(--s3);
   align-items: center;
   width: 100%;
   text-align: left;
@@ -1898,3 +1900,48 @@ select:focus-visible,
 }
 
 .session-forget:hover { color: var(--text); border-color: var(--muted); }
+
+/* ── Who voted, on the row ─────────────────────────────────────────────────────────
+   A second grid line spanning from the title to the end, so it borrows no width from
+   the columns above it. At 901px — one pixel above the width where the domain rail
+   collapses, and the narrowest a row ever gets — a fixed column wide enough for three
+   pills would have cut the title to about six characters. This leaves it untouched.
+
+   Nothing renders when nobody has voted, so the state the demo opens in costs nothing. */
+
+.proposal-voters {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: var(--s1);
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.voter-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  padding: 1px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #121416;
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.voter-who {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+/* The verdict carries the verdict colours, the account carries its own. Two facts, two
+   palettes, and they no longer collide now that C is not the success green. */
+.voter-said-for { color: var(--ok); }
+.voter-said-against { color: var(--bad); }
+.voter-said-abstain { color: var(--dim); }
+
+.voter-carried {
+  color: var(--dim);
+  font-family: var(--sans);
+}
