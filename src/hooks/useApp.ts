@@ -80,6 +80,10 @@ export interface AppState {
   /** Bumped by every `refresh`. A panel that owns a read of its own watches this so it
    *  settles with the rest of the page instead of going stale behind it. */
   tick: number;
+  /** The handover just confirmed, for the moment it takes to draw it. The one event
+   *  this whole demo exists to show, and until now it changed two numbers silently. */
+  handover: { from: Role; to: Role; domain: string } | null;
+  clearHandover: () => void;
   /** The domain the page is scoped to. Held here rather than in the view, because it
    *  decides which weights are worth reading at all. */
   domain: string;
@@ -122,6 +126,8 @@ export function useApp(): AppState {
     typeof window === "undefined" || !baseConfig ? null : readSession(baseConfig.governor),
   );
   const [domain, selectDomain] = useState("treasury");
+  const [handover, setHandover] = useState<{ from: Role; to: Role; domain: string } | null>(null);
+  const clearHandover = useCallback(() => setHandover(null), []);
   const [bootstrapping, setBootstrapping] = useState<{ stage: string; done: number; total: number } | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
@@ -162,6 +168,9 @@ export function useApp(): AppState {
   const addGrant = useCallback(
     (grant: Grant) => {
       setSessionGrants(saveSessionGrant(grant));
+      // Announced before the refresh, so the arc is already drawn while the reads that
+      // will change the numbers underneath it are still in flight.
+      setHandover({ from: grant.from, to: grant.to, domain: grant.scope });
       refresh();
     },
     [refresh],
@@ -386,6 +395,8 @@ export function useApp(): AppState {
 
   return {
     tick,
+    handover,
+    clearHandover,
     domain,
     selectDomain,
     session,

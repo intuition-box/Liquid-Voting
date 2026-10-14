@@ -284,7 +284,7 @@ export function ProposalsPanel({
   }
 
   return (
-    <Panel>
+    <Panel title={`Proposals on “${domain}” and below`}>
       {shown.length === 0 ? (
         <Empty>None yet.</Empty>
       ) : (

@@ -13,15 +13,14 @@ import { IdentityBar } from "./components/IdentityBar";
 import { SessionGate } from "./components/SessionGate";
 import { SessionStrip } from "./components/SessionStrip";
 import { TxConsole } from "./components/TxConsole";
-import { VoicePanel } from "./components/VoicePanel";
+import { VoiceTrail } from "./components/VoiceTrail";
 import { AddressLink, Panel } from "./components/primitives";
 
-type TabId = "proposals" | "delegations" | "voice" | "paper" | "how";
+type TabId = "proposals" | "delegations" | "paper" | "how";
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
   { id: "delegations", label: "Delegations" },
-  { id: "voice", label: "My voice" },
   { id: "paper", label: "Overview" },
   { id: "how", label: "How it works" },
 ];
@@ -93,6 +92,18 @@ export function App() {
           holdings={demo.holdings}
           lent={demo.lent}
           weights={demo.weights}
+          handover={demo.handover}
+          onHandoverShown={demo.clearHandover}
+        />
+      )}
+
+      {reading ? null : (
+        <VoiceTrail
+          config={config}
+          client={client}
+          role={role}
+          proposals={demo.proposals}
+          tick={demo.tick}
         />
       )}
 
@@ -158,18 +169,6 @@ export function App() {
                   onRevoked={demo.revokeGrant}
                 />
               </div>
-            ) : null}
-
-            {tab === "voice" ? (
-              <VoicePanel
-                config={config}
-                client={client}
-                role={role}
-                proposals={demo.proposals}
-                holdings={demo.holdings}
-                lent={demo.lent}
-                tick={demo.tick}
-              />
             ) : null}
 
             {tab === "paper" ? <LightPaper graph={demo.graph} /> : null}

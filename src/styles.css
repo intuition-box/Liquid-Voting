@@ -249,7 +249,8 @@ body {
 
 .rail {
   position: sticky;
-  top: var(--s6);
+  /* Clear of the pinned nav above it, or the tree slides underneath. */
+  top: calc(var(--s8) + var(--s2));
   display: flex;
   flex-direction: column;
   gap: var(--s5);
@@ -931,26 +932,40 @@ select:focus-visible,
 /* ── Top navigation ────────────────────────────────────────────────────────────
    Above the masthead, because two of these tabs are documents rather than views
    of the demo — they are not scoped by the domain rail. */
+/* Pinned, like the rail and the dock are. It was the only thing on the page that told
+   you which of five sections you were in, and the only one of the three that scrolled
+   away — so the two subordinate surfaces persisted while the primary one did not. */
 .topnav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s5);
-  padding-bottom: var(--s4);
+  gap: var(--s3);
+  /* Its own top padding, because the shell's scrolls away with the content, and its own
+     background, because content now passes underneath it. */
+  padding: var(--s3) 0 var(--s4);
   margin-bottom: var(--s6);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
+/* A tab with a body. It was the glyph run plus four pixels — 27px tall, text-width
+   wide — so the space between two labels hit nothing and the hover state was only
+   discoverable by landing on the letters exactly. */
 .topnav-tab {
   background: transparent;
   border: 0;
-  padding: 0;
+  padding: var(--s1) var(--s2) var(--s2);
   color: var(--muted);
   font-family: var(--sans);
   font-size: var(--t-base);
   font-weight: 500;
   cursor: pointer;
-  border-bottom: 1px solid transparent;
-  padding-bottom: var(--s1);
+  /* Two pixels, not one. Every separator in this file is a 1px hairline, including this
+     bar's own rule sixteen pixels below — so "you are here" and "section ends" were
+     drawn with the same stroke. */
+  border-bottom: 2px solid transparent;
 }
 
 .topnav-tab:hover { color: var(--text); }
@@ -1547,37 +1562,6 @@ select:focus-visible,
    at all. Laid out as a definition list because that is what it is: a few named facts
    about one account, not a table of comparable rows. */
 
-.voice-standing {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--s3) var(--s5);
-  margin: 0;
-}
-
-.voice-standing > div {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: baseline;
-}
-
-.voice-standing dt {
-  color: var(--dim);
-  font-size: var(--t-md);
-}
-
-.voice-standing dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.voice-note {
-  display: block;
-  margin-top: var(--s0);
-  color: var(--dim);
-  font-size: var(--t-sm);
-}
-
 .voice-list {
   margin: 0;
   padding: 0;
@@ -1747,6 +1731,8 @@ select:focus-visible,
 }
 
 .identity-cards {
+  /* The handover arc is drawn over this, so it needs a positioning context. */
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s3);
@@ -1944,4 +1930,101 @@ select:focus-visible,
 .voter-carried {
   color: var(--dim);
   font-family: var(--sans);
+}
+
+/* ── What was done with the acting identity's voice ────────────────────────────────
+   A tab until now, and reaching it was the longest detour in the app: after watching a
+   delegate vote you switched identity and then switched tab, to read something that had
+   been on screen two clicks earlier. It reports under the cards it belongs to, on one
+   line, and does not appear at all until there is something to report. */
+
+.trail {
+  margin: calc(var(--s5) * -1) 0 var(--s6);
+}
+
+.trail-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  width: 100%;
+  padding: var(--s2) 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.trail-bar:hover { color: var(--text); }
+
+.trail-bar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.trail-bar strong { color: var(--text); }
+
+.trail-caret {
+  color: var(--dim);
+  font-size: var(--t-xs);
+  width: 10px;
+}
+
+.trail .voice-list {
+  margin: 0 0 var(--s3);
+  padding-left: var(--s5);
+  border-left: 1px solid var(--border);
+}
+
+/* ── The handover, drawn ───────────────────────────────────────────────────────────
+   For a few seconds after a delegation lands, an arc from giver to receiver across the
+   cards. The one event this demo exists to show was a sentence at the foot of a panel on
+   a tab where the cards are not visible, while the cards whose numbers had just changed
+   sat silently off-screen. It animates the only thing that moves, and it fires on
+   confirmation, never on intent. */
+
+.handover-layer {
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 44px;
+  color: currentColor;
+  pointer-events: none;
+  animation: handover-in 320ms ease-out;
+}
+
+.handover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.handover-label {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 1px var(--s2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
+.handover-label strong { color: var(--text); }
+
+@keyframes handover-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still drawn, just not animated: the arc is the information, the movement is not. */
+  .handover-layer { animation: none; }
 }
