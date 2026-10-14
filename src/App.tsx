@@ -163,7 +163,7 @@ export function App() {
               />
             ) : null}
 
-            {tab === "paper" ? <LightPaper /> : null}
+            {tab === "paper" ? <LightPaper graph={demo.graph} /> : null}
             {tab === "how" ? <HowItWorks config={config} /> : null}
           </ErrorBoundary>
         </div>

@@ -230,8 +230,10 @@ export function ProposalsPanel({
             <span className="legend-spacer" />
             <span className="legend-col">for</span>
             <span className="legend-col">against</span>
-            <span className="legend-col">neutral</span>
-            <span className="legend-col legend-weight">weight</span>
+            {/* "abstain", which is what SUPPORT_LABELS and the detail below both say.
+                This header was the only place in the app that called it neutral. */}
+            <span className="legend-col">abstain</span>
+            <span className="legend-col">weight</span>
           </div>
           <ul className="proposals">
           {shown.map(({ proposal, domain, weight }) => {
