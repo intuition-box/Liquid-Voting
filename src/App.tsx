@@ -10,6 +10,7 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
+import { SessionGate } from "./components/SessionGate";
 import { TxConsole } from "./components/TxConsole";
 import { VoicePanel } from "./components/VoicePanel";
 import { AddressLink, Mono, Panel } from "./components/primitives";
@@ -78,6 +79,16 @@ export function App() {
       </nav>
 
       <Masthead role={role} onRole={setRole} holdings={demo.holdings} lent={demo.lent} />
+
+      <SessionGate
+        session={demo.session}
+        bootstrapping={demo.bootstrapping}
+        error={demo.bootstrapError}
+        canStart={demo.canStartSession}
+        writable={demo.writable}
+        onStart={() => void demo.startSession()}
+        onEnd={demo.endSession}
+      />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
 

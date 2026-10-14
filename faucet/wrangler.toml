@@ -1,0 +1,15 @@
+name = "liquid-demo-faucet"
+main = "src/index.ts"
+compatibility_date = "2026-01-15"
+
+# The origins allowed to ask for a session. Add the Pages URL once it is live.
+[vars]
+ALLOWED_ORIGINS = "https://wieedze.github.io,http://localhost:5173"
+
+# npx wrangler kv namespace create FAUCET_LIMITS, then paste the id it prints.
+[[kv_namespaces]]
+binding = "FAUCET_LIMITS"
+id = "replace-me"
+
+# FAUCET_PRIVATE_KEY is a secret, not a var:
+#   npx wrangler secret put FAUCET_PRIVATE_KEY

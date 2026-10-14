@@ -1736,3 +1736,157 @@ select:focus-visible,
   font-size: 12.5px;
   line-height: 1.6;
 }
+
+/* ── The session gate ──────────────────────────────────────────────────────────────
+   Four states in one strip: an offer, a loader, a live session, or a plain statement
+   that this build cannot write. It sits under the masthead because it governs who the
+   rest of the page is acting as. */
+
+.gate {
+  margin: var(--s4) 0 0;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.gate-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s5);
+  flex-wrap: wrap;
+  border-color: var(--border-strong);
+}
+
+.gate-offer-text { flex: 1; min-width: 32ch; }
+
+.gate-offer-text p {
+  margin: var(--s1) 0 0;
+  max-width: 76ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.gate-start {
+  flex: none;
+  padding: var(--s2) var(--s4);
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  color: #17140d;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gate-start:hover { filter: brightness(1.08); }
+
+.gate-start:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* The loader. A real fraction rather than an indeterminate bar, because the number of
+   steps is known in advance and a visitor deserves to see it shrink. */
+.gate-busy { border-color: var(--border-strong); }
+
+.gate-progress {
+  height: 3px;
+  margin-bottom: var(--s3);
+  border-radius: 2px;
+  background: #1c1f22;
+  overflow: hidden;
+}
+
+.gate-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 240ms ease-out;
+}
+
+.gate-busy-text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.gate-step {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.gate-hint {
+  margin: var(--s2) 0 0;
+  max-width: 82ch;
+  color: var(--dim);
+  line-height: 1.55;
+}
+
+.gate-live {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  padding: var(--s2) var(--s4);
+}
+
+.gate-badge {
+  padding: 1px var(--s2);
+  border: 1px solid #2e4535;
+  border-radius: 3px;
+  color: var(--ok);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.gate-accounts {
+  display: flex;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.gate-account {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.gate-who {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.gate-end {
+  margin-left: auto;
+  padding: 2px var(--s2);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.gate-end:hover { color: var(--text); border-color: var(--muted); }
+
+.gate-shut {
+  max-width: 96ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.gate-shut strong { color: var(--text); }
+
+.gate-error {
+  flex-basis: 100%;
+  margin: var(--s2) 0 0;
+  color: var(--bad);
+  line-height: 1.5;
+}

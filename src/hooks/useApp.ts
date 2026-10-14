@@ -3,10 +3,14 @@ import type { PublicClient } from "viem";
 
 import { createChainClient } from "../lib/chain/network";
 import { isDelegationDisabled } from "../lib/delegation/encoding";
+import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
+import { clearSession, readSession, type Session } from "../lib/chain/session";
 import {
   canWrite,
   clearSessionDomains,
   loadAppConfig,
+  resolveFunder,
+  withSession,
   readSessionDomains,
   readSessionGrants,
   saveSessionDomain,
@@ -67,6 +71,15 @@ export interface AppState {
   /** Bumped by every `refresh`. A panel that owns a read of its own watches this so it
    *  settles with the rest of the page instead of going stale behind it. */
   tick: number;
+  /** The three wallets this browser owns, or null when it is driving the manifest's. */
+  session: Session | null;
+  /** Set while a session is being set up, for the loader. */
+  bootstrapping: { stage: string; done: number; total: number } | null;
+  bootstrapError: string | null;
+  startSession: () => Promise<void>;
+  endSession: () => void;
+  /** Whether this build can pay for a session at all — a local key, or a faucet. */
+  canStartSession: boolean;
   /** Drops session-minted domains — use between rehearsals so they do not linger on stage. */
   resetSessionDomains: () => void;
 }
@@ -86,10 +99,23 @@ export function useApp(): AppState {
   const [sessionGrants, setSessionGrants] = useState<Grant[]>(() =>
     typeof window === "undefined" ? [] : readSessionGrants(),
   );
-  const config = useMemo(
-    () => (baseConfig ? withSessionDomains(baseConfig, sessionDomains) : null),
-    [baseConfig, sessionDomains],
+  /**
+   * The three wallets this browser owns, if it made any against this governor.
+   *
+   * Read once at mount rather than watched: a session is created by this tab and nothing
+   * else writes it, so polling storage would only find what we already know.
+   */
+  const [session, setSession] = useState<Session | null>(() =>
+    typeof window === "undefined" || !baseConfig ? null : readSession(baseConfig.governor),
   );
+  const [bootstrapping, setBootstrapping] = useState<{ stage: string; done: number; total: number } | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+
+  const config = useMemo(() => {
+    if (!baseConfig) return null;
+    const scoped = withSessionDomains(baseConfig, sessionDomains);
+    return session ? withSession(scoped, session) : scoped;
+  }, [baseConfig, sessionDomains, session]);
   const client = useMemo(() => (baseConfig ? createChainClient(baseConfig.rpcUrl) : null), [baseConfig]);
 
   const [edges, setEdges] = useState<EdgeState[]>([]);
@@ -258,8 +284,61 @@ export function useApp(): AppState {
   }, [config, rootDisabled, leafDisabled, sessionGrants, revokedGrants, graph, delegatedTo]);
   const grants = delegations.all() as Grant[];
 
+  /**
+   * Makes this browser three wallets of its own: deployed, funded, holding weight that
+   * counts. Every stage appears in the transaction log as it happens.
+   */
+  const startSession = useCallback(async (): Promise<void> => {
+    if (!baseConfig || !client) return;
+    const funder = resolveFunder(baseConfig);
+    if (!funder) {
+      setBootstrapError(
+        "This build has no way to pay for a session: no local key and no faucet configured. Set VITE_FAUCET_URL, or run it with contracts/.env in place.",
+      );
+      return;
+    }
+    setBootstrapError(null);
+    setBootstrapping({ stage: "starting", done: 0, total: BOOTSTRAP_STAGES });
+    try {
+      const made = await bootstrapSession({
+        client,
+        funder,
+        governor: baseConfig.governor,
+        votesToken: baseConfig.votesToken,
+        rpcUrl: baseConfig.rpcUrl,
+        onProgress: (stage, done, total) => setBootstrapping({ stage, done, total }),
+      });
+      setSession(made);
+      // Everything on screen was read for the old identities; none of it is about these.
+      setRevokedGrants([]);
+      setSessionGrants([]);
+      saveSessionGrants([]);
+      refresh();
+    } catch (cause) {
+      setBootstrapError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBootstrapping(null);
+    }
+  }, [baseConfig, client, refresh]);
+
+  /** Forgets this browser's wallets. What they did stays on chain, as it should. */
+  const endSession = useCallback((): void => {
+    clearSession();
+    setSession(null);
+    setRevokedGrants([]);
+    setSessionGrants([]);
+    saveSessionGrants([]);
+    refresh();
+  }, [refresh]);
+
   return {
     tick,
+    session,
+    bootstrapping,
+    bootstrapError,
+    startSession,
+    endSession,
+    canStartSession: baseConfig !== null && resolveFunder(baseConfig) !== null,
     configResult,
     config,
     client,

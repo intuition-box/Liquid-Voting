@@ -1,5 +1,9 @@
 import type { Hex } from "viem";
 
+import { privateKeyToAddress } from "viem/accounts";
+
+import type { Funder } from "../chain/bootstrap";
+import type { Session } from "../chain/session";
 import type { DomainEdge, DomainNode } from "../graph/edges";
 import { parseEdgeKey } from "../graph/domain-graph";
 import { ROLES, type Role } from "../roles";
@@ -12,6 +16,14 @@ import type { Delegation } from "../delegation/encoding";
  */
 const DEMO_SUBMITTER_KEY: string = import.meta.env.DEMO_SUBMITTER_KEY ?? "";
 const DEMO_RPC: string = import.meta.env.DEMO_RPC ?? "";
+/**
+ * Where a hosted build gets the gas for a visitor's session.
+ *
+ * Not a secret, which is the whole point of it: the key stays behind the endpoint, so a
+ * build anyone can open carries no funded account. Unset in development, where
+ * `DEMO_SUBMITTER_KEY` is present and no faucet is needed.
+ */
+const FAUCET_URL: string = import.meta.env.VITE_FAUCET_URL ?? "";
 const DEMO_OWNER_KEYS: Record<string, string> = (() => {
   try {
     return JSON.parse(import.meta.env.DEMO_OWNER_KEYS ?? "{}") as Record<string, string>;
@@ -67,6 +79,8 @@ export interface AppConfig {
   accounts: Record<Role, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
   /** Empty in a production build — writes are disabled there (ADR 0011). */
   ownerKeys: Partial<Record<Role, `0x${string}`>>;
+  /** Set in a hosted build: where a visitor's session asks for its gas. */
+  faucetUrl: string | undefined;
   delegations: {
     root: Delegation & { hash: Hex };
     /** The voice the delegate relays for the voter — chained to `root`. */
@@ -163,9 +177,45 @@ export function loadAppConfig(): ConfigResult {
       },
       // Empty string in a production build — validated by canWrite() before any use.
       submitterKey: DEMO_SUBMITTER_KEY as `0x${string}`,
+      faucetUrl: FAUCET_URL || undefined,
       rpcUrl: DEMO_RPC || undefined,
     },
   };
+}
+
+/**
+ * The same config, acting as a session's own three wallets instead of the manifest's.
+ *
+ * The manifest's accounts are the ones whose owner keys live in a gitignored file: they
+ * work on the machine that made them and nowhere else. A session generated in the browser
+ * replaces all three, plus the submitter, so a hosted build can be driven by whoever
+ * opened it — and two visitors do not quietly share one set of identities.
+ *
+ * Everything else is untouched. The graph, the governor, the vocabulary and the staked
+ * edges are shared on purpose: they are the thing being demonstrated, and they cost real
+ * deposits to create.
+ */
+export function withSession(config: AppConfig, session: Session): AppConfig {
+  const ownerKeys: AppConfig["ownerKeys"] = {};
+  const accounts = {} as AppConfig["accounts"];
+  for (const role of ROLES) {
+    ownerKeys[role] = session.owners[role];
+    accounts[role] = { owner: privateKeyToAddress(session.owners[role]), smartAccount: session.accounts[role] };
+  }
+  return { ...config, accounts, ownerKeys, submitterKey: session.submitterKey };
+}
+
+/**
+ * How a session gets its first tTRUST, or null when this build has no way to.
+ *
+ * A development build was handed a key and uses it. A hosted build has none — shipping
+ * one would publish a funded account to anyone who reads the bundle, which ADR 0011
+ * exists to prevent — and uses the faucet, which holds its key server side.
+ */
+export function resolveFunder(config: AppConfig): Funder | null {
+  if (isHexKey(config.submitterKey)) return { kind: "key", key: config.submitterKey };
+  if (config.faucetUrl) return { kind: "faucet", url: config.faucetUrl };
+  return null;
 }
 
 /** Write actions need a funded submitter and all three owner keys (dev only, ADR 0011). */
