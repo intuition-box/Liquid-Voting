@@ -48,9 +48,9 @@ body {
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  /* The last value clears the transaction log, which is fixed to the foot of the
-     viewport and would otherwise sit on top of the footer. */
-  padding: var(--s7) var(--s6) 120px;
+  /* The last value clears the dock at the foot of the viewport — the session line and
+     the transaction log — which would otherwise sit on top of the page footer. */
+  padding: var(--s7) var(--s6) 140px;
 }
 
 /* ── Masthead ─────────────────────────────────────────────────────────── */
@@ -78,9 +78,13 @@ body {
 }
 
 .masthead p {
+  /* Capped, because the flex row let this run to about 105 characters a line and a
+     comfortable measure is 45 to 75. The title keeps whatever is left. */
+  max-width: 62ch;
   margin: 0;
   color: var(--muted);
   font-size: 16px;
+  line-height: 1.5;
 }
 
 @media (max-width: 1000px) {
@@ -1277,12 +1281,17 @@ select:focus-visible,
    about governance rather than plumbing — but the plumbing is the proof, so it is
    always one click away and never more than that. */
 
-.console {
+/* Everything about the machinery sits here: whose wallets these are, and what they did.
+   The dock is what is fixed; its children stack inside it. */
+.dock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 40;
+}
+
+.console {
   background: var(--surface);
   border-top: 1px solid var(--border-strong);
   font-size: 12.5px;
@@ -1782,7 +1791,10 @@ select:focus-visible,
    times, and that subject is the whole demonstration. */
 
 .identities {
-  margin: var(--s5) 0 0;
+  /* Room below as well as above: with none, the cards pressed straight into the domain
+     tree and the proposals table, and the session line that used to sit between them
+     landed on top of the table's own header. */
+  margin: var(--s5) 0 var(--s6);
 }
 
 .identity-cards {
@@ -1888,28 +1900,44 @@ select:focus-visible,
   font-size: 11px;
 }
 
-.identities-foot {
+@media (max-width: 760px) {
+  .identity-cards { grid-template-columns: 1fr; }
+}
+
+/* The session line, docked above the transaction log. Thin on purpose: it says whose
+   wallets these are and nothing the identity cards already said. */
+.session-strip {
   display: flex;
   align-items: baseline;
   gap: var(--s3);
   flex-wrap: wrap;
-  margin: var(--s3) 0 0;
+  padding: var(--s2) var(--s4);
+  background: #0e0f11;
+  border-top: 1px solid var(--border);
   font-size: 12px;
 }
 
-.identity-badge {
+.session-badge {
+  flex: none;
   padding: 1px var(--s2);
   border: 1px solid #2e4535;
   border-radius: 3px;
   color: var(--ok);
   font-family: var(--mono);
   font-size: 10.5px;
+  letter-spacing: 0.02em;
 }
 
-.identity-note { flex: 1; min-width: 28ch; color: var(--dim); }
-.identity-note a { color: var(--muted); }
+.session-note {
+  flex: 1;
+  min-width: 24ch;
+  color: var(--dim);
+}
 
-.identity-forget {
+.session-note a { color: var(--muted); }
+
+.session-forget {
+  flex: none;
   padding: 2px var(--s2);
   background: none;
   border: 1px solid var(--border-strong);
@@ -1920,8 +1948,4 @@ select:focus-visible,
   cursor: pointer;
 }
 
-.identity-forget:hover { color: var(--text); border-color: var(--muted); }
-
-@media (max-width: 760px) {
-  .identity-cards { grid-template-columns: 1fr; }
-}
+.session-forget:hover { color: var(--text); border-color: var(--muted); }

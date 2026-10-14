@@ -11,6 +11,7 @@ import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
 import { IdentityBar } from "./components/IdentityBar";
 import { SessionGate } from "./components/SessionGate";
+import { SessionStrip } from "./components/SessionStrip";
 import { TxConsole } from "./components/TxConsole";
 import { VoicePanel } from "./components/VoicePanel";
 import { AddressLink, Panel } from "./components/primitives";
@@ -84,8 +85,6 @@ export function App() {
         holdings={demo.holdings}
         lent={demo.lent}
         weights={demo.weights}
-        session={demo.session}
-        onForget={demo.endSession}
       />
 
       <SessionGate
@@ -183,7 +182,11 @@ export function App() {
         </span>
       </footer>
 
-      <TxConsole />
+      {/* The machinery, docked together: whose wallets these are, and what they did. */}
+      <div className="dock">
+        {demo.session ? <SessionStrip session={demo.session} onForget={demo.endSession} /> : null}
+        <TxConsole />
+      </div>
     </main>
   );
 }

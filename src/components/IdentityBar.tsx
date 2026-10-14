@@ -10,13 +10,15 @@
  * So one card each, carrying everything true of that account at once, and the card you
  * are acting as is the one that is lit. Switching identity is clicking a card, which is
  * also the thing a visitor most wants to do.
+ *
+ * Whose wallets these are is said at the foot of the page, beside the transaction log,
+ * because that is a fact about the machinery rather than about governance.
  */
 import type { AppConfig, Role } from "../lib/config/app-config";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import { ROLE_CLASS, ROLES } from "../lib/delegation/grant";
 import type { DomainGraph } from "../lib/graph/domain-graph";
-import type { Session } from "../lib/chain/session";
-import { addressUrl, shortHex } from "../lib/chain/network";
+import { shortHex } from "../lib/chain/network";
 
 export function IdentityBar({
   config,
@@ -28,8 +30,6 @@ export function IdentityBar({
   holdings,
   lent,
   weights,
-  session,
-  onForget,
 }: {
   config: AppConfig;
   role: Role;
@@ -41,9 +41,6 @@ export function IdentityBar({
   holdings: Record<Role, { balance: bigint; votes: bigint }>;
   lent: Partial<Record<Role, { amount: bigint; scope: string }>>;
   weights: Record<string, Record<Role, bigint>>;
-  /** Present when this browser made its own wallets. */
-  session: Session | null;
-  onForget: () => void;
 }) {
   const domainId = graph.termId(domain)?.toLowerCase();
   const castsOn = domainId ? weights[domainId] : undefined;
@@ -138,21 +135,6 @@ export function IdentityBar({
         })}
       </div>
 
-      {session ? (
-        <p className="identities-foot">
-          <span className="identity-badge">your session</span>
-          <span className="identity-note">
-            Three wallets made in this browser.{" "}
-            <a href={addressUrl(session.submitterAddress)} target="_blank" rel="noreferrer">
-              its submitter
-            </a>{" "}
-            pays for what they do.
-          </span>
-          <button type="button" className="identity-forget" onClick={onForget}>
-            Forget these wallets
-          </button>
-        </p>
-      ) : null}
     </section>
   );
 }
