@@ -105,13 +105,15 @@ export async function signDelegation(
           {
             contract: "GraphDomainScope",
             address: config.enforcer,
-            fn: "caveat terms (signed, immutable)",
+            fn: "caveat terms — signed into the delegation, immutable from here",
             args: {
-              rootDomain: domainLabel,
-              maxDepth: String(maxDepth),
+              // Named exactly as the redemption row names it, so the two can be matched
+              // by eye when the delegate finally spends this signature.
+              "delegation hash": hash,
+              "signed scope": `“${domainLabel}”`,
+              "hops allowed": String(maxDepth),
               attestor: config.attestor,
-              authority: index === 0 ? "ROOT_AUTHORITY" : authority,
-              hash,
+              authority: index === 0 ? "ROOT_AUTHORITY — stands on its own" : `${authority} — derives from it`,
             },
           },
         ],

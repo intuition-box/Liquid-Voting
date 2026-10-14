@@ -19,6 +19,7 @@ import type { AppConfig } from "../config/app-config";
 import type { RedeemableChain, VoiceChain } from "../delegation/delegation-set";
 import {
   buildVoteCalldata,
+  decodeTerms,
   preflightRedeem,
   type Delegation,
   type PreflightResult,
@@ -27,7 +28,7 @@ import type { DomainGraph, GraphLimits } from "../graph/domain-graph";
 import type { PathResult } from "../graph/edges";
 import { ROLES, type Role } from "../roles";
 
-import { logStep, settleStep, trackTransaction } from "../chain/tx-log";
+import { logStep, settleStep, trackTransaction, type LogCall } from "../chain/tx-log";
 import { requireOwnerKey, submitterClient } from "./common";
 
 export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "../delegation/encoding";
@@ -64,7 +65,10 @@ export interface VotePlan {
   /** The account that must be `msg.sender` at the DelegationManager, and the recorded voter. */
   redeemer: Role;
   /** One chain per voice carried, each with a witness per link. */
-  chains: { chain: Delegation[]; witnesses: Hex[][] }[];
+  chains: RedeemedVoice[];
+  /** What is being voted on, kept so the log can name it without being told twice. */
+  proposalId: bigint;
+  support: number;
   /** Per-link path computation, flattened across voices, for the UI to show its work. */
   paths: { rootLabel: string; result: PathResult }[];
   /** Whose voting power rides along with the redeemer's own. */
@@ -72,6 +76,116 @@ export interface VotePlan {
   calldata: Hex | null;
   /** Set when a link could not produce a witness — nothing to submit. */
   blocked: string | null;
+}
+
+/** One voice and the witnesses computed for each of its links, leaf first. */
+interface RedeemedVoice {
+  chain: (Delegation & { hash: Hex })[];
+  witnesses: Hex[][];
+}
+
+/**
+ * The one chain a vote is redeemed through, out of however many voices a holder carries.
+ *
+ * `redeemDelegations` pairs each permission context with its own execution, and
+ * OpenZeppelin allows an account a single vote per proposal — so redeeming three chains
+ * called `castVoteFor` three times, and the second was refused by OZ's own guard, taking
+ * the whole operation down with it. The deepest lineage is chosen, so the longest chain of
+ * signatures in play is the one actually walked (ADR 0021).
+ */
+function deepestVoice(voices: RedeemedVoice[]): RedeemedVoice | null {
+  return voices.reduce<RedeemedVoice | null>(
+    (best, voice) => (best === null || voice.chain.length > best.chain.length ? voice : best),
+    null,
+  );
+}
+
+/** Whose name a vote is cast in, phrased for a sentence rather than a template. */
+function inWhoseName(borrowed: Role[]): string {
+  return borrowed.length === 0 ? "in its own name" : `in ${borrowed.join(" and ")}\u2019s name`;
+}
+
+/** A role letter for one of the demo's accounts, or a short address for anything else. */
+function nameOf(config: AppConfig, address: string): string {
+  const role = ROLES.find(
+    (candidate) => config.accounts[candidate].smartAccount.toLowerCase() === address.toLowerCase(),
+  );
+  return role ?? `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+/** A domain's label from its term id, since a reader cannot be asked to know hashes. */
+function domainLabel(config: AppConfig, termId: Hex): string {
+  return config.nodes.find((node) => node.termId.toLowerCase() === termId.toLowerCase())?.label ?? termId;
+}
+
+/**
+ * The redemption, link by link, as the transaction log should name it.
+ *
+ * The point of the log is this entry. A delegation is a signed object that has been sitting
+ * in a file since whoever made it signed it — and this is the moment it touches the chain
+ * for the first time. Saying only "B votes, carrying A" hides the whole mechanism: it does
+ * not say which signature is being spent, who made it, what scope they fixed into it, or
+ * what the caveat is about to check that scope against.
+ *
+ * So each link is named by the hash it was signed under, which is the same hash the log
+ * printed when it was signed. The two rows can be matched by eye, which is the demonstration.
+ */
+function describeRedemption(
+  config: AppConfig,
+  voice: RedeemedVoice,
+  proposalId: bigint,
+  support: number,
+  voter: Role,
+  principals: Role[],
+): LogCall[] {
+  const borrowed = principals.filter((principal) => principal !== voter);
+  const links: LogCall[] = voice.chain.map((delegation, index) => {
+    const terms = delegation.caveats[0] ? decodeTerms(delegation.caveats[0].terms) : null;
+    const witness = (voice.witnesses[index] ?? []).map((hop) => domainLabel(config, hop));
+    const signer = nameOf(config, delegation.delegator);
+    const holder = nameOf(config, delegation.delegate);
+    return {
+      contract: "GraphDomainScope",
+      address: config.enforcer,
+      fn: "beforeHook — rechecks the announced path against the graph",
+      args: {
+        redeeming: `the delegation ${signer} signed to ${holder}`,
+        "signed scope": terms ? `“${domainLabel(config, terms.rootDomainId)}” — immutable, in the terms` : "—",
+        "witness supplied": witness.length > 1 ? witness.join(" → ") : (witness[0] ?? "none"),
+        "delegation hash": delegation.hash,
+        ...(terms ? { "hops allowed": String(terms.maxDepth) } : {}),
+      },
+    };
+  });
+
+  return [
+    {
+      contract: "DelegationManager",
+      address: FRAMEWORK.delegationManager,
+      fn: "redeemDelegations(bytes[],ModeCode[],bytes[])",
+      args: {
+        "redeemed by": voter,
+        "links walked": `${voice.chain.length} — ${voice.chain
+          .map((link) => `${nameOf(config, link.delegator)} → ${nameOf(config, link.delegate)}`)
+          .reverse()
+          .join(", then ")}`,
+      },
+    },
+    ...links,
+    {
+      contract: "OZGovernor",
+      address: config.governor,
+      fn: "castVoteFor(uint256,uint8,address,address[],bytes32[])",
+      args: {
+        // An OZ proposal id is a hash of the call it would execute, so it is 78 digits
+        // long and only its head is any use to a reader comparing rows.
+        proposal: `${proposalId.toString().slice(0, 12)}…`,
+        support: SUPPORT_NAMES[support] ?? String(support),
+        "recorded as": `${voter} — the delegate, not the signer`,
+        "voting on behalf of": borrowed.length > 0 ? borrowed.join(", ") : "nobody but itself",
+      },
+    },
+  ];
 }
 
 /**
@@ -119,14 +233,22 @@ export async function castOnGovernor(
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, role)));
   const voter = config.accounts[role].smartAccount;
 
-  const data = carried
+  // One chain, however many voices ride on it. Every principal is still named, because
+  // the governor checks the register itself — the chain proves the scope, the register
+  // proves whose weight it carries (ADR 0021). Building one execution per voice called
+  // castVoteFor once per chain, and OZ refused the second.
+  const redeemed = carried
+    ? deepestVoice(carried.voices.map((voice) => ({ chain: voice.chain, witnesses: witnesses(voice) })))
+    : null;
+
+  const data = redeemed
     ? buildVoteCalldata({
-        chains: carried.voices.map((voice) => ({ chain: voice.chain, witnesses: witnesses(voice) })),
+        chains: [redeemed],
         governor: config.governor,
         proposalId,
         support,
         voter,
-        principals: carried.principals.map((principal) => config.accounts[principal].smartAccount),
+        principals: (carried?.principals ?? []).map((principal) => config.accounts[principal].smartAccount),
         domainPath,
       })
     : encodeFunctionData({
@@ -138,46 +260,29 @@ export async function castOnGovernor(
         )],
       });
 
-  const principals = carried ? carried.principals : [];
+  const principals = carried?.principals ?? [];
   const borrowed = principals.filter((principal) => principal !== role);
+  const signers = redeemed
+    ? [...new Set(redeemed.chain.map((link) => nameOf(config, link.delegator)))].reverse()
+    : [];
+
   return sendUserOp(
     client,
     submitterClient(config),
     account,
-    [{ to: carried ? FRAMEWORK.delegationManager : config.governor, value: 0n, data }],
+    [{ to: redeemed ? FRAMEWORK.delegationManager : config.governor, value: 0n, data }],
     {
       actor: role,
-      label: borrowed.length
-        ? `${role} votes, carrying ${borrowed.join(" and ")}`
+      // The sentence this whole proof of concept exists to make true, so it is the one on
+      // the row rather than something a reader has to expand the row to find.
+      label: redeemed
+        ? `${role} redeems the delegation ${signers.join(" and ")} signed, and votes with it ${inWhoseName(borrowed)}`
         : `${role} votes with its own weight`,
-      detail: carried
-        ? "Through the DelegationManager, which is what puts the caveat on the path: it rechecks every hop of the announced domain path against the graph before the governor is reached."
+      detail: redeemed
+        ? "The delegation was signed off chain and has been sitting in a file ever since; this is the first time it touches the chain. The DelegationManager walks it link by link, and each link's caveat rechecks the announced domain path against live graph state before the governor is ever reached — so the scope is proven here, not asserted."
         : "Straight to the governor. There is no delegation to redeem, so there is nothing for a caveat to check.",
-      calls: carried
-        ? [
-            {
-              contract: "DelegationManager",
-              address: FRAMEWORK.delegationManager,
-              fn: "redeemDelegations(bytes[],ModeCode[],bytes[])",
-              args: {
-                chains: String(carried.voices.length),
-                links: String(carried.voices.reduce((total, voice) => total + voice.chain.length, 0)),
-                caveat: `GraphDomainScope · ${config.enforcer}`,
-              },
-            },
-            {
-              contract: "OZGovernor",
-              address: config.governor,
-              fn: "castVoteFor(uint256,uint8,address,address[],bytes32[])",
-              args: {
-                proposal: proposalId.toString(),
-                support: SUPPORT_NAMES[support] ?? String(support),
-                voter: `${role} · ${voter}`,
-                principals: principals.join(", ") || "—",
-                path: `${domainPath.length} hop${domainPath.length === 1 ? "" : "s"}`,
-              },
-            },
-          ]
+      calls: redeemed
+        ? describeRedemption(config, redeemed, proposalId, support, role, principals)
         : [
             {
               contract: "OZGovernor",
@@ -225,10 +330,10 @@ export function planVote(
   }));
   const paths = planned.flatMap((entry) => entry.paths);
   const chains = planned.map((entry) => ({
-    chain: entry.voice.chain as Delegation[],
+    chain: entry.voice.chain,
     witnesses: entry.paths.map((path) => (path.result.found ? path.result.path : [])),
   }));
-  const base = { redeemer, chains, paths, principals };
+  const base = { redeemer, chains, paths, principals, proposalId, support };
 
   const blockedAt = paths.find((entry) => !entry.result.found);
   if (blockedAt && !blockedAt.result.found) {
@@ -259,16 +364,13 @@ export function planVote(
  */
 function encodeVote(
   config: AppConfig,
-  chains: { chain: Delegation[]; witnesses: Hex[][] }[],
+  chains: RedeemedVoice[],
   redeemer: Role,
   principals: Role[],
   proposalId: bigint,
   support: number,
 ): Hex {
-  const deepest = chains.reduce<(typeof chains)[number] | null>(
-    (best, entry) => (best === null || entry.chain.length > best.chain.length ? entry : best),
-    null,
-  );
+  const deepest = deepestVoice(chains);
   // The governor needs the same path the caveats verify: a grant on a parent domain
   // covers this proposal, and the path is what proves the parent relation. Every chain
   // climbs to the same proposal domain, so the top witness speaks for all of them.
@@ -340,6 +442,11 @@ export async function submitVote(
   if (!plan.calldata) throw new Error(plan.blocked ?? "nothing to submit");
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, plan.redeemer)));
   const borrowed = plan.principals.filter((principal) => principal !== plan.redeemer);
+  const redeemed = deepestVoice(plan.chains);
+  const signers = redeemed
+    ? [...new Set(redeemed.chain.map((link) => nameOf(config, link.delegator)))].reverse()
+    : [];
+
   return sendUserOp(
     client,
     submitterClient(config),
@@ -347,29 +454,14 @@ export async function submitVote(
     [{ to: FRAMEWORK.delegationManager, value: 0n, data: plan.calldata }],
     {
       actor: plan.redeemer,
-      label: borrowed.length
-        ? `${plan.redeemer} votes, carrying ${borrowed.join(" and ")}`
-        : `${plan.redeemer} redeems its own delegation to vote`,
+      label: redeemed
+        ? `${plan.redeemer} redeems the delegation ${signers.join(" and ")} signed, and votes with it ${inWhoseName(borrowed)}`
+        : `${plan.redeemer} votes`,
       detail:
-        "One chain redeemed per voice carried, each validated on its own: a voice whose upstream was revoked drops out without taking the others down with it.",
-      calls: [
-        {
-          contract: "DelegationManager",
-          address: FRAMEWORK.delegationManager,
-          fn: "redeemDelegations(bytes[],ModeCode[],bytes[])",
-          args: {
-            chains: String(plan.chains.length),
-            links: String(plan.chains.reduce((total, entry) => total + entry.chain.length, 0)),
-            witnesses: plan.paths.map((entry) => `${entry.rootLabel}:${entry.result.found ? entry.result.path.length : 0}`).join(" "),
-          },
-        },
-        {
-          contract: "OZGovernor",
-          address: config.governor,
-          fn: "castVoteFor(uint256,uint8,address,address[],bytes32[])",
-          args: { voter: plan.redeemer, principals: plan.principals.join(", ") },
-        },
-      ],
+        "The delegation was signed off chain and has been sitting in a file ever since; this is the first time it touches the chain. Each link's caveat rechecks the announced domain path against live graph state before the governor is reached.",
+      calls: redeemed
+        ? describeRedemption(config, redeemed, plan.proposalId, plan.support, plan.redeemer, plan.principals)
+        : [],
     },
   );
 }
