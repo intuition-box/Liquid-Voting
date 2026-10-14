@@ -90,7 +90,10 @@ export function IdentityBar({
                   </dd>
                 </div>
                 <div>
-                  <dt>lending</dt>
+                  {/* "delegating", not "lending": the contract calls it a lending because
+                      the weight comes back, but what a reader is watching is a delegation,
+                      and the card has no room to explain the difference. */}
+                  <dt>delegating</dt>
                   <dd>
                     {lending ? (
                       <>

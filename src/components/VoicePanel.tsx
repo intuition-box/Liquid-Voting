@@ -88,7 +88,7 @@ export function VoicePanel({
             </dd>
           </div>
           <div>
-            <dt>handed over</dt>
+            <dt>delegating</dt>
             <dd>
               {lending ? (
                 <>
