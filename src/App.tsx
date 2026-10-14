@@ -10,6 +10,7 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
+import { TxConsole } from "./components/TxConsole";
 import { AddressLink, Mono, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations" | "paper" | "how";
@@ -149,6 +150,8 @@ export function App() {
           MultiVault <AddressLink address={config.multiVault} />
         </span>
       </footer>
+
+      <TxConsole />
     </main>
   );
 }

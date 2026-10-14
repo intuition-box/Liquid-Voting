@@ -28,6 +28,7 @@ import type { DomainGraph, GraphLimits } from "../graph/domain-graph";
 import type { PathResult } from "../graph/edges";
 import { ROLES, type Role } from "../roles";
 
+import { logStep, settleStep, trackTransaction } from "../chain/tx-log";
 import { requireOwnerKey, submitterClient } from "./common";
 
 export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "../delegation/encoding";
@@ -129,10 +130,64 @@ export async function castOnGovernor(
         )],
       });
 
-  return sendUserOp(client, submitterClient(config), account, [
-    { to: carried ? FRAMEWORK.delegationManager : config.governor, value: 0n, data },
-  ]);
+  const principals = carried ? carried.principals : [];
+  const borrowed = principals.filter((principal) => principal !== role);
+  return sendUserOp(
+    client,
+    submitterClient(config),
+    account,
+    [{ to: carried ? FRAMEWORK.delegationManager : config.governor, value: 0n, data }],
+    {
+      actor: role,
+      label: borrowed.length
+        ? `${role} votes, carrying ${borrowed.join(" and ")}`
+        : `${role} votes with its own weight`,
+      detail: carried
+        ? "Through the DelegationManager, which is what puts the caveat on the path: it rechecks every hop of the announced domain path against the graph before the governor is reached."
+        : "Straight to the governor. There is no delegation to redeem, so there is nothing for a caveat to check.",
+      calls: carried
+        ? [
+            {
+              contract: "DelegationManager",
+              address: FRAMEWORK.delegationManager,
+              fn: "redeemDelegations(bytes[],ModeCode[],bytes[])",
+              args: {
+                chains: String(carried.voices.length),
+                links: String(carried.voices.reduce((total, voice) => total + voice.chain.length, 0)),
+                caveat: `GraphDomainScope · ${config.enforcer}`,
+              },
+            },
+            {
+              contract: "OZGovernor",
+              address: config.governor,
+              fn: "castVoteFor(uint256,uint8,address,address[],bytes32[])",
+              args: {
+                proposal: proposalId.toString(),
+                support: SUPPORT_NAMES[support] ?? String(support),
+                voter: `${role} · ${voter}`,
+                principals: principals.join(", ") || "—",
+                path: `${domainPath.length} hop${domainPath.length === 1 ? "" : "s"}`,
+              },
+            },
+          ]
+        : [
+            {
+              contract: "OZGovernor",
+              address: config.governor,
+              fn: "castVoteWithReasonAndParams(uint256,uint8,string,bytes)",
+              args: {
+                proposal: proposalId.toString(),
+                support: SUPPORT_NAMES[support] ?? String(support),
+                params: "(proposalId, domainPath, [self])",
+              },
+            },
+          ],
+    },
+  );
 }
+
+/** How `GovernorCountingSimple` numbers the three options, for a log a human reads. */
+const SUPPORT_NAMES: Record<number, string> = { 0: "Against", 1: "For", 2: "Abstain" };
 
 /**
  * Plans a delegated vote through the delegations that were actually signed.
@@ -253,9 +308,39 @@ export async function submitVote(
 ): Promise<UserOpResult> {
   if (!plan.calldata) throw new Error(plan.blocked ?? "nothing to submit");
   const account = await toHybridAccount(client, privateKeyToAccount(requireOwnerKey(config, plan.redeemer)));
-  return sendUserOp(client, submitterClient(config), account, [
-    { to: FRAMEWORK.delegationManager, value: 0n, data: plan.calldata },
-  ]);
+  const borrowed = plan.principals.filter((principal) => principal !== plan.redeemer);
+  return sendUserOp(
+    client,
+    submitterClient(config),
+    account,
+    [{ to: FRAMEWORK.delegationManager, value: 0n, data: plan.calldata }],
+    {
+      actor: plan.redeemer,
+      label: borrowed.length
+        ? `${plan.redeemer} votes, carrying ${borrowed.join(" and ")}`
+        : `${plan.redeemer} redeems its own delegation to vote`,
+      detail:
+        "One chain redeemed per voice carried, each validated on its own: a voice whose upstream was revoked drops out without taking the others down with it.",
+      calls: [
+        {
+          contract: "DelegationManager",
+          address: FRAMEWORK.delegationManager,
+          fn: "redeemDelegations(bytes[],ModeCode[],bytes[])",
+          args: {
+            chains: String(plan.chains.length),
+            links: String(plan.chains.reduce((total, entry) => total + entry.chain.length, 0)),
+            witnesses: plan.paths.map((entry) => `${entry.rootLabel}:${entry.result.found ? entry.result.path.length : 0}`).join(" "),
+          },
+        },
+        {
+          contract: "OZGovernor",
+          address: config.governor,
+          fn: "castVoteFor(uint256,uint8,address,address[],bytes32[])",
+          args: { voter: plan.redeemer, principals: plan.principals.join(", ") },
+        },
+      ],
+    },
+  );
 }
 
 /**
@@ -277,12 +362,34 @@ export async function recordProposal(
   // OpenZeppelin proposes a call to execute, not a subject. The call here is inert — the
   // demo is about who may vote, not about what a passed proposal does — so it targets the
   // governor with empty calldata, which is the smallest well-formed proposal.
+  const proposeStep = logStep({
+    kind: "tx",
+    actor: wallet.account.address,
+    label: `a proposal is recorded on “${domainLabel}”`,
+    detail:
+      "A plain transaction from the submitter EOA. Proposing needs no delegation — anyone may propose in their own name — so it sits deliberately outside the caveat.",
+    calls: [
+      {
+        contract: "OZGovernor",
+        address: config.governor,
+        fn: "propose(address[],uint256[],bytes[],string)",
+        args: { description, call: "the governor itself, with empty calldata" },
+      },
+    ],
+  });
   const txHash = await wallet.writeContract({
     ...gov,
     functionName: "propose",
     args: [[config.governor], [0n], ["0x"], description],
   });
   const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+  settleStep(proposeStep, {
+    status: receipt.status === "success" ? "done" : "failed",
+    hash: txHash,
+    block: receipt.blockNumber,
+    gasUsed: receipt.gasUsed,
+    cost: receipt.gasUsed * receipt.effectiveGasPrice,
+  });
 
   // The id is a hash of that call, and OZ does not index it, so it comes back in the event.
   const created = receipt.logs
@@ -298,22 +405,53 @@ export async function recordProposal(
   if (proposalId === undefined) throw new Error("the governor accepted the proposal but logged no id");
 
   // The domain lives beside the governor, because an OZ proposal has nowhere to keep it.
-  const scoped = await wallet.writeContract({
-    address: config.resolver,
-    abi: proposalDomainsAbi,
-    functionName: "scopeProposal",
-    args: [proposalId, domainId],
-  });
-  await client.waitForTransactionReceipt({ hash: scoped });
+  await trackTransaction(
+    client,
+    {
+      actor: wallet.account.address,
+      label: `“${domainLabel}” is recorded as that proposal's domain`,
+      detail:
+        "Beside the governor rather than on the proposal: OpenZeppelin's `propose` has no field for a domain, and adding one would mean forking the audited contract.",
+      calls: [
+        {
+          contract: "ProposalDomains",
+          address: config.resolver,
+          fn: "scopeProposal(uint256,bytes32)",
+          args: { proposal: proposalId.toString(), domain: `${domainLabel} · ${domainId}` },
+        },
+      ],
+    },
+    () =>
+      wallet.writeContract({
+        address: config.resolver,
+        abi: proposalDomainsAbi,
+        functionName: "scopeProposal",
+        args: [proposalId, domainId],
+      }),
+  );
 
   // Voting opens after a delay, so a fresh proposal is Pending and cannot be voted on
   // yet. Mine empty blocks until it turns Active.
+  const miningStep = logStep({
+    kind: "tx",
+    actor: wallet.account.address,
+    label: "empty blocks are mined until the proposal opens",
+    detail:
+      "The governor's voting delay is counted in blocks, and a chain with no traffic produces none. One self-send per block is the cheapest way to make time pass.",
+    calls: [],
+  });
+  let mined = 0;
   for (let attempt = 0; attempt < 20; attempt++) {
     const state = await client.readContract({ ...gov, functionName: "state", args: [proposalId] });
     if (state !== 0) break;
     const filler = await wallet.sendTransaction({ to: wallet.account.address, value: 0n });
     await client.waitForTransactionReceipt({ hash: filler });
+    mined += 1;
   }
+  settleStep(miningStep, {
+    status: "done",
+    label: mined === 0 ? "the proposal was open already" : `${mined} empty block${mined === 1 ? "" : "s"} mined, the proposal is open`,
+  });
   return { txHash, proposalId };
 }
 

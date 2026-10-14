@@ -20,6 +20,7 @@ import {
 import { entryPointAbi } from "./abis";
 import { decodeRevert, type DecodedRevert } from "../delegation/encoding";
 import { ensureEnvironment, type HybridAccount } from "./smart-accounts";
+import { logStep, settleStep, type StepIntent } from "./tx-log";
 
 /** Gas set generously rather than estimated — there is no bundler to estimate (ADR 0010). */
 const VERIFICATION_GAS_LIMIT = 500_000n;
@@ -45,8 +46,12 @@ export async function sendUserOp(
   submitter: WalletClient<Transport, Chain, Account>,
   smartAccount: HybridAccount,
   calls: UserOpCall[],
+  /** What this operation is, for the transaction log. Omitted by the CLI scripts, which
+   *  print their own progress; the log then simply has nothing to say about them. */
+  describe?: Omit<StepIntent, "kind">,
 ): Promise<UserOpResult> {
   const environment = ensureEnvironment();
+  const step = describe ? logStep({ ...describe, kind: "userop" }) : null;
   const callData = await smartAccount.encodeCalls(calls);
   const nonce = await smartAccount.getNonce();
   const gasPrice = await publicClient.getGasPrice();
@@ -80,13 +85,22 @@ export async function sendUserOp(
     signature,
   };
 
-  const txHash = await submitter.writeContract({
-    address: environment.EntryPoint,
-    abi: entryPointAbi,
-    functionName: "handleOps",
-    args: [[packedOp], submitter.account.address],
-  });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  let txHash: Hex;
+  let receipt: Awaited<ReturnType<PublicClient["waitForTransactionReceipt"]>>;
+  try {
+    txHash = await submitter.writeContract({
+      address: environment.EntryPoint,
+      abi: entryPointAbi,
+      functionName: "handleOps",
+      args: [[packedOp], submitter.account.address],
+    });
+    receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  } catch (cause) {
+    // A throw here never reached the chain — the submitter was refused, or the node was.
+    // The log has to say so, or the step sits pending forever and reads like a hang.
+    if (step) settleStep(step, { status: "failed", error: shortReason(cause) });
+    throw cause;
+  }
 
   let success = false;
   let revertData: Hex | null = null;
@@ -100,5 +114,30 @@ export async function sendUserOp(
       // Logs from other ABIs (deposits, transfers) — not relevant here.
     }
   }
-  return { txHash, success, revert: revertData ? decodeRevert(revertData) : null, revertData };
+  const result: UserOpResult = {
+    txHash,
+    success,
+    revert: revertData ? decodeRevert(revertData) : null,
+    revertData,
+  };
+  if (step) {
+    settleStep(step, {
+      status: success ? "done" : "failed",
+      hash: txHash,
+      block: receipt.blockNumber,
+      gasUsed: receipt.gasUsed,
+      cost: receipt.gasUsed * receipt.effectiveGasPrice,
+      // An operation that reverted inside the account still produced a transaction that
+      // succeeded, so the reason has to come from the EntryPoint's own log rather than
+      // from the receipt status.
+      ...(success ? {} : { error: result.revert?.formatted ?? "reverted inside the account" }),
+    });
+  }
+  return result;
+}
+
+/** The first line of a thrown reason, which is the part worth putting in a log row. */
+function shortReason(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return message.split("\n")[0]?.slice(0, 160) ?? "failed";
 }
