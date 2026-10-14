@@ -1890,3 +1890,11 @@ select:focus-visible,
   color: var(--bad);
   line-height: 1.5;
 }
+
+/* A voice already on a ballot that this account did not submit itself. Marked apart from
+   its own vote because the two are genuinely different facts, and conflating them is what
+   let the interface offer a vote the governor was always going to refuse. */
+.voted-carried {
+  border-left: 2px solid var(--accent);
+  padding-left: var(--s3);
+}

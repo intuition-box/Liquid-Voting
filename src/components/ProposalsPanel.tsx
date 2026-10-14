@@ -26,23 +26,46 @@ interface Feedback {
 
 const SUPPORT_LABELS = ["against", "for", "abstain"];
 
+/** What is already on a proposal's ballot in the viewer's name. */
+interface OwnBallot {
+  support: number;
+  /** What was counted in this account's name. */
+  weight: bigint;
+  /** Who put it there. Null when the account cast it itself. */
+  carriedBy: Role | null;
+  /** The other voices it carried, when it voted itself. */
+  carried: Role[];
+}
+
 /**
- * The ballot the viewer already cast on a proposal, if any.
+ * What the viewer's voice has already done on a proposal, if anything.
+ *
+ * Two states, not one, and conflating them is what made the interface misleading. An
+ * account that voted itself is the obvious case. An account whose delegate voted for it
+ * never submitted anything — so looking only for a ballot it *cast* found nothing, left
+ * the buttons enabled, and let it click through to `GovernorAlreadyCastVote`. Which was
+ * the right refusal, phrased as a contract error rather than as the plain fact: its voice
+ * is already on this ballot, because somebody carried it there.
  *
  * Read from what the governor logged rather than from anything held locally, so a vote
- * cast in an earlier session — or from the CLI — still shows up here.
+ * cast in an earlier session — or from the CLI — still shows up here. And it keeps showing
+ * up after the delegation is taken back: the grant is state and can be withdrawn, the
+ * record of its use is history and cannot.
  */
-function ballotFor(
-  ballots: Ballot[] | undefined,
-  role: Role,
-): { support: number; weight: bigint; carried: Role[] } | null {
+function ballotFor(ballots: Ballot[] | undefined, role: Role): OwnBallot | null {
   for (const ballot of ballots ?? []) {
-    const own = ballot.entries.find((entry) => entry.carriedBy === role);
-    if (!own) continue;
-    const carried = ballot.entries
-      .filter((entry) => entry.principal !== role && entry.principal !== null)
-      .map((entry) => entry.principal as Role);
-    return { support: ballot.support, weight: ballot.total, carried };
+    const mine = ballot.entries.find((entry) => entry.principal === role);
+    if (!mine) continue;
+    const carriedBy = mine.carriedBy === role ? null : mine.carriedBy;
+    const carried =
+      carriedBy === null
+        ? ballot.entries
+            .filter((entry) => entry.principal !== role && entry.principal !== null)
+            .map((entry) => entry.principal as Role)
+        : [];
+    // The weight shown is this account's own share, not the whole ballot: when a delegate
+    // carried it, the rest of that ballot was somebody else's voice.
+    return { support: ballot.support, weight: carriedBy === null ? ballot.total : mine.weight, carriedBy, carried };
   }
   return null;
 }
@@ -269,7 +292,9 @@ export function ProposalsPanel({
                         <Mono>{weight.toString()}</Mono>{" "}
                         <span className="muted">
                           {mine
-                            ? "already cast on this proposal"
+                            ? mine.carriedBy
+                              ? `already on this ballot — ${mine.carriedBy} carried it`
+                              : "already cast on this proposal"
                             : weight === 0n
                               ? `you delegated “${domain}” away`
                               : weight === 1n
@@ -289,12 +314,24 @@ export function ProposalsPanel({
 
                     {/* What the viewer already cast, read back from the governor's logs —
                         the vote stays on screen instead of vanishing into the tally. */}
-                    {mine ? (
+                    {mine && mine.carriedBy === null ? (
                       <p className="voted">
                         You voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here, weighing{" "}
                         <Mono>{mine.weight.toString()}</Mono>
                         {mine.carried.length > 0 ? `, yours plus ${mine.carried.join(" and ")}` : ", your own voice"}
                         . The governor counts an account once per proposal, so it cannot be changed.
+                      </p>
+                    ) : null}
+
+                    {/* The case the interface used to hide. You did not vote here — your
+                        delegate did, in your name — and the plain way to say that is that
+                        you have already voted, because you have. */}
+                    {mine && mine.carriedBy !== null ? (
+                      <p className="voted voted-carried">
+                        You have already voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here:{" "}
+                        <span className={ROLE_CLASS[mine.carriedBy]}>{mine.carriedBy}</span> carried your voice,
+                        weighing <Mono>{mine.weight.toString()}</Mono>. Taking the domain back stops the next one
+                        — it does not undo this, and the governor counts a voice once per proposal.
                       </p>
                     ) : null}
 

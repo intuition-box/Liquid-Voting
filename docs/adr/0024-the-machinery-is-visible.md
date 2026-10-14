@@ -40,6 +40,21 @@ calldata.** The action already knows it is redeeming two chains to reach `castVo
 recovering that from a nested `redeemDelegations` blob would be a lot of work to arrive
 back where we started, and would drift silently the first time an encoder changed.
 
+**A redemption names the signature it is spending.** This is the sharpest thing the log
+does and it was missing at first. "B votes, carrying A" is true and says nothing: not which
+signature is being spent, nor who made it, nor what scope they fixed into it. The row reads
+*"B redeems the delegation A signed, and votes with it in A's name"*, and expands to the
+chain link by link in the order the DelegationManager walks it — each link naming the
+delegation it guards, the scope signed into its terms, and the witness supplied, as domain
+labels rather than term ids.
+
+The delegation hash is the join. It is printed under the same key when the delegation is
+signed, so the two rows can be matched by eye: this object, signed then and sent nowhere, is
+the one touching the chain now. That is the demonstration this repository exists to make,
+and it was previously something a reader had to be told rather than shown. `bun run
+acceptance` asserts it rather than leaving it to be admired: every hash the redemption row
+names has to be one of the signatures made in that run.
+
 The module is free of React and of the DOM, so the CLI scripts that import the same actions
 read the same log — which is how `bun run acceptance` prints its own transcript.
 

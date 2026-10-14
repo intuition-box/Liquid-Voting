@@ -5,6 +5,8 @@
  *
  *   1. A hands `treasury` to B, B votes on a `grants` proposal        -> 200, both voices
  *   2. A takes `treasury` back and votes on the same proposal         -> refused
+ *  2b. B tries to carry A somewhere else, having lost the grant       -> refused
+ *      and votes with its own weight instead                         -> 100
  *   3. the governor's log names both voices and who carried them      -> readable
  *   4. A -> B -> C, and C votes                                      -> 300, all three
  *
@@ -27,7 +29,9 @@ import type { Hex } from "viem";
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
 import {
+  castOnGovernor,
   planVote,
+  readAllBallots,
   readProposals,
   readVoicesCarriedFor,
   revokeWeight,
@@ -35,6 +39,9 @@ import {
   submitOwnVote,
   submitVote,
 } from "../src/lib/actions";
+import { readLog } from "../src/lib/chain/tx-log";
+import { DelegationSet } from "../src/lib/delegation/delegation-set";
+import { grantScope, type Grant } from "../src/lib/delegation/grant";
 import { VOTE_FOR, type Delegation } from "../src/lib/delegation/encoding";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { readEdgeStates } from "../src/lib/graph/edges";
@@ -81,8 +88,8 @@ async function main(): Promise<void> {
   const graph = DomainGraph.from(config.nodes, edges);
 
   // One proposal per domain is what `reset` lays out, and a voice is only spendable once
-  // per proposal — so the two halves of this run need two domains. Both sit under
-  // `treasury`, so one grant on `treasury` covers both: that is rather the point.
+  // per proposal — so this run needs three domains. All three sit under `treasury`, so a
+  // single grant on `treasury` covers every one of them: that is rather the point.
   const open = await readProposals(client, config, 40);
   const pick = (domain: string) => {
     const id = graph.termId(domain);
@@ -98,6 +105,7 @@ async function main(): Promise<void> {
   };
   const first = pick("grants");
   const second = pick("payroll");
+  const third = pick("retro-funding");
 
   // ── 1. A hands treasury to B, and B votes carrying it ────────────────────────────
   const aToB = await signDelegation(client, config, "A", "B", "treasury");
@@ -123,43 +131,125 @@ async function main(): Promise<void> {
   const stillTwoHundred = (await readProposals(client, config, 40)).find((proposal) => proposal.id === first.id);
   check(stillTwoHundred?.forVotes === 200n, "and the tally never moved", `for=${stillTwoHundred?.forVotes}`);
 
-  // ── 3. The log names the voice and who carried it ─────────────────────────────────
+  // ── 2b. Revocation stops the next vote, having left the last one standing ────────
+  //
+  // The symmetry worth stating out loud. A took its domain back, so B may no longer carry
+  // it anywhere — and A may not reclaim what B already spent. Neither half is obvious and
+  // the demo has to show both.
+  //
+  // Checked twice over, because they are different claims. The interface works it out from
+  // the signatures it holds; the chain refuses it whatever the interface believes.
+  const afterRevocation = new DelegationSet(
+    [{ from: "A", to: "B", principal: "A", scope: grantScope(config, aRoot), revoked: true, delegation: aRoot }],
+    graph,
+  );
+  check(afterRevocation.chainFor("B", "retro-funding") === null, "the interface stops offering A's voice to B");
+
+  // And the chain refuses the redemption on its own account: taking a domain back disables
+  // the signature at the DelegationManager, not merely in the register.
+  const staleVote = planVote(config, graph, oneVoice("A", "B", "treasury", aRoot), "retro-funding", third.id, VOTE_FOR);
+  const stale = await submitVote(client, config, staleVote);
+  check(!stale.success, "and the chain refuses the dead delegation", stale.revert?.formatted ?? "no revert reason");
+
+  // B is not silenced by any of this. Only A's voice left.
+  const ownVote = await submitOwnVote(client, config, "B", third.id, VOTE_FOR);
+  check(ownVote.success, "B still votes with its own weight", ownVote.revert?.formatted ?? "");
+  const afterOwn = (await readProposals(client, config, 40)).find((proposal) => proposal.id === third.id);
+  check(afterOwn?.forVotes === 100n, "for its own hundred and nothing more", `for=${afterOwn?.forVotes}`);
+
+  // ── 3. The log still names the voice, and who carried it ─────────────────────────
+  //
+  // Read after the revocation on purpose. A took its domain back, and what B did with it
+  // is still on the chain under A's name: the grant is gone, the record of its use is not.
+  // That is the whole proposition — a delegator stays accountable for what was done in its
+  // name, and cannot make it go away by withdrawing afterwards.
   const voices = await readVoicesCarriedFor(client, config, config.accounts["A"].smartAccount);
   const onFirst = voices.find((voice) => voice.proposalId === first.id);
   check(onFirst !== undefined, "A's voice appears in the governor's log");
   check(onFirst?.carriedBy === "B", "and it says B carried it", `carriedBy=${onFirst?.carriedBy ?? "—"}`);
   check(onFirst?.weight === 100n, "for the weight that was actually counted", `weight=${onFirst?.weight}`);
 
-  // ── 4. Three levels, on the second proposal ──────────────────────────────────────
+  // The shape the interface keys on, asserted so it cannot drift. `ballotFor` finds the
+  // viewer by `principal` and reads `carriedBy` to tell "I voted" from "my delegate voted
+  // for me" — two states it used to conflate, which left the vote buttons enabled for an
+  // account whose voice was already spent and sent it into a contract error.
+  const ballots = (await readAllBallots(client, config))[first.id.toString()] ?? [];
+  const carriedEntry = ballots
+    .flatMap((ballot) => ballot.entries)
+    .find((entry) => entry.principal === "A" && entry.carriedBy === "B");
+  check(carriedEntry !== undefined, "the ballot shows A's voice under B, not under A");
+  check(carriedEntry?.weight === 100n, "with the share that was counted for it", `weight=${carriedEntry?.weight}`);
+
+  // ── 4. Three levels, through the code the interface runs ─────────────────────────
+  //
+  // Not a hand-built chain this time. The grants go into a DelegationSet, `chainFor`
+  // works out what C can redeem, and `castOnGovernor` casts the vote — which is, line for
+  // line, what ChainPanel and ProposalsPanel do. That matters: the two paths diverged once
+  // already, and a three-level vote worked here while failing in the interface.
   const aToB2 = await signDelegation(client, config, "A", "B", "treasury");
-  const root2 = aToB2[0]?.delegation;
-  if (!root2) throw new Error("A's second delegation did not come back signed");
+  const bToC = await signDelegation(client, config, "B", "C", "treasury", aToB2.map((e) => e.delegation));
 
-  // B relays what it was lent, so the chain C redeems carries A's voice behind B's own.
-  const bToC = await signDelegation(client, config, "B", "C", "treasury", [root2]);
-  const relay = bToC.find((entry) => entry.relays !== null)?.delegation;
-  const bOwn = bToC[0]?.delegation;
-  if (!relay || !bOwn) throw new Error("B's relay did not come back signed");
+  const grants: Grant[] = [
+    ...aToB2.map(({ delegation }) => ({
+      from: "A" as Role,
+      to: "B" as Role,
+      principal: "A" as Role,
+      scope: grantScope(config, delegation),
+      revoked: false,
+      delegation,
+    })),
+    // `relays` is set on the delegation that passes on a voice B was lent, rather than
+    // B's own — which is what decides whose weight the chain carries.
+    ...bToC.map(({ delegation, relays }) => ({
+      from: "B" as Role,
+      to: "C" as Role,
+      principal: (relays ? "A" : "B") as Role,
+      scope: grantScope(config, delegation),
+      revoked: false,
+      delegation,
+    })),
+  ];
 
-  const threeLevel: RedeemableChain = {
-    redeemer: "C",
-    voices: [
-      { principal: "B", chain: [bOwn], scopes: ["treasury"] },
-      { principal: "A", chain: [relay, root2], scopes: ["treasury", "treasury"] },
-    ],
-    principals: ["B", "A"],
-  };
-  const chainPlan = planVote(config, graph, threeLevel, "payroll", second.id, VOTE_FOR);
-  if (chainPlan.blocked) throw new Error(`the three-level vote could not be planned: ${chainPlan.blocked}`);
-  const cVote = await submitVote(client, config, chainPlan);
+  const threeLevel = new DelegationSet(grants, graph).chainFor("C", "payroll");
+  check(threeLevel?.voices.length === 2, "C holds two voices", `principals=${threeLevel?.principals.join(", ")}`);
+
+  const cVote = await castOnGovernor(
+    client,
+    config,
+    "C",
+    second.id,
+    VOTE_FOR,
+    threeLevel,
+    graph.domainPathOf("payroll"),
+    (voice) => voice.scopes.map((scope) => graph.witnessTo("payroll", scope)),
+  );
   check(cVote.success, "C votes on `payroll`, carrying B and A", cVote.revert?.formatted ?? "");
 
   const afterC = (await readProposals(client, config, 40)).find((proposal) => proposal.id === second.id);
   check(afterC?.forVotes === 300n, "the voice of A reached the end of the chain", `for=${afterC?.forVotes}`);
 
+  // ── 5. And the log says which signature was spent ────────────────────────────────
+  //
+  // The point of the whole thing, so it is asserted rather than admired: the hash the
+  // redemption names has to be one of the hashes that were signed.
+  const redemption = readLog()
+    .filter((step) => step.kind === "userop" && step.label.includes("redeems the delegation"))
+    .at(-1);
+  check(redemption !== undefined, "the log names the redemption, not just the vote", redemption?.label ?? "");
+  const named = new Set(
+    redemption?.calls.flatMap((call) => (call.args?.["delegation hash"] ? [call.args["delegation hash"]] : [])) ?? [],
+  );
+  const signedHashes = new Set([...aToB2, ...bToC].map((entry) => entry.delegation.hash as string));
+  check(named.size > 0, "and the delegation hashes it walked", `${named.size} link(s)`);
+  check(
+    [...named].every((hash) => signedHashes.has(hash)),
+    "each of which is a signature made in this run",
+    [...named].map((h) => `${h.slice(0, 10)}…`).join(" "),
+  );
+
   // ── Put the register back, so the demo opens clean ───────────────────────────────
-  await revokeWeight(client, config, "B", "treasury", [bOwn, relay]);
-  await revokeWeight(client, config, "A", "treasury", [root2]);
+  await revokeWeight(client, config, "B", "treasury", bToC.map((e) => e.delegation));
+  await revokeWeight(client, config, "A", "treasury", aToB2.map((e) => e.delegation));
   console.log("\nregister cleared — run `bun run reset` for fresh proposals");
 
   if (failures > 0) {
