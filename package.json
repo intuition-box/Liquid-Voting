@@ -8,8 +8,6 @@
     "setup": "bun --env-file=contracts/.env scripts/setup-accounts.ts",
     "fund": "bun --env-file=contracts/.env scripts/fund-votes.ts",
     "delegate": "bun --env-file=contracts/.env scripts/sign-delegations.ts",
-    "seed:proposals": "bun --env-file=contracts/.env scripts/seed-proposals.ts",
-    "votes": "bun --env-file=contracts/.env scripts/acceptance-votes.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

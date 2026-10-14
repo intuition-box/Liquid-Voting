@@ -11,7 +11,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { governorAbi, ozGovernorAbi, proposalDomainsAbi, votesTokenAbi } from "../chain/abis";
+import { ozGovernorAbi, proposalDomainsAbi, votesTokenAbi } from "../chain/abis";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
@@ -848,7 +848,7 @@ export async function readLendings(
 export async function readGraphLimits(client: PublicClient, config: AppConfig): Promise<GraphLimits> {
   const maxDomainPath = await client.readContract({
     address: config.governor,
-    abi: governorAbi,
+    abi: ozGovernorAbi,
     functionName: "MAX_DOMAIN_PATH",
   });
   return { maxDomainPath: Number(maxDomainPath) };

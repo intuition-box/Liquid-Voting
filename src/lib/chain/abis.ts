@@ -98,160 +98,6 @@ export const delegationManagerAbi = [
   { type: "function", name: "disabledDelegations", stateMutability: "view", inputs: [{ name: "", type: "bytes32" }], outputs: [{ type: "bool" }] },
 ] as const;
 
-export const governorAbi = [
-  { type: "function", name: "proposalCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  {
-    type: "function",
-    name: "propose",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "domainId", type: "bytes32" }, { name: "description", type: "string" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "getProposal",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [
-      {
-        type: "tuple",
-        components: [
-          { name: "domainId", type: "bytes32" },
-          { name: "proposer", type: "address" },
-          { name: "description", type: "string" },
-          { name: "voteStart", type: "uint256" },
-          { name: "voteEnd", type: "uint256" },
-          { name: "againstVotes", type: "uint256" },
-          { name: "forVotes", type: "uint256" },
-          { name: "abstainVotes", type: "uint256" },
-          { name: "executed", type: "bool" },
-        ],
-      },
-    ],
-  },
-  {
-    type: "function",
-    name: "castVoteFor",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "proposalId", type: "uint256" },
-      { name: "support", type: "uint8" },
-      { name: "voter", type: "address" },
-      { name: "principals", type: "address[]" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "castVote",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "proposalId", type: "uint256" }, { name: "support", type: "uint8" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "setVotingPower",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "account", type: "address" }, { name: "power", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "votingPower",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "delegateWeight",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "delegate", type: "address" },
-      { name: "domainId", type: "bytes32" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "event",
-    name: "VoteCast",
-    inputs: [
-      { name: "proposalId", type: "uint256", indexed: true },
-      { name: "voter", type: "address", indexed: true },
-      { name: "support", type: "uint8", indexed: false },
-      { name: "weight", type: "uint256", indexed: false },
-      { name: "principals", type: "address[]", indexed: false },
-    ],
-  },
-  {
-    type: "event",
-    name: "VoteCastOnBehalf",
-    inputs: [
-      { name: "proposalId", type: "uint256", indexed: true },
-      { name: "principal", type: "address", indexed: true },
-      { name: "representative", type: "address", indexed: true },
-      { name: "weight", type: "uint256", indexed: false },
-    ],
-  },
-  {
-    type: "function",
-    name: "MAX_DOMAIN_PATH",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "delegatedTo",
-    stateMutability: "view",
-    inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
-    outputs: [{ type: "address" }],
-  },
-  {
-    type: "function",
-    name: "weightFor",
-    stateMutability: "view",
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "domainId", type: "bytes32" },
-      { name: "principals", type: "address[]" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "proposalDomain",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "bytes32" }],
-  },
-  {
-    type: "function",
-    name: "state",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "uint8" }],
-  },
-  {
-    type: "function",
-    name: "proposalVotes",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "hasVoted",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }, { name: "account", type: "address" }],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
-
-/** Every custom error the enforcer and the framework can surface, for decoding reverts. */
 export const revertAbi = [
   { type: "error", name: "NotATriple", inputs: [{ name: "tripleId", type: "bytes32" }] },
   { type: "error", name: "NotAttested", inputs: [{ name: "tripleId", type: "bytes32" }, { name: "attestor", type: "address" }] },
@@ -422,6 +268,22 @@ export const ozGovernorAbi = [
     inputs: [
       { name: "account", type: "address" },
       { name: "domainId", type: "bytes32" },
+      { name: "principals", type: "address[]" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // The entry point a redeemed delegation votes through. OZ's public castVote family
+  // reads the voter from `_msgSender()`, which under a redemption is the root delegator
+  // rather than the delegate, so the voter is named explicitly here.
+  {
+    type: "function",
+    name: "castVoteFor",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "support", type: "uint8" },
+      { name: "voter", type: "address" },
       { name: "principals", type: "address[]" },
       { name: "domainPath", type: "bytes32[]" },
     ],

@@ -44,6 +44,21 @@ Narrowing needs no code. The Delegation Framework runs every caveat in a chain a
 requires all of them to pass, so a delegation narrowed from `treasury` to `grants` is the
 intersection of the two scopes.
 
+Weight is a separate question from scope, and it is answered separately. The token says
+how much an account holds; a register beside the governor says who may exercise it where.
+Because a lending moves no token, the governor also keeps count of **how much of each
+account's weight is already on each proposal** — otherwise a delegator could take a domain
+back after its delegate had voted and cast the same weight again. A lending is followed to
+the end of its chain, so in A → B → C it is C who votes with A's weight and B, having
+passed on what it held, holds nothing. See [ADR 0020](docs/adr/0020-a-voice-is-spent-once.md)
+and [ADR 0021](docs/adr/0021-a-lending-is-passed-on.md).
+
+Every voice a vote carries is logged under the principal, indexed, so a delegator can ask
+what was cast in its name with one query rather than a scan of every vote ever recorded.
+Delegating by domain is only worth doing if the delegator stays accountable, and that has
+to be readable from the chain rather than reconstructed by one front end
+([ADR 0022](docs/adr/0022-accountability-is-logged.md)).
+
 ## Deployed on Intuition testnet (chain 13579)
 
 The app runs on a stock OpenZeppelin `Governor`. Nothing in their package is modified or
@@ -56,9 +71,9 @@ second register answers *who may exercise weight where* while the token keeps an
 
 | Contract | Address | Role |
 |---|---|---|
-| `OZGovernor` | [`0xCfAFf046…F828`](https://testnet.explorer.intuition.systems/address/0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828) | OpenZeppelin Governor + `DomainVotes`. What the app votes through. |
-| `OZGraphDomainScope` | [`0x8D1D5722…65B2`](https://testnet.explorer.intuition.systems/address/0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2) | The caveat, bound to that governor and its resolver. |
-| `ProposalDomains` | [`0xa0806eF5…F00B`](https://testnet.explorer.intuition.systems/address/0xa0806eF53d27fD938040a32ba20743700746F00B) | Which domain a proposal belongs to. OZ proposals have no field for it. |
+| `OZGovernor` | [`0xd3eAA81C…917F`](https://testnet.explorer.intuition.systems/address/0xd3eAA81C5D283E4270EFB568045A7b406197917F) | OpenZeppelin Governor + `DomainVotes`. What the app votes through. |
+| `OZGraphDomainScope` | [`0x6FC726eC…8C59`](https://testnet.explorer.intuition.systems/address/0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59) | The caveat, bound to that governor and its resolver. |
+| `ProposalDomains` | [`0x11CC4155…f31D`](https://testnet.explorer.intuition.systems/address/0x11CC4155bf035394b79291529b423406859ff31D) | Which domain a proposal belongs to. OZ proposals have no field for it. |
 | `DemoVotes` | [`0x0f44F7d9…2b50`](https://testnet.explorer.intuition.systems/address/0x0f44F7d916e19B04A6291a1fAB37fC5178EEA14e) | The `ERC20Votes` weight is read from. |
 | `DemoGovernor` | [`0x2bEE53dd…6cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) | The first implementation: OZ-shaped, self-contained. Test harness and point of comparison. |
 | `GraphDomainScope` | [`0x948CFe84…5302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) | The same caveat bound to `DemoGovernor`. |
@@ -81,6 +96,17 @@ bun install
 bun run verify     # read-only: asserts the demo's claims against live chain state
 bun run dev        # http://localhost:5173
 ```
+
+Those three accounts belong to whoever generated them: their owner keys live in
+`data/accounts.json`, which is gitignored because it has to be. Anywhere else — a clone, a
+hosted build — press **Create three wallets** instead. Four keys are generated in the
+browser, three smart accounts are deployed, funded, given a hundred `DVOTE` each and
+self-delegated, and the whole thing plays out in the transaction log at the foot of the
+page. About thirty seconds.
+
+Hosting that needs somewhere for the first tTRUST to come from, since a funded key must
+never reach `dist/`. See [`faucet/`](faucet/README.md) — a Cloudflare Worker that keeps the
+key as a secret and rate-limits — and [ADR 0023](docs/adr/0023-sessions-are-made-in-the-browser.md).
 
 The frontend needs two gitignored files the scripts produce — `data/accounts.json` (owner
 keys) and `data/delegations.json` (the pre-signed chain) — plus `contracts/.env` with a
@@ -106,8 +132,7 @@ build carries none and opens read-only. See
 | `bun run seed` | Creates the vocabulary if absent, then stakes each edge. Idempotent. |
 | `bun run setup` | Deploys and funds the three smart accounts. Idempotent. |
 | `bun run delegate` | Signs the delegation chain off-chain. Free. |
-| `bun run seed:proposals` | Records one proposal per domain — on `DemoGovernor`, not the OZ one. |
-| `bun run votes` | The acceptance flows end to end, against `DemoGovernor`. |
+| `bun run acceptance` | The counting rules proven live: a voice spent once, a chain of three. |
 | `bun run rehearse` | Runs the live graph extension under a throwaway label. |
 | `bun run dev` / `build` | The frontend. |
 
@@ -119,8 +144,8 @@ every smart-account action is a self-bundled user operation: a funded EOA submit
 
 ```bash
 cd contracts
-forge test                                  # 120 tests, 6 suites
-forge test --no-match-path "test/**/*fork*" # 108 offline, against a MockMultiVault
+forge test                                  # 141 tests, 6 suites
+forge test --no-match-path "test/**/*fork*" # 129 offline, against a MockMultiVault
 forge test --match-path "test/**/*fork*"    # 12 fork tests, live RPC
 ```
 
@@ -129,13 +154,17 @@ forge test --match-path "test/**/*fork*"    # 12 fork tests, live RPC
 | `enforcers/GraphDomainScope.t.sol` | 33 | Every revert path of the caveat, plus fuzzing on the witness. |
 | `enforcers/DelegationChain.fork.t.sol` | 9 | The chain end to end against the real MultiVault and DelegationManager. |
 | `governance/DemoGovernor.t.sol` | 53 | Proposal lifecycle, counting, the per-domain register. |
-| `governance/OZGovernor.t.sol` | 16 | The `_getVotes` override on a stock OZ Governor. |
+| `governance/OZGovernor.t.sol` | 37 | The `_getVotes` override, and the counting rules: a voice spent once, a lending followed to the end of its chain, a path that has to hold up. |
 | `gas/Bench.t.sol` | 6 | Gas per witness depth, 0 to 5. |
 | `gas/Bench.fork.t.sol` | 3 | The same against live vault storage. |
 
-`GraphDomainScope` is at **100 %** on lines, statements, branches and functions. The rest
-of `src/` is covered in the high eighties to high nineties, except `DemoVotes`, a plain
-`ERC20Votes` with no logic of its own.
+`GraphDomainScope` and `DomainVotes` — the caveat and the counting — are at **100 %** on
+lines and functions, 96 % and above on statements. The rest of `src/` is covered in the
+high eighties to high nineties, except `DemoVotes`, a plain `ERC20Votes` with no logic of
+its own.
+
+There is also `bun run acceptance`, which proves the counting rules against the real chain
+rather than a mock: ten checks, through the same `src/lib` the frontend runs.
 
 The fork suites need the public RPC, which enforces a bandwidth quota and answers
 `-31002 Bandwidth limit exceeded` when it is exhausted — a fork suite that cannot
@@ -150,6 +179,7 @@ contracts/src/resolvers/    ProposalDomains — a proposal's domain, beside the 
 contracts/src/token/        DemoVotes — the ERC20Votes
 contracts/test/             mirrors src/, plus gas benchmarks and fork suites
 scripts/                    the CLI above; scripts/lib/ is their shared setup
+faucet/                     the Worker that funds a visitor's session
 src/lib/                    services by subject — chain/ graph/ delegation/ config/ actions/
 src/components/             the panels; src/hooks/ owns the reads they display
 manifest/13579.json         addresses, vocabulary term_ids, curator stakes
@@ -163,7 +193,7 @@ manifest/13579.json         addresses, vocabulary term_ids, curator stakes
 | [docs/WRITEUP.md](docs/WRITEUP.md) | Design decisions, gas, limitations, what production needs. |
 | [docs/DEMO.md](docs/DEMO.md) | An ordered demo script, expected output and recovery moves. |
 | [docs/slides.md](docs/slides.md) | Slide outline for the presentation. |
-| [docs/adr/](docs/adr/) | ADRs 0001–0019: every architectural decision, with the alternatives rejected. |
+| [docs/adr/](docs/adr/) | ADRs 0001–0025: every architectural decision, with the alternatives rejected. |
 | [contracts/SECURITY_REVIEW.md](contracts/SECURITY_REVIEW.md) | Threat-model walk, reviewed with no code findings. |
 | [docs/phase0/](docs/phase0/) | The opening audit: framework verification and the graph vocabulary. |
 
