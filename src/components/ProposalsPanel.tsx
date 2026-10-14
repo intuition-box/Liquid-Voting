@@ -4,6 +4,7 @@ import type { PublicClient } from "viem";
 import type { AppConfig, Role } from "../lib/config/app-config";
 import {
   readAllBallots,
+  readDescription,
   recordProposal,
   castOnGovernor,
   VOTE_ABSTAIN,
@@ -315,7 +316,7 @@ export function ProposalsPanel({
                   <span className="proposal-caret" aria-hidden="true">
                     {open ? "▾" : "▸"}
                   </span>
-                  <span className="proposal-title">{proposal.description}</span>
+                  <span className="proposal-title">{readDescription(proposal.description).title}</span>
                   <span className="proposal-domain">{domain}</span>
                   <span className="stat-col">
                     <Mono>{proposal.forVotes.toString()}</Mono>
@@ -345,6 +346,16 @@ export function ProposalsPanel({
                 {open ? (
                   <div className="proposal-detail">
                     <dl className="kv">
+                      {/* Where the timestamp goes. It is stamped into every description
+                          because an OZ proposal id hashes it, and a list of titles each
+                          ending in an ISO string is unreadable — but the date itself is
+                          worth having, once, down here. */}
+                      {readDescription(proposal.description).recordedAt ? (
+                        <>
+                          <dt>recorded</dt>
+                          <dd>{readDescription(proposal.description).recordedAt?.replace("T", " at ")}</dd>
+                        </>
+                      ) : null}
                       <dt>id</dt>
                       <dd>
                         <Mono dim>#{key}</Mono>

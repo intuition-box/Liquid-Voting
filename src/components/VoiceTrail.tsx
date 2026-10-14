@@ -19,7 +19,7 @@
 import { useEffect, useState } from "react";
 import type { PublicClient } from "viem";
 
-import { readVoicesCarriedFor, type CarriedVoice, type ProposalRecord } from "../lib/actions";
+import { readDescription, readVoicesCarriedFor, type CarriedVoice, type ProposalRecord } from "../lib/actions";
 import type { AppConfig } from "../lib/config/app-config";
 import { ROLE_CLASS, type Role } from "../lib/delegation/grant";
 import { AddressLink, Mono, TxLink } from "./primitives";
@@ -62,7 +62,10 @@ export function VoiceTrail({
 
   const byOthers = voices.filter((voice) => !voice.byItself).length;
   const describe = (id: bigint): string =>
-    proposals.find((proposal) => proposal.id === id)?.description ?? `proposal ${id.toString().slice(0, 10)}…`;
+    (() => {
+      const found = proposals.find((proposal) => proposal.id === id);
+      return found ? readDescription(found.description).title : `proposal ${id.toString().slice(0, 10)}…`;
+    })();
 
   return (
     <section className="trail" aria-label={`what was cast in ${role}'s name`}>

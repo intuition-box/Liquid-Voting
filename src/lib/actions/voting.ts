@@ -718,6 +718,25 @@ export async function readProposals(client: PublicClient, config: AppConfig, lim
   return records.filter((record): record is ProposalRecord => record !== null);
 }
 
+/**
+ * A proposal's description split into the part worth reading and the part that is there
+ * for the chain's benefit.
+ *
+ * `reset` stamps the time into every description, and it has to: an OpenZeppelin
+ * proposal id is a hash of the call plus the description, so two runs over the same
+ * domain would compute the same id and the second `propose` would revert. The stamp is
+ * load-bearing on chain and noise on screen — "Decide the next step for micro-grants
+ * (2026-10-14T13:58)" is a title nobody can scan a list of.
+ *
+ * So it is parsed off for display rather than removed from the chain, and handed back
+ * separately for the places that can use it.
+ */
+export function readDescription(description: string): { title: string; recordedAt: string | null } {
+  const stamped = /^(.*?)\s*\((\d{4}-\d{2}-\d{2}T\d{2}:\d{2})\)\s*$/.exec(description);
+  if (!stamped) return { title: description, recordedAt: null };
+  return { title: stamped[1] ?? description, recordedAt: stamped[2] ?? null };
+}
+
 /** One account's weight inside a vote, and who actually carried it to the governor. */
 export interface BallotEntry {
   /** Whose weight this is. */
