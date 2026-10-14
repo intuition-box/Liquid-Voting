@@ -11,10 +11,7 @@
  * funded, given tokens and self-delegated. That is a better explanation of the stack than
  * any paragraph, and it costs nothing but the time that was being spent anyway.
  */
-import type { Role } from "../lib/config/app-config";
-import { ROLE_CLASS, ROLES } from "../lib/delegation/grant";
 import type { Session } from "../lib/chain/session";
-import { AddressLink } from "./primitives";
 
 export function SessionGate({
   session,
@@ -23,7 +20,6 @@ export function SessionGate({
   canStart,
   writable,
   onStart,
-  onEnd,
 }: {
   session: Session | null;
   bootstrapping: { stage: string; done: number; total: number } | null;
@@ -32,7 +28,6 @@ export function SessionGate({
   /** Whether the app can already write with the identities it has. */
   writable: boolean;
   onStart: () => void;
-  onEnd: () => void;
 }) {
   if (bootstrapping) {
     const percent = Math.round((bootstrapping.done / bootstrapping.total) * 100);
@@ -55,24 +50,10 @@ export function SessionGate({
     );
   }
 
-  if (session) {
-    return (
-      <section className="gate gate-live">
-        <span className="gate-badge">your session</span>
-        <span className="gate-accounts">
-          {ROLES.map((role: Role) => (
-            <span key={role} className="gate-account">
-              <span className={`gate-who ${ROLE_CLASS[role]}`}>{role}</span>
-              <AddressLink address={session.accounts[role]} />
-            </span>
-          ))}
-        </span>
-        <button type="button" className="gate-end" onClick={onEnd}>
-          Forget these wallets
-        </button>
-      </section>
-    );
-  }
+  // A live session is described by the identity cards, which say what each wallet is
+  // doing as well as what it is called. Repeating the addresses here was the third place
+  // the same three accounts appeared.
+  if (session) return null;
 
   // Nothing to offer, and nothing already working: say which it is.
   if (!canStart) {

@@ -198,43 +198,6 @@ body {
 
 /* ── Identity switcher ───────────────────────────────────────────────── */
 
-.identity {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex: none;
-}
-
-.identity-label {
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-right: var(--s1);
-}
-
-.identity-option {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 14px;
-  padding: var(--s2) var(--s3);
-  cursor: pointer;
-}
-
-.identity-option:hover {
-  color: var(--text);
-}
-
-.identity-on {
-  color: var(--text);
-  border-color: currentColor;
-}
-
 .identity-dot {
   width: 9px;
   height: 9px;
@@ -1308,38 +1271,6 @@ select:focus-visible,
 
 /* What each identity holds of the governance token.
    On this governor weight is not assigned, it is held, so the balance is worth seeing. */
-.holdings {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--s4);
-  margin-top: var(--s3);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-}
-
-.holdings-label {
-  color: var(--dim);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 10px;
-}
-
-.holding {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--s2);
-}
-
-.holding-who { font-weight: 600; }
-
-/* A balance nobody self-delegated counts for nothing, and should say so. */
-.holding-note {
-  color: var(--bad);
-  font-size: 10px;
-}
-
 
 /* ── The transaction log ───────────────────────────────────────────────────────────
    Fixed to the foot of the viewport and collapsed to one line, because the page is
@@ -1811,14 +1742,6 @@ select:focus-visible,
   line-height: 1.55;
 }
 
-.gate-live {
-  display: flex;
-  align-items: center;
-  gap: var(--s4);
-  flex-wrap: wrap;
-  padding: var(--s2) var(--s4);
-}
-
 .gate-badge {
   padding: 1px var(--s2);
   border: 1px solid #2e4535;
@@ -1828,37 +1751,6 @@ select:focus-visible,
   font-size: 10.5px;
   letter-spacing: 0.02em;
 }
-
-.gate-accounts {
-  display: flex;
-  gap: var(--s4);
-  flex-wrap: wrap;
-}
-
-.gate-account {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s2);
-}
-
-.gate-who {
-  font-family: var(--mono);
-  font-weight: 600;
-}
-
-.gate-end {
-  margin-left: auto;
-  padding: 2px var(--s2);
-  background: none;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 11.5px;
-  cursor: pointer;
-}
-
-.gate-end:hover { color: var(--text); border-color: var(--muted); }
 
 .gate-shut {
   max-width: 96ch;
@@ -1881,4 +1773,155 @@ select:focus-visible,
 .voted-carried {
   border-left: 2px solid var(--accent);
   padding-left: var(--s3);
+}
+
+/* ── The three identities ──────────────────────────────────────────────────────────
+   One card each, carrying everything true of that account at once. They replaced three
+   separate things — a toggle saying who you were, a token readout saying what they held,
+   and a strip listing their addresses — which between them described one subject three
+   times, and that subject is the whole demonstration. */
+
+.identities {
+  margin: var(--s5) 0 0;
+}
+
+.identity-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.identity-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease-out, background 120ms ease-out;
+}
+
+.identity-card:hover { border-color: var(--border-strong); background: #16181b; }
+
+.identity-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The card you are acting as is lit in its own colour, so the identity in play is
+   legible from across a room — which is the situation this gets used in. */
+.identity-card-on {
+  border-color: currentColor;
+  background: #16181b;
+}
+
+.identity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.identity-name {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.identity-acting {
+  margin-left: auto;
+  padding: 1px var(--s2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.identity-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px var(--s3);
+  margin: 0;
+}
+
+.identity-facts > div {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: baseline;
+}
+
+.identity-facts dt {
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.identity-facts dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.identity-facts dd strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.identity-none { color: var(--dim); }
+.identity-on { color: var(--dim); }
+.identity-warn { color: var(--accent); font-family: var(--sans); font-size: 11px; }
+
+.identity-address {
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.identities-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin: var(--s3) 0 0;
+  font-size: 12px;
+}
+
+.identity-badge {
+  padding: 1px var(--s2);
+  border: 1px solid #2e4535;
+  border-radius: 3px;
+  color: var(--ok);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.identity-note { flex: 1; min-width: 28ch; color: var(--dim); }
+.identity-note a { color: var(--muted); }
+
+.identity-forget {
+  padding: 2px var(--s2);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.identity-forget:hover { color: var(--text); border-color: var(--muted); }
+
+@media (max-width: 760px) {
+  .identity-cards { grid-template-columns: 1fr; }
 }

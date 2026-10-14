@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { useApp } from "./hooks/useApp";
 import type { Role } from "./lib/config/app-config";
-import { ROLES, ROLE_CLASS } from "./lib/delegation/grant";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
@@ -10,19 +9,13 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
+import { IdentityBar } from "./components/IdentityBar";
 import { SessionGate } from "./components/SessionGate";
 import { TxConsole } from "./components/TxConsole";
 import { VoicePanel } from "./components/VoicePanel";
-import { AddressLink, Mono, Panel } from "./components/primitives";
+import { AddressLink, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations" | "voice" | "paper" | "how";
-
-/** The three demo identities. Each carries one colour, used everywhere the role appears. */
-const IDENTITIES = ROLES.map((role) => ({
-  role,
-  label: role,
-  className: ROLE_CLASS[role],
-}));
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
@@ -51,7 +44,7 @@ export function App() {
       : demo.configResult.hint;
     return (
       <main className="shell">
-        <Masthead role={role} onRole={setRole} />
+        <Masthead />
         <section className="panel">
           <h2>Not set up yet</h2>
           <p>
@@ -79,7 +72,21 @@ export function App() {
         ))}
       </nav>
 
-      <Masthead role={role} onRole={setRole} holdings={demo.holdings} lent={demo.lent} />
+      <Masthead />
+
+      <IdentityBar
+        config={config}
+        role={role}
+        onRole={setRole}
+        domain={domain}
+        graph={demo.graph}
+        delegations={demo.delegations}
+        holdings={demo.holdings}
+        lent={demo.lent}
+        weights={demo.weights}
+        session={demo.session}
+        onForget={demo.endSession}
+      />
 
       <SessionGate
         session={demo.session}
@@ -88,7 +95,6 @@ export function App() {
         canStart={demo.canStartSession}
         writable={demo.writable}
         onStart={() => void demo.startSession()}
-        onEnd={demo.endSession}
       />
 
       {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
@@ -182,71 +188,15 @@ export function App() {
   );
 }
 
-function Masthead({
-  role,
-  onRole,
-  holdings,
-  lent,
-}: {
-  role: Role;
-  onRole: (role: Role) => void;
-  /** What each identity holds of the governance token, when the chain has answered. */
-  holdings?: Record<Role, { balance: bigint; votes: bigint }>;
-  /** What each account is lending. Shown beside the balance because a lending never moves
-   *  a token: without it the header reads the same before and after a handover. */
-  lent?: Partial<Record<Role, { amount: bigint; scope: string }>>;
-}) {
+/** The title, and one sentence saying what the page is. Nothing else lives here now. */
+function Masthead() {
   return (
     <header className="masthead">
-      <div className="masthead-text">
-        <h1>Voting authority scoped by a graph</h1>
-        <p>
-          A three-level ERC-7710 delegation chain whose domain scope is resolved by traversing the Intuition graph. Add
-          an edge to the graph and every delegation above it widens.
-          No redeploy, No new signature.
-        </p>
-      </div>
-
-      <div className="identity" role="group" aria-label="acting as">
-        <span className="identity-label">acting as</span>
-        {IDENTITIES.map((entry) => (
-          <button
-            key={entry.role}
-            type="button"
-            className={role === entry.role ? `identity-option identity-on ${entry.className}` : "identity-option"}
-            onClick={() => onRole(entry.role)}
-            aria-pressed={role === entry.role}
-          >
-            <span className={`identity-dot ${entry.className}`} />
-            {entry.label}
-          </button>
-        ))}
-      </div>
-
-      {holdings ? (
-        <div className="holdings">
-          <span className="holdings-label">governance token</span>
-          {IDENTITIES.map((entry) => {
-            const held = holdings[entry.role];
-            // A balance that is not self-delegated counts for nothing, which is a real
-            // state on an ERC20Votes and worth showing rather than debugging.
-            const dormant = held.balance > 0n && held.votes === 0n;
-            const lending = lent?.[entry.role];
-            return (
-              <span key={entry.role} className="holding">
-                <span className={`holding-who ${entry.className}`}>{entry.label}</span>
-                <Mono>{held.balance.toString()}</Mono>
-                {dormant ? <span className="holding-note">not self-delegated</span> : null}
-                {lending ? (
-                  <span className="holding-note">
-                    lending <Mono>{lending.amount.toString()}</Mono> on {lending.scope}
-                  </span>
-                ) : null}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
+      <h1>Voting authority scoped by a graph</h1>
+      <p>
+        A three-level ERC-7710 delegation chain whose scope is resolved by traversing the Intuition graph.
+        Add an edge and every delegation above it widens — no redeploy, no new signature.
+      </p>
     </header>
   );
 }

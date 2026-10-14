@@ -260,16 +260,21 @@ export function useApp(): AppState {
    * cost those few reads instead of re-reading the whole board.
    */
   useEffect(() => {
-    if (!config || !client || proposals.length === 0) return;
+    if (!config || !client) return;
+    const selected = graph.termId(domain);
     const onScreen = [
-      ...new Set(
-        proposals
+      ...new Set([
+        // The selected domain always, proposal or not: the identity cards report what
+        // each account casts on it, and a domain nobody has proposed anything for would
+        // otherwise sit on an ellipsis for ever.
+        ...(selected ? [selected] : []),
+        ...proposals
           .filter((proposal) => {
             const label = graph.labelOf(proposal.domainId);
             return label !== undefined && graph.isDescendantOf(label, domain);
           })
           .map((proposal) => proposal.domainId),
-      ),
+      ]),
     ];
     if (onScreen.length === 0) return;
 
