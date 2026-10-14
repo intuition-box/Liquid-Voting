@@ -76,6 +76,30 @@ export async function restoreWallet(): Promise<WalletClient<Transport, Chain, Ac
 }
 
 /**
+ * Disconnects, as far as a wallet lets anybody disconnect.
+ *
+ * EIP-1193 has no disconnect — a page cannot hang up on a wallet. What it can do is two
+ * things, and this does both: ask the wallet to revoke the permission it granted
+ * (EIP-2255, which MetaMask and Rabby implement and others ignore), and forget the
+ * connection on its own side regardless.
+ *
+ * The second is what actually happens from the visitor's point of view, and it is not a
+ * pretence: the page stops holding a client, stops naming an address, and will prompt
+ * again next time. A wallet that does not support revocation will simply reconnect
+ * silently on the next reload, which is the wallet's prerogative and not something to
+ * paper over.
+ */
+export async function disconnectWallet(): Promise<void> {
+  const provider = window.ethereum;
+  if (!provider) return;
+  try {
+    await provider.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
+  } catch {
+    // Unsupported, or declined. The caller forgets the connection either way.
+  }
+}
+
+/**
  * Calls back when the visitor switches account or disconnects in the wallet itself.
  *
  * Without this the header would go on naming an address that is no longer in charge,

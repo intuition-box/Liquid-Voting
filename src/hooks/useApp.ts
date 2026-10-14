@@ -6,7 +6,7 @@ import { isDelegationDisabled } from "../lib/delegation/encoding";
 import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
 import { clearSession, readSession, type Session } from "../lib/chain/session";
 import { logError } from "../lib/chain/tx-log";
-import { connectWallet, hasWallet, restoreWallet, watchWallet } from "../lib/chain/wallet";
+import { connectWallet, disconnectWallet, hasWallet, restoreWallet, watchWallet } from "../lib/chain/wallet";
 import {
   canWrite,
   clearSessionDomains,
@@ -102,6 +102,7 @@ export interface AppState {
   wallet: `0x${string}` | null;
   connectingWallet: boolean;
   connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
   /** Whether this build can pay for a session at all. */
   canStartSession: boolean;
   /** Which way it would pay, so the offer can say so before anyone clicks. */
@@ -170,6 +171,19 @@ export function useApp(): AppState {
     } finally {
       setConnectingWallet(false);
     }
+  }, []);
+
+  /**
+   * Forgets the wallet, and asks it to forget us.
+   *
+   * The session's own three accounts are untouched: they were funded by this wallet but
+   * they are not it, and they go on working. Disconnecting ends who pays for the *next*
+   * session, not the one already running — the same shape as a revoked delegation,
+   * which stops the next vote and not the last one.
+   */
+  const disconnect = useCallback(async (): Promise<void> => {
+    await disconnectWallet();
+    setWallet(null);
   }, []);
   const clearHandover = useCallback(() => setHandover(null), []);
   const [bootstrapping, setBootstrapping] = useState<{ stage: string; done: number; total: number } | null>(null);
@@ -465,6 +479,7 @@ export function useApp(): AppState {
     wallet: wallet?.account.address ?? null,
     connectingWallet,
     connect,
+    disconnect,
     handover,
     clearHandover,
     domain,

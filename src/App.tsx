@@ -83,7 +83,12 @@ export function App() {
 
         {/* The account that signs is the account that spends, so it belongs where it can
             be seen — and the nav is pinned, so it stays seen. */}
-        <WalletButton address={demo.wallet} connecting={demo.connectingWallet} onConnect={() => void demo.connect()} />
+        <WalletButton
+          address={demo.wallet}
+          connecting={demo.connectingWallet}
+          onConnect={() => void demo.connect()}
+          onDisconnect={() => void demo.disconnect()}
+        />
       </nav>
 
       {reading ? null : (
