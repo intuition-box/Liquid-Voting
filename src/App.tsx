@@ -26,7 +26,14 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "how", label: "How it works" },
 ];
 
-/** The reading tabs stand alone — the domain rail scopes the app, not a document. */
+/**
+ * The reading tabs stand alone. Neither the domain rail nor the identity cards scope a
+ * document: picking `treasury` or acting as B changes nothing on a page of prose, so a
+ * control that does nothing is a control that teaches people the controls do nothing.
+ *
+ * The rail was already suppressed here and the cards were not — the same class of
+ * control, treated two ways.
+ */
 const READING: TabId[] = ["paper", "how"];
 
 export function App() {
@@ -75,17 +82,19 @@ export function App() {
 
       <Masthead />
 
-      <IdentityBar
-        config={config}
-        role={role}
-        onRole={setRole}
-        domain={domain}
-        graph={demo.graph}
-        delegations={demo.delegations}
-        holdings={demo.holdings}
-        lent={demo.lent}
-        weights={demo.weights}
-      />
+      {reading ? null : (
+        <IdentityBar
+          config={config}
+          role={role}
+          onRole={setRole}
+          domain={domain}
+          graph={demo.graph}
+          delegations={demo.delegations}
+          holdings={demo.holdings}
+          lent={demo.lent}
+          weights={demo.weights}
+        />
+      )}
 
       <SessionGate
         session={demo.session}
