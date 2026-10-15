@@ -14,7 +14,7 @@
  * Whose wallets these are is said at the foot of the page, beside the transaction log,
  * because that is a fact about the machinery rather than about governance.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { AppConfig, Role } from "../lib/config/app-config";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
@@ -32,15 +32,23 @@ import { shortHex } from "../lib/chain/network";
  *
  * Drawn on a 100-wide viewBox stretched over the card row, so the three column centres
  * are simply a sixth, a half and five sixths — no measuring, and it survives a resize
- * without listening for one.
+ * without listening for one. Its height is the gap the nav leaves above the cards and
+ * not a pixel more: the nav is sticky with an opaque background, so anything taller has
+ * its apex painted over by it.
+ *
+ * No label. It had one, and the label was what needed the extra height — and it was
+ * restating what it pointed at, since the cards underneath already read "delegating 100
+ * on treasury" and "carrying A on treasury". The arc carries the motion; the cards carry
+ * the facts.
  */
 function Handover({ from, to, domain }: { from: Role; to: Role; domain: string }) {
   const at = (role: Role): number => [1 / 6, 1 / 2, 5 / 6][ROLES.indexOf(role)]! * 100;
   const x1 = at(from);
   const x2 = at(to);
   const mid = (x1 + x2) / 2;
-  // Deeper for a longer reach, so A→C arcs over B rather than grazing it.
-  const lift = Math.min(26, 8 + Math.abs(x2 - x1) * 0.28);
+  // Deeper for a longer reach, so A→C arcs over B rather than grazing it. Capped at 24
+  // of the 32 units available, leaving the stroke and the arrowhead room inside them.
+  const lift = Math.min(24, 8 + Math.abs(x2 - x1) * 0.26);
   return (
     <svg className="handover" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
       <defs>
@@ -92,22 +100,23 @@ export function IdentityBar({
   // explaining. Cleared here rather than in the hook so the timer dies with the view.
   useEffect(() => {
     if (!handover) return;
+    // The handover is signed from a panel below the cards, which on a short viewport
+    // means the arc would draw off-screen — or under the sticky nav, which is opaque.
+    cards.current?.scrollIntoView({ block: "center", behavior: "smooth" });
     const timer = window.setTimeout(onHandoverShown, 2600);
     return () => window.clearTimeout(timer);
   }, [handover, onHandoverShown]);
 
+  const cards = useRef<HTMLDivElement | null>(null);
   const domainId = graph.termId(domain)?.toLowerCase();
   const castsOn = domainId ? weights[domainId] : undefined;
 
   return (
     <section className="identities" aria-label="identities">
-      <div className="identity-cards" role="group">
+      <div className="identity-cards" role="group" ref={cards}>
         {handover ? (
           <span className={`handover-layer ${ROLE_CLASS[handover.from]}`}>
             <Handover from={handover.from} to={handover.to} domain={handover.domain} />
-            <span className="handover-label">
-              {handover.from} → {handover.to} on <strong>{handover.domain}</strong>
-            </span>
           </span>
         ) : null}
         {ROLES.map((entry) => {

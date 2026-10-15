@@ -1989,7 +1989,10 @@ select:focus-visible,
 .handover-layer {
   position: absolute;
   inset: auto 0 100% 0;
-  height: 44px;
+  /* Exactly the gap the nav leaves above the cards. It was 44px against 32px of space,
+     so the top twelve — the apex, the part worth seeing — were painted over by the nav,
+     which is sticky with an opaque background and sits above everything here. */
+  height: var(--s6);
   color: currentColor;
   pointer-events: none;
   animation: handover-in 320ms ease-out;
@@ -2002,23 +2005,6 @@ select:focus-visible,
   height: 100%;
   overflow: visible;
 }
-
-.handover-label {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
-  padding: 1px var(--s2);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  background: var(--surface);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: var(--t-xs);
-  white-space: nowrap;
-}
-
-.handover-label strong { color: var(--text); }
 
 @keyframes handover-in {
   from { opacity: 0; transform: translateY(6px); }
