@@ -1,6 +1,27 @@
 /** Shared ABI fragments — the single source for both the CLI scripts and the frontend. */
 
 export const multiVaultAbi = [
+  /**
+   * Approval, and the error for its absence.
+   *
+   * `deposit` names a `receiver`, and the MultiVault refuses one that is not the sender
+   * unless the receiver approved it first. The demo stakes every edge for the curator —
+   * the single attestor the signed delegations name — so a browser session, whose
+   * submitter is a burner wallet, cannot stake at all until the curator approves it.
+   *
+   * The error is listed so viem can name it. Without it the panel showed
+   * `Unable to decode signature "0xd76f6ff8"` and a link to a 4-byte directory.
+   *
+   * The enum is the usual one: 0 none, 1 deposit, 2 redemption, 3 both.
+   */
+  { type: "error", name: "MultiVault_SenderNotApproved", inputs: [] },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "sender", type: "address" }, { name: "approvalType", type: "uint8" }],
+    outputs: [],
+  },
   { type: "function", name: "calculateAtomId", stateMutability: "pure", inputs: [{ name: "data", type: "bytes" }], outputs: [{ type: "bytes32" }] },
   {
     type: "function",

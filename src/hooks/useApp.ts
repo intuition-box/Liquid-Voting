@@ -447,6 +447,8 @@ export function useApp(): AppState {
         funder,
         governor: baseConfig.governor,
         votesToken: baseConfig.votesToken,
+        multiVault: baseConfig.multiVault,
+        attestor: baseConfig.attestor,
         rpcUrl: baseConfig.rpcUrl,
         onProgress: (stage, done, total) => setBootstrapping({ stage, done, total }),
       });

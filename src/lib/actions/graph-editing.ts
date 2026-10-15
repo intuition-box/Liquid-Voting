@@ -69,6 +69,42 @@ export async function extendGraph(
     );
   }
 
+  // Can this wallet stake for the attestor at all, before anything is minted?
+  //
+  // Every edge is staked for the curator, because that is the attestor the signed
+  // delegations name — stake it for anybody else and the new domain authorizes nothing.
+  // But `deposit` refuses a receiver that is not the sender without the receiver's
+  // approval, so a browser session, whose submitter is a burner, cannot stake at all
+  // until the curator has approved it.
+  //
+  // Asked here rather than discovered at the third transaction. Finding out last is what
+  // the session hit: the atom was minted, the edge was written, and then the stake
+  // reverted — leaving a domain in the rail that authorizes nothing, which is a real
+  // state the enforcer handles and an inexplicable one to reach by accident. The probe is
+  // a simulation against an edge that already exists, so it costs nothing and changes
+  // nothing; only the approval error is conclusive, since any other revert means the
+  // approval was fine.
+  if (wallet.account.address.toLowerCase() !== config.attestor.toLowerCase()) {
+    const existing = config.edges[0]?.tripleId;
+    if (existing) {
+      const refused = await client
+        .simulateContract({
+          ...vault,
+          functionName: "deposit",
+          args: [config.attestor, existing, config.curveId, 0n],
+          value: stakeWei,
+          account: wallet.account.address,
+        })
+        .then(() => null)
+        .catch((error: unknown) => error);
+      if (refused && JSON.stringify(refused instanceof Error ? refused.message : refused).includes("SenderNotApproved")) {
+        throw new Error(
+          `this wallet cannot stake on the curator's behalf, so a new domain would authorize nothing. The curator ${config.attestor.slice(0, 6)}…${config.attestor.slice(-4)} has to approve ${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} on the MultiVault first — which the session does automatically when it is funded from the curator's own key.`,
+        );
+      }
+    }
+  }
+
   const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [data] });
   let atomTx: Hex | null = null;
   if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] }))) {
