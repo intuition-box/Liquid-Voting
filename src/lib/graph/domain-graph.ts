@@ -228,3 +228,44 @@ export class DomainGraph {
     return this.witnessTo(domain, ROOT_DOMAIN);
   }
 }
+
+/**
+ * Longest a new domain label may be. Nothing on chain objects — an atom holds far more —
+ * but the rail that renders it is one narrow column, and every label in the manifest is
+ * under twenty characters. A cap keeps a paste from reflowing the whole tree.
+ */
+export const MAX_DOMAIN_LABEL = 48;
+
+/** A label cleared for minting, or the reason it was not. */
+export type LabelCheck = { ok: true; label: string } | { ok: false; reason: string };
+
+/**
+ * Whether this label can become a new domain, and the exact string to mint if so.
+ *
+ * Minting a domain is three transactions and real money, so the answer has to come before
+ * any of them. It did not: the form sent whatever was in the input straight to
+ * `createAtoms`, and an empty field — one backspace away, the button still enabled —
+ * reverted inside the MultiVault and put a viem stack trace on screen with the words
+ * `decodeErrorResult` in it. A blank-but-not-empty label was worse: it minted, it cost,
+ * and it drew a nameless row in the tree.
+ *
+ * The duplicate check is the subtle one. Atoms are content-addressed, so a label *is* the
+ * identity of a domain: re-adding an existing label mints nothing and links a second
+ * parent to the node that already exists, turning the hierarchy into a graph with the
+ * same name hanging in two places. The caller trims, so the label checked is the label
+ * minted — the two must not drift.
+ */
+export function checkDomainLabel(raw: string, graph: DomainGraph): LabelCheck {
+  const label = raw.trim();
+  if (label.length === 0) return { ok: false, reason: "a domain needs a name" };
+  if (label.length > MAX_DOMAIN_LABEL) {
+    return { ok: false, reason: `${label.length} characters is too long — keep it under ${MAX_DOMAIN_LABEL}` };
+  }
+  // The manifest spells an edge out as `child — is a sub-domain of — parent` and splits it
+  // back on that separator, so a label carrying one would be parsed as a different edge.
+  if (label.includes(EDGE_KEY_SEPARATOR.trim())) {
+    return { ok: false, reason: `“${EDGE_KEY_SEPARATOR.trim()}” is how edges are spelled out — pick another character` };
+  }
+  if (graph.termId(label)) return { ok: false, reason: `“${label}” is already a domain` };
+  return { ok: true, label };
+}

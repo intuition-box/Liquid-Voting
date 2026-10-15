@@ -3,7 +3,7 @@ import { parseEther, type PublicClient } from "viem";
 
 import { extendGraph } from "../lib/actions";
 import type { AppConfig, SessionDomain } from "../lib/config/app-config";
-import type { DomainGraph } from "../lib/graph/domain-graph";
+import { checkDomainLabel, MAX_DOMAIN_LABEL, type DomainGraph } from "../lib/graph/domain-graph";
 import type { EdgeState } from "../lib/graph/edges";
 import { DomainTree } from "./DomainTree";
 import { Button, Empty, Field, Status, TxLink, type Verdict } from "./primitives";
@@ -54,14 +54,21 @@ export function DomainNav({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // Checked on every keystroke, not on submit: minting is three transactions and real
+  // money, and the reason a label is refused belongs next to the field rather than in a
+  // revert. `check.label` is the trimmed string — mint exactly what was validated.
+  const check = checkDomainLabel(label, graph);
+
   async function add(): Promise<void> {
+    if (!check.ok) return;
+    const minting = check.label;
     setBusy(true);
     setOutcome(null);
     try {
-      const result = await extendGraph(client, config, label, selected, STAKE);
-      onRegistered({ label, termId: result.atomId, parent: selected, tripleId: result.tripleId });
-      onSelect(label);
-      setOutcome({ verdict: "pass", text: `“${label}” is now under “${selected}”`, txHash: result.stakeTx });
+      const result = await extendGraph(client, config, minting, selected, STAKE);
+      onRegistered({ label: minting, termId: result.atomId, parent: selected, tripleId: result.tripleId });
+      onSelect(minting);
+      setOutcome({ verdict: "pass", text: `“${minting}” is now under “${selected}”`, txHash: result.stakeTx });
       setOpen(false);
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
@@ -86,10 +93,18 @@ export function DomainNav({
         {open ? (
           <>
             <Field label={`new domain under “${selected}”`}>
-              <input value={label} onChange={(event) => setLabel(event.target.value)} />
+              <input
+                value={label}
+                maxLength={MAX_DOMAIN_LABEL}
+                onChange={(event) => setLabel(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && check.ok && !busy) void add();
+                }}
+              />
             </Field>
+            {check.ok ? null : <p className="muted">{check.reason}</p>}
             <div className="actions">
-              <Button onClick={() => void add()} busy={busy} disabled={!writable} variant="primary">
+              <Button onClick={() => void add()} busy={busy} disabled={!writable || !check.ok} variant="primary">
                 add
               </Button>
               <Button onClick={() => setOpen(false)}>cancel</Button>

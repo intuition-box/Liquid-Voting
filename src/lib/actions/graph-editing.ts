@@ -32,6 +32,11 @@ export async function extendGraph(
   parentLabel: string,
   stakeWei: bigint,
 ): Promise<ExtendResult> {
+  // The MultiVault reverts on empty atom data, and the revert arrives as a viem dump
+  // naming `decodeErrorResult` — which is what the form used to show. The form now checks
+  // the label before offering the button (`checkDomainLabel`, which also refuses
+  // duplicates and over-long names); this is here so no other caller can reach the revert.
+  if (label.trim().length === 0) throw new Error("a domain needs a name");
   const parentId = config.nodes.find((node) => node.label === parentLabel)?.termId;
   if (!parentId) throw new Error(`unknown parent domain “${parentLabel}”`);
 
