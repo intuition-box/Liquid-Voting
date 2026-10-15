@@ -89,13 +89,23 @@ truth shared by the scripts, the tests and the frontend.
 
 ## Running it
 
-Requires [bun](https://bun.sh) and [Foundry](https://getfoundry.sh).
+Requires [bun](https://bun.sh) and [Foundry](https://getfoundry.sh). Clone with
+submodules — the contracts resolve OpenZeppelin *through* the delegation framework, so
+without them nothing compiles:
 
 ```bash
+git clone --recurse-submodules …     # or: git submodule update --init --recursive
 bun install
-bun run verify     # read-only: asserts the demo's claims against live chain state
-bun run dev        # http://localhost:5173
+bun run dev                          # http://localhost:5173
 ```
+
+That is the whole of it for reading the demo: the graph, the delegations, every vote and
+who carried it come off the chain. To drive it, press **Create three wallets** — see
+below.
+
+`bun run verify` asserts every claim here against live state, and is worth running before
+presenting. It needs `contracts/.env` with a funded `PRIVATE_KEY`, so it is not part of a
+first run.
 
 Those three accounts belong to whoever generated them: their owner keys live in
 `data/accounts.json`, which is gitignored because it has to be. Anywhere else — a clone, a
@@ -111,16 +121,24 @@ the bundle. [ADR 0023](docs/adr/0023-sessions-are-made-in-the-browser.md) has th
 reasoning, and [`faucet/`](faucet/README.md) is the alternative for a deployment that
 would rather nobody needed a wallet.
 
-The frontend needs two gitignored files the scripts produce — `data/accounts.json` (owner
-keys) and `data/delegations.json` (the pre-signed chain) — plus `contracts/.env` with a
-funded `PRIVATE_KEY`. See [`contracts/.env.example`](contracts/.env.example). From a clean
-chain:
+Driving the demo as the three accounts in the manifest — rather than as wallets of your
+own — needs `data/accounts.json`, which holds their owner keys and is the one file here
+that is gitignored. `data/delegations.json` travels with the repo: it is signatures,
+hashes and addresses, no secret material, and the app will not render without it. You
+also need `contracts/.env` with a funded `PRIVATE_KEY`; see
+[`contracts/.env.example`](contracts/.env.example). From a clean chain:
 
 ```bash
 bun run seed       # create the domain vocabulary and stake every edge
 bun run setup      # deploy and fund the three HybridDeleGator accounts
+bun run fund       # mint each account its DVOTE, and self-delegate so it counts
 bun run delegate   # sign the delegation chain
+bun run reset      # record one open proposal per domain
+bun run verify     # confirm all of it against live state
 ```
+
+`fund` is not optional and is easy to skip: a balance is not voting power on `ERC20Votes`
+until the holder self-delegates, so without it every account votes with zero.
 
 Secrets reach the browser only in dev, through a generated `.env.local`; a production
 build carries none and opens read-only. See
@@ -134,6 +152,7 @@ build carries none and opens read-only. See
 | `bun run reset` | Back to the opening state: delegations taken back, a fresh proposal per domain. |
 | `bun run seed` | Creates the vocabulary if absent, then stakes each edge. Idempotent. |
 | `bun run setup` | Deploys and funds the three smart accounts. Idempotent. |
+| `bun run fund` | Mints each account its `DVOTE` and self-delegates, so the balance counts. |
 | `bun run delegate` | Signs the delegation chain off-chain. Free. |
 | `bun run acceptance` | The counting rules proven live: a voice spent once, a chain of three. |
 | `bun run rehearse` | Runs the live graph extension under a throwaway label. |

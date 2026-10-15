@@ -55,8 +55,13 @@ function loadOrCreateKeys(): StoredAccounts {
 }
 
 async function main(): Promise<void> {
-  const stored = loadOrCreateKeys();
+  // The env check comes first, because `loadOrCreateKeys` writes. Failing after it left
+  // three fresh keys on disk for accounts that were never deployed — and `bun run
+  // delegate` then sailed past its own existence check and died inside an EIP-1271 call
+  // against an address with no code, which is the one place this CLI handed somebody a
+  // viem stack trace instead of a sentence.
   const funder = privateKeyToAccount(requireEnv("PRIVATE_KEY") as `0x${string}`);
+  const stored = loadOrCreateKeys();
   const transport = http(process.env["INTUITION_TESTNET_RPC"] ?? intuitionTestnet.rpcUrls.default.http[0]);
   const publicClient = createPublicClient({ chain: intuitionTestnet, transport });
   const funderClient = createWalletClient({ chain: intuitionTestnet, transport, account: funder });

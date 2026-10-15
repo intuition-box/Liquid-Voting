@@ -15,8 +15,9 @@
  * signDelegation. Each signature is verified two ways before saving (house rule):
  * the offchain delegation hash is cross-checked against the deployed
  * DelegationManager's own getDelegationHash, and the EIP-1271 magic value is read
- * back from each delegator account. Signed payloads go to data/delegations.json
- * (gitignored — never in code).
+ * back from each delegator account. Signed payloads go to data/delegations.json, which is
+ * committed on purpose: signatures, hashes and addresses, no secret material, and the app
+ * refuses to render without it. The owner keys stay in data/accounts.json, which is not.
  *
  * Run: bun run delegate
  */
@@ -79,6 +80,14 @@ async function main(): Promise<void> {
   const domainHash = await publicClient.readContract({ ...manager, functionName: "getDomainHash" });
 
   async function hashAndVerify(delegation: Delegation, delegatorSA: `0x${string}`): Promise<`0x${string}`> {
+    // A smart account with no code cannot answer EIP-1271, and viem's failure is a raw
+    // AbiDecodingZeroDataError — the one place this CLI handed somebody a stack trace
+    // instead of a sentence. It happens when `setup` wrote the keys and then failed, so
+    // the accounts exist in the file and not on chain.
+    const code = await publicClient.getCode({ address: delegatorSA });
+    if (!code || code === "0x") {
+      throw new Error(`${delegatorSA} has no code on chain — it was never deployed. Run \`bun run setup\`.`);
+    }
     const offchainHash = getDelegationHashOffchain(delegation);
     const onchainHash = await publicClient.readContract({
       ...manager,
@@ -190,7 +199,7 @@ async function main(): Promise<void> {
     delegationsPath,
     `${JSON.stringify(
       {
-        note: "EIP-712-signed delegations for the Phase 3 chain. Testnet-only. NEVER commit.",
+        note: "EIP-712-signed delegations for the Phase 3 chain. Testnet-only. No secret material.",
         signedAt: new Date().toISOString(),
         maxDepth: MAX_DEPTH,
         attestor: curator,
