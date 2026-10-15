@@ -5,6 +5,7 @@ import { createChainClient } from "../lib/chain/network";
 import { isDelegationDisabled } from "../lib/delegation/encoding";
 import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
 import { clearSession, readSession, type Session } from "../lib/chain/session";
+import { forgetLogs } from "../lib/chain/logs";
 import { logError } from "../lib/chain/tx-log";
 import { connectWallet, disconnectWallet, hasWallet, restoreWallet, watchWallet } from "../lib/chain/wallet";
 import {
@@ -466,6 +467,9 @@ export function useApp(): AppState {
 
   /** Forgets this browser's wallets. What they did stays on chain, as it should. */
   const endSession = useCallback((): void => {
+    // Start the log reads over too. Nothing read so far is wrong, but forgetting the
+    // session is the one moment that means "from the top", and a fresh read is cheap.
+    forgetLogs();
     clearSession();
     setSession(null);
     setRevokedGrants([]);

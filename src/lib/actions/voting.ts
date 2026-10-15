@@ -12,6 +12,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 
 import { ozGovernorAbi, proposalDomainsAbi, votesTokenAbi } from "../chain/abis";
+import { readLogsOnce } from "../chain/logs";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
 import { sendUserOp, type UserOpResult } from "../chain/user-op";
@@ -681,8 +682,12 @@ export async function readProposals(client: PublicClient, config: AppConfig, lim
   // The domain used to be a contract read per proposal — twenty reads for something one
   // query answers whole.
   const [created, scoped] = await Promise.all([
-    client.getLogs({ address: config.governor, event: PROPOSAL_CREATED, fromBlock: config.governorFromBlock }),
-    client.getLogs({ address: config.resolver, event: PROPOSAL_SCOPED, fromBlock: config.governorFromBlock }),
+    readLogsOnce(client, "proposals", config.governorFromBlock, (fromBlock) =>
+      client.getLogs({ address: config.governor, event: PROPOSAL_CREATED, fromBlock }),
+    ),
+    readLogsOnce(client, "scoped", config.governorFromBlock, (fromBlock) =>
+      client.getLogs({ address: config.resolver, event: PROPOSAL_SCOPED, fromBlock }),
+    ),
   ]);
   const domainOf = new Map<string, Hex>();
   for (const log of scoped) {
@@ -779,9 +784,15 @@ export async function readAllBallots(
   // split. Both are needed: a tally without a breakdown says nothing about who is
   // accountable, and a breakdown without the support says nothing about what was decided.
   const [plain, withParams, onBehalf] = await Promise.all([
-    client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock: config.governorFromBlock }),
-    client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock: config.governorFromBlock }),
-    client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, fromBlock: config.governorFromBlock }),
+    readLogsOnce(client, "votes", config.governorFromBlock, (fromBlock) =>
+      client.getLogs({ address: config.governor, event: VOTE_CAST, fromBlock }),
+    ),
+    readLogsOnce(client, "votes-params", config.governorFromBlock, (fromBlock) =>
+      client.getLogs({ address: config.governor, event: VOTE_CAST_WITH_PARAMS, fromBlock }),
+    ),
+    readLogsOnce(client, "on-behalf", config.governorFromBlock, (fromBlock) =>
+      client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, fromBlock }),
+    ),
   ]);
 
   // Filed by proposal and by the account that submitted the vote, which together identify
@@ -845,12 +856,9 @@ export async function readVoicesCarriedFor(
   config: AppConfig,
   principal: `0x${string}`,
 ): Promise<CarriedVoice[]> {
-  const logs = await client.getLogs({
-    address: config.governor,
-    event: VOTE_CAST_ON_BEHALF,
-    args: { principal },
-    fromBlock: config.governorFromBlock,
-  });
+  const logs = await readLogsOnce(client, `on-behalf:${principal.toLowerCase()}`, config.governorFromBlock, (fromBlock) =>
+    client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, args: { principal }, fromBlock }),
+  );
 
   const roleOf = (address: `0x${string}`): Role | null =>
     ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
