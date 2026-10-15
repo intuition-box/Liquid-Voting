@@ -198,7 +198,7 @@ redeemed. The governor then counts C's own weight plus every principal whose wei
 routes to it, and emits `VoteCastOnBehalf` per voice, so the tally can be audited back to
 who lent what.
 
-The delegated-voting flows are verified live (`bun run votes`):
+The delegated-voting flows are verified live (`bun run acceptance`):
 
 | Flow | Result |
 |---|---|
@@ -472,8 +472,8 @@ cd contracts && forge test   # 111 tests (unit + fork against live MultiVault)
 ```
 
 From a clean chain: `bun run seed` (vocabulary + attestor stakes) →
-`bun run setup` (three smart accounts) → `bun run delegate` (sign the chain) → `bun run votes` (the acceptance flows).
+`bun run setup` (three smart accounts) → `bun run delegate` (sign the chain) → `bun run acceptance` (the counting rules, proven on chain).
 
-Decision record: [`docs/adr/`](docs/adr/) — ADRs 0001–0011, each with the
+Decision record: [`docs/adr/`](docs/adr/) — ADRs 0001–0028, each with the
 alternatives that were rejected and why. Phase gates and the vocabulary audit (with
 re-runnable GraphQL queries) are in [`docs/`](docs/).

@@ -26,7 +26,7 @@ import { IMultiVault } from "../interfaces/IMultiVault.sol";
 ///      moves the token's own checkpoint, so an account that has delegated simply has no
 ///      weight left to cast and double counting is arithmetically impossible. Here the
 ///      weight never moves, so nothing in the token notices that a voice has been spent.
-///      That bookkeeping has to be done here instead, and `_spent` is where it lives.
+///      That bookkeeping has to be done here instead, and `_cast` is where it lives.
 abstract contract DomainVotes is GovernorVotes {
     /// @notice MultiVault term classifier for a positive triple.
     uint8 internal constant VAULT_TYPE_TRIPLE = 1;
@@ -162,7 +162,7 @@ abstract contract DomainVotes is GovernorVotes {
     ///      holds any more must not be honoured.
     ///
     ///      Taking a lending back does not un-cast a vote the delegate already made with
-    ///      it. `_spent` holds that line; see `_countVote`.
+    ///      it. `_cast` holds that line; see `_spendVoices`.
     /// @param delegate Who receives the weight. Zero takes the whole lending back.
     /// @param domainId The domain being lent.
     /// @param amount How much weight to lend.

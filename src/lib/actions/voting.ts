@@ -969,11 +969,9 @@ export async function readRegister(
   config: AppConfig,
   scopes: string[],
 ): Promise<Register> {
-  const logs = await client.getLogs({
-    address: config.governor,
-    event: WEIGHT_DELEGATED,
-    fromBlock: config.governorFromBlock,
-  });
+  const logs = await readLogsOnce(client, "register", config.governorFromBlock, (fromBlock) =>
+    client.getLogs({ address: config.governor, event: WEIGHT_DELEGATED, fromBlock }),
+  );
 
   // Replayed in order, so the last word on a pair is the one that stands. A withdrawal
   // names the zero address, which removes the entry rather than recording a lending of

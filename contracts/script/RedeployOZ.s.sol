@@ -49,11 +49,16 @@ contract RedeployOZ is Script {
         );
         vm.stopBroadcast();
 
-        // The block matters as much as the address: manifest/13579.json records it as
-        // OZGovernor.deployedBlock, and every log read in the frontend starts there
-        // rather than at `earliest`. Forgetting it means scanning nine million empty
-        // blocks on every refresh, which exhausts the public RPC's allowance.
-        console2.log("record OZGovernor.deployedBlock:", block.number);
+        // manifest/13579.json needs OZGovernor.deployedBlock, because every log read in
+        // the frontend starts there rather than at `earliest`.
+        //
+        // It is NOT block.number. On this Arbitrum chain that is the parent chain's
+        // height — about 48,100,000 against an L2 height of about 9,372,000 — while
+        // eth_getLogs takes the L2 one (ADR 0026). Recording the wrong one points every
+        // log read five times past the head: each panel comes back empty and nothing
+        // reports an error.
+        console2.log("OZGovernor.deployedBlock: take the L2 height from this run's");
+        console2.log("  broadcast receipt, NOT from block.number. See ADR 0026.");
         console2.log("DemoVotes (kept):    ", token);
         console2.log("ProposalDomains:     ", address(resolver));
         console2.log("OZGovernor:          ", address(governor));

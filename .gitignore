@@ -5,5 +5,8 @@ dist/
 .claude/
 .agents/
 CLAUDE.md
-data/
+# Only the keys. `data/delegations.json` is signatures, hashes and addresses — no secret
+# material — and the app refuses to render without it, so a clone that lacks it shows
+# "Not set up yet" and the hosted site shows it to every visitor.
+data/accounts.json
 dist/

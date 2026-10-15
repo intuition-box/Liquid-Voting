@@ -1,8 +1,14 @@
 /**
- * Phase 3 step 2 — build and sign the two delegations, offline:
+ * Phase 3 step 2 — build and sign the three delegations, offline:
  *
- *   voter SA    --[GraphDomainScope root=treasury]-->  delegate SA
- *   delegate SA --[GraphDomainScope root=UX]------>  executor SA   (narrowing, ADR 0007)
+ *   A --[GraphDomainScope root=treasury]--> B                 A's own voice
+ *   B --[GraphDomainScope root=grants]----> C   (chained)     A's voice, relayed by B
+ *   B --[GraphDomainScope root=grants]----> C   (standalone)  B's own voice
+ *
+ * Three, not two, and the distinction matters: the relay carries A's voice and dies with
+ * A's grant, while B's own stands on ROOT_AUTHORITY and survives it (ADR 0012). The leaf
+ * narrows from `treasury` to `grants`, which is where the emergent narrowing of ADR 0007
+ * is demonstrated.
  *
  * The delegation structs are built directly (the whole grant IS our custom caveat, so
  * the Kit's scope system is bypassed) and signed with the smart accounts' canonical

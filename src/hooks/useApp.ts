@@ -493,7 +493,11 @@ export function useApp(): AppState {
     bootstrapError,
     startSession,
     endSession,
-    canStartSession: baseConfig !== null && resolveFunder(baseConfig) !== null,
+    // `funderKind`, not `resolveFunder`. The latter deliberately omits the wallet case,
+    // because a live connection is not derivable from config — so asking it here meant a
+    // hosted build with MetaMask installed reported "no way to pay for a session" and
+    // never offered the button the README is built around.
+    canStartSession: baseConfig !== null && funderKind(baseConfig) !== null,
     funder: baseConfig ? funderKind(baseConfig) : null,
     configResult,
     config,

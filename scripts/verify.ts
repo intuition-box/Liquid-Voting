@@ -104,7 +104,7 @@ async function main(): Promise<void> {
     Object.entries(byRole).map(([from, to]) => `${from} → ${to} on “${scope}”`),
   );
   if (held.length === 0) console.log("ok    nothing delegated — every account opens holding its own vote");
-  else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or re-run \`bun run seed:proposals\``);
+  else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or run \`bun run reset\``);
 
 
   console.log(failures === 0 ? "\nDemo is ready — every panel verified against live state." : `\n${failures} check(s) failed — fix before presenting.`);
