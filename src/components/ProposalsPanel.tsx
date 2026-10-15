@@ -4,6 +4,7 @@ import type { PublicClient } from "viem";
 import type { AppConfig, Role } from "../lib/config/app-config";
 import {
   readAllBallots,
+  readDescription,
   recordProposal,
   castOnGovernor,
   VOTE_ABSTAIN,
@@ -14,6 +15,7 @@ import {
 } from "../lib/actions";
 import type { DelegationSet } from "../lib/delegation/delegation-set";
 import type { DomainGraph } from "../lib/graph/domain-graph";
+import { ballotFor } from "../lib/ballots";
 import { ROLE_CLASS } from "../lib/delegation/grant";
 import { shortHex } from "../lib/chain/network";
 import { Button, Empty, Field, Mono, Panel, Status, TxLink, type Verdict } from "./primitives";
@@ -27,24 +29,66 @@ interface Feedback {
 const SUPPORT_LABELS = ["against", "for", "abstain"];
 
 /**
- * The ballot the viewer already cast on a proposal, if any.
+ * Who voted on a proposal, and how, without opening it.
  *
- * Read from what the governor logged rather than from anything held locally, so a vote
- * cast in an earlier session — or from the CLI — still shows up here.
+ * All of this was already in hand on the collapsed path — `readAllBallots` runs once for
+ * the whole page and the row reads its result to work out whether *you* have voted. The
+ * expanded view bought no new data, only room. So the room comes to the row instead.
+ *
+ * On a second grid line rather than in a column of its own, which matters more than it
+ * sounds. At 901px — one pixel above the width where the domain rail collapses, and the
+ * narrowest a row ever gets — the title track is already down to 175px. A fixed column
+ * wide enough for three pills would take it to 51px, about six characters. Spanning the
+ * line borrows no width at all, and renders nothing when nobody has voted, so the common
+ * opening state costs exactly what it did before.
+ *
+ * Bounded at three by the chain: OpenZeppelin allows one ballot per account per proposal
+ * and there are three accounts, so this can never become a list that needs scrolling.
  */
-function ballotFor(
-  ballots: Ballot[] | undefined,
-  role: Role,
-): { support: number; weight: bigint; carried: Role[] } | null {
-  for (const ballot of ballots ?? []) {
-    const own = ballot.entries.find((entry) => entry.carriedBy === role);
-    if (!own) continue;
-    const carried = ballot.entries
-      .filter((entry) => entry.principal !== role && entry.principal !== null)
-      .map((entry) => entry.principal as Role);
-    return { support: ballot.support, weight: ballot.total, carried };
-  }
-  return null;
+function Voters({ ballots }: { ballots: Ballot[] | undefined }) {
+  if (!ballots || ballots.length === 0) return null;
+  return (
+    <span className="proposal-voters">
+      {ballots.map((ballot) => {
+        // Every entry on one ballot shares a carrier — it is the account that submitted
+        // it — so any entry answers who voted. The rest are the voices it brought along.
+        const voter = ballot.entries[0]?.carriedBy ?? null;
+        const carried = ballot.entries
+          .filter((entry) => entry.principal !== null && entry.principal !== voter)
+          .map((entry) => entry.principal as Role);
+        const said = SUPPORT_LABELS[ballot.support] ?? "?";
+        const who = voter ?? shortHex(ballot.entries[0]?.carriedByAddress ?? "0x", 6, 4);
+        return (
+          <span
+            key={`${who}-${ballot.support}`}
+            className="voter-pill"
+            // The row is a button, so a pill cannot be its own control. A title is what
+            // the weight badge beside it already does.
+            title={
+              carried.length > 0
+                ? `${who} voted ${said}, carrying ${carried.join(" and ")}`
+                : `${who} voted ${said} with its own weight`
+            }
+          >
+            <span className={`voter-who ${voter ? ROLE_CLASS[voter] : ""}`}>{who}</span>
+            <span className={`voter-said voter-said-${said}`}>{said}</span>
+            <Mono dim>{ballot.total.toString()}</Mono>
+            {carried.length > 0 ? (
+              <span className="voter-carried">
+                carrying{" "}
+                {carried.map((principal, index) => (
+                  <span key={principal} className={ROLE_CLASS[principal]}>
+                    {index > 0 ? ", " : ""}
+                    {principal}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 const OPTIONS = [
@@ -198,7 +242,7 @@ export function ProposalsPanel({
   }
 
   return (
-    <Panel>
+    <Panel title={`Proposals on “${domain}” and below`}>
       {shown.length === 0 ? (
         <Empty>None yet.</Empty>
       ) : (
@@ -207,8 +251,10 @@ export function ProposalsPanel({
             <span className="legend-spacer" />
             <span className="legend-col">for</span>
             <span className="legend-col">against</span>
-            <span className="legend-col">neutral</span>
-            <span className="legend-col legend-weight">weight</span>
+            {/* "abstain", which is what SUPPORT_LABELS and the detail below both say.
+                This header was the only place in the app that called it neutral. */}
+            <span className="legend-col">abstain</span>
+            <span className="legend-col">weight</span>
           </div>
           <ul className="proposals">
           {shown.map(({ proposal, domain, weight }) => {
@@ -227,7 +273,7 @@ export function ProposalsPanel({
                   <span className="proposal-caret" aria-hidden="true">
                     {open ? "▾" : "▸"}
                   </span>
-                  <span className="proposal-title">{proposal.description}</span>
+                  <span className="proposal-title">{readDescription(proposal.description).title}</span>
                   <span className="proposal-domain">{domain}</span>
                   <span className="stat-col">
                     <Mono>{proposal.forVotes.toString()}</Mono>
@@ -251,11 +297,22 @@ export function ProposalsPanel({
                       </span>
                     )}
                   </span>
+                  <Voters ballots={ballots[key]} />
                 </button>
 
                 {open ? (
                   <div className="proposal-detail">
                     <dl className="kv">
+                      {/* Where the timestamp goes. It is stamped into every description
+                          because an OZ proposal id hashes it, and a list of titles each
+                          ending in an ISO string is unreadable — but the date itself is
+                          worth having, once, down here. */}
+                      {readDescription(proposal.description).recordedAt ? (
+                        <>
+                          <dt>recorded</dt>
+                          <dd>{readDescription(proposal.description).recordedAt?.replace("T", " at ")}</dd>
+                        </>
+                      ) : null}
                       <dt>id</dt>
                       <dd>
                         <Mono dim>#{key}</Mono>
@@ -269,7 +326,9 @@ export function ProposalsPanel({
                         <Mono>{weight.toString()}</Mono>{" "}
                         <span className="muted">
                           {mine
-                            ? "already cast on this proposal"
+                            ? mine.carriedBy
+                              ? `already on this ballot — ${mine.carriedBy} carried it`
+                              : "already cast on this proposal"
                             : weight === 0n
                               ? `you delegated “${domain}” away`
                               : weight === 1n
@@ -277,24 +336,30 @@ export function ProposalsPanel({
                                 : "yours plus what was delegated to you"}
                         </span>
                       </dd>
-                      <dt>votes</dt>
-                      <dd>
-                        <Mono>{proposal.forVotes.toString()}</Mono> for ·{" "}
-                        <Mono>{proposal.againstVotes.toString()}</Mono> against ·{" "}
-                        <Mono>{proposal.abstainVotes.toString()}</Mono> abstain
-                      </dd>
                     </dl>
 
                     <Ballots entries={ballots[key]} />
 
                     {/* What the viewer already cast, read back from the governor's logs —
                         the vote stays on screen instead of vanishing into the tally. */}
-                    {mine ? (
+                    {mine && mine.carriedBy === null ? (
                       <p className="voted">
                         You voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here, weighing{" "}
                         <Mono>{mine.weight.toString()}</Mono>
                         {mine.carried.length > 0 ? `, yours plus ${mine.carried.join(" and ")}` : ", your own voice"}
                         . The governor counts an account once per proposal, so it cannot be changed.
+                      </p>
+                    ) : null}
+
+                    {/* The case the interface used to hide. You did not vote here — your
+                        delegate did, in your name — and the plain way to say that is that
+                        you have already voted, because you have. */}
+                    {mine && mine.carriedBy !== null ? (
+                      <p className="voted voted-carried">
+                        You have already voted <strong>{SUPPORT_LABELS[mine.support] ?? "?"}</strong> here:{" "}
+                        <span className={ROLE_CLASS[mine.carriedBy]}>{mine.carriedBy}</span> carried your voice,
+                        weighing <Mono>{mine.weight.toString()}</Mono>. Taking the domain back stops the next one
+                        — it does not undo this, and the governor counts a voice once per proposal.
                       </p>
                     ) : null}
 

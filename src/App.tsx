@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { useApp } from "./hooks/useApp";
 import type { Role } from "./lib/config/app-config";
-import { ROLES, ROLE_CLASS } from "./lib/delegation/grant";
 import { ChainPanel } from "./components/ChainPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DomainNav } from "./components/DomainNav";
@@ -10,16 +9,15 @@ import { ProposalsPanel } from "./components/ProposalsPanel";
 import { GrantList } from "./components/GrantList";
 import { HowItWorks } from "./components/HowItWorks";
 import { LightPaper } from "./components/LightPaper";
-import { AddressLink, Mono, Panel } from "./components/primitives";
+import { IdentityBar } from "./components/IdentityBar";
+import { SessionGate } from "./components/SessionGate";
+import { SessionStrip } from "./components/SessionStrip";
+import { TxConsole } from "./components/TxConsole";
+import { WalletButton } from "./components/WalletButton";
+import { VoiceTrail } from "./components/VoiceTrail";
+import { AddressLink, Panel } from "./components/primitives";
 
 type TabId = "proposals" | "delegations" | "paper" | "how";
-
-/** The three demo identities. Each carries one colour, used everywhere the role appears. */
-const IDENTITIES = ROLES.map((role) => ({
-  role,
-  label: role,
-  className: ROLE_CLASS[role],
-}));
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "proposals", label: "Proposals" },
@@ -28,14 +26,22 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "how", label: "How it works" },
 ];
 
-/** The reading tabs stand alone — the domain rail scopes the app, not a document. */
+/**
+ * The reading tabs stand alone. Neither the domain rail nor the identity cards scope a
+ * document: picking `treasury` or acting as B changes nothing on a page of prose, so a
+ * control that does nothing is a control that teaches people the controls do nothing.
+ *
+ * The rail was already suppressed here and the cards were not — the same class of
+ * control, treated two ways.
+ */
 const READING: TabId[] = ["paper", "how"];
 
 export function App() {
   const demo = useApp();
   const [tab, setTab] = useState<TabId>("proposals");
-  const [domain, setDomain] = useState("treasury");
   const [role, setRole] = useState<Role>("B");
+  // The selection lives in the hook, because it decides which weights are worth reading.
+  const { domain, selectDomain } = demo;
   const { config, client } = demo;
   const reading = READING.includes(tab);
 
@@ -46,7 +52,7 @@ export function App() {
       : demo.configResult.hint;
     return (
       <main className="shell">
-        <Masthead role={role} onRole={setRole} />
+        <Masthead />
         <section className="panel">
           <h2>Not set up yet</h2>
           <p>
@@ -60,6 +66,8 @@ export function App() {
 
   return (
     <main className="shell">
+      <Masthead />
+
       <nav className="topnav" aria-label="sections">
         {TABS.map((entry) => (
           <button
@@ -72,11 +80,43 @@ export function App() {
             {entry.label}
           </button>
         ))}
+
+        {/* The account that signs is the account that spends, so it belongs where it can
+            be seen — and the nav is pinned, so it stays seen. */}
+        <WalletButton
+          address={demo.wallet}
+          connecting={demo.connectingWallet}
+          onConnect={() => void demo.connect()}
+          onDisconnect={() => void demo.disconnect()}
+        />
       </nav>
 
-      <Masthead role={role} onRole={setRole} holdings={demo.holdings} lent={demo.lent} />
+      {reading ? null : (
+        <IdentityBar
+          config={config}
+          role={role}
+          onRole={setRole}
+          domain={domain}
+          graph={demo.graph}
+          delegations={demo.delegations}
+          holdings={demo.holdings}
+          lent={demo.lent}
+          weights={demo.weights}
+          handover={demo.handover}
+          onHandoverShown={demo.clearHandover}
+        />
+      )}
 
-      {demo.error ? <p className="status status-fail">chain read failed: {demo.error}</p> : null}
+      <SessionGate
+        session={demo.session}
+        bootstrapping={demo.bootstrapping}
+        error={demo.bootstrapError}
+        canStart={demo.canStartSession}
+        funder={demo.funder}
+        walletReady={demo.wallet !== null}
+        writable={demo.writable}
+        onStart={() => void demo.startSession()}
+      />
 
       <div className={reading ? "workspace workspace-reading" : "workspace"}>
         {reading ? null : (
@@ -89,7 +129,7 @@ export function App() {
           writable={demo.writable}
           selected={domain}
           sessionDomainCount={demo.sessionDomainCount}
-          onSelect={setDomain}
+          onSelect={selectDomain}
           onRegistered={demo.registerDomain}
           onResetSession={demo.resetSessionDomains}
         />
@@ -128,10 +168,19 @@ export function App() {
                   onSigned={demo.addGrant}
                   onRevoked={demo.revokeGrant}
                 />
+                {/* What came of handing it over, which completes the reading this tab
+                    starts. Not on Proposals: that tab names every voter on every row. */}
+                <VoiceTrail
+                  config={config}
+                  client={client}
+                  role={role}
+                  proposals={demo.proposals}
+                  tick={demo.tick}
+                />
               </div>
             ) : null}
 
-            {tab === "paper" ? <LightPaper /> : null}
+            {tab === "paper" ? <LightPaper graph={demo.graph} /> : null}
             {tab === "how" ? <HowItWorks config={config} /> : null}
           </ErrorBoundary>
         </div>
@@ -149,75 +198,25 @@ export function App() {
           MultiVault <AddressLink address={config.multiVault} />
         </span>
       </footer>
+
+      {/* The machinery, docked together: whose wallets these are, and what they did. */}
+      <div className="dock">
+        {demo.session ? <SessionStrip session={demo.session} onForget={demo.endSession} /> : null}
+        <TxConsole />
+      </div>
     </main>
   );
 }
 
-function Masthead({
-  role,
-  onRole,
-  holdings,
-  lent,
-}: {
-  role: Role;
-  onRole: (role: Role) => void;
-  /** What each identity holds of the governance token, when the chain has answered. */
-  holdings?: Record<Role, { balance: bigint; votes: bigint }>;
-  /** What each account is lending. Shown beside the balance because a lending never moves
-   *  a token: without it the header reads the same before and after a handover. */
-  lent?: Partial<Record<Role, { amount: bigint; scope: string }>>;
-}) {
+/** The title, and one sentence saying what the page is. Nothing else lives here now. */
+function Masthead() {
   return (
     <header className="masthead">
-      <div className="masthead-text">
-        <h1>Voting authority scoped by a graph</h1>
-        <p>
-          A three-level ERC-7710 delegation chain whose domain scope is resolved by traversing the Intuition graph. Add
-          an edge to the graph and every delegation above it widens.
-          No redeploy, No new signature.
-        </p>
-      </div>
-
-      <div className="identity" role="group" aria-label="acting as">
-        <span className="identity-label">acting as</span>
-        {IDENTITIES.map((entry) => (
-          <button
-            key={entry.role}
-            type="button"
-            className={role === entry.role ? `identity-option identity-on ${entry.className}` : "identity-option"}
-            onClick={() => onRole(entry.role)}
-            aria-pressed={role === entry.role}
-          >
-            <span className={`identity-dot ${entry.className}`} />
-            {entry.label}
-          </button>
-        ))}
-      </div>
-
-      {holdings ? (
-        <div className="holdings">
-          <span className="holdings-label">governance token</span>
-          {IDENTITIES.map((entry) => {
-            const held = holdings[entry.role];
-            // A balance that is not self-delegated counts for nothing, which is a real
-            // state on an ERC20Votes and worth showing rather than debugging.
-            const dormant = held.balance > 0n && held.votes === 0n;
-            const lending = lent?.[entry.role];
-            return (
-              <span key={entry.role} className="holding">
-                <span className={`holding-who ${entry.className}`}>{entry.label}</span>
-                <Mono>{held.balance.toString()}</Mono>
-                {dormant ? <span className="holding-note">not self-delegated</span> : null}
-                {lending ? (
-                  <span className="holding-note">
-                    lending <Mono>{lending.amount.toString()}</Mono> on {lending.scope}
-                  </span>
-                ) : null}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
+      <h1>Voting authority scoped by a graph</h1>
+      <p>
+        A three-level ERC-7710 delegation chain whose scope is resolved by traversing the Intuition graph.
+        Add an edge and every delegation above it widens — no redeploy, no new signature.
+      </p>
     </header>
   );
 }

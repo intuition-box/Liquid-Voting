@@ -1,21 +1,22 @@
 # Demo script
 
-Live walkthrough for the Intuition core team. ~13 minutes at a calm pace. Every step lists
+Live walkthrough for the Intuition core team. ~13 minutes at a calm pace. Every beat lists
 what to say, what to expect on screen, and the recovery move if it misbehaves.
 
 ## Before you start (2 minutes, off-camera)
 
 ```bash
-cd ~/VScode/Liquid-demo
-bun run reset         # back to the opening state after a rehearsal
-bun run verify        # read-only, ~5s, asserts every claim below against live state
+cd ~/Project/Liquid-Demo
+bun run reset         # back to the opening state after a rehearsal (~15 s)
+bun run verify        # read-only, ~5 s, asserts every claim below against live state
 bun run dev           # http://localhost:5173
 ```
 
 `bun run reset` is the one to run after rehearsing. It takes every delegation back and
 records a fresh proposal on any domain whose only open one has been voted on. Votes
-themselves cannot be withdrawn, which is why a voted proposal is replaced rather than
-cleared. Running it twice costs nothing.
+cannot be withdrawn — a governor that could retract a counted vote would be a poor
+governor — so a voted proposal is replaced rather than cleared. Running it twice costs
+nothing.
 
 `bun run verify` must end with **"Demo is ready — every panel verified against live
 state."** If a line says FAIL, fix it before presenting:
@@ -24,31 +25,40 @@ state."** If a line says FAIL, fix it before presenting:
 |---|---|
 | `edge … does NOT authorize` | `bun run seed` — the attestor stake is missing |
 | `delegation chain is revoked` | `bun run delegate` — sign a fresh chain (new salt) |
-| `no fresh active proposal on …` | `bun run seed:proposals` — record unvoted proposals |
+| `… has no unvoted proposal` | `bun run reset` — records one per domain |
 
-Have a second terminal with `bun run votes` ready but **not** executed — it is the
-fallback if the browser misbehaves, proving the same flows from the CLI in ~40s.
+**The fallback, if the browser misbehaves.** A second terminal with `bun run acceptance`
+ready but **not** executed. It proves every counting rule against the live chain in about
+a minute — both voices counted once, a revoked lender refused, a three-level chain
+reaching 300, and the log naming the signature it redeemed. Eighteen checks, all of them
+things you were about to claim.
 
 **Rehearsing the live extension without spoiling it:** `bun run rehearse` runs the whole
-flow under a throwaway label, so the domain you add on stage stays uncreated. Measured:
-**18 s, 0.007 tTRUST**. Keep at least **0.05 tTRUST** on the submitter
-(`0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A`); it currently holds ~0.58.
+flow under a throwaway label, so the domain you add on stage stays uncreated.
+
+**Gas.** The submitter is `0xAA7a2Dfe…615A`. Keep at least **0.05 tTRUST** on it; check
+with `cast balance 0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A --rpc-url
+https://testnet.rpc.intuition.systems/http --ether`.
 
 Also open, in a background tab, the
-[enforcer](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302)
-on the explorer — source-verified, for anyone who wants to read it.
+[enforcer](https://testnet.explorer.intuition.systems/address/0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59)
+on the explorer, for anyone who wants to read it.
 
-**The three identities.** The switcher sits top right; everything on screen is written from
-whoever is selected.
+**The three identities.** Three cards under the navigation. Clicking one switches who you
+are acting as, and everything on screen is written from that account's point of view.
 
 | | Account | Colour |
 |---|---|---|
 | A | `0x446FF798…417B` | orange |
 | B | `0xd99c420d…6fa4` | blue |
-| C | `0x91C69d59…A5b2` | green |
+| C | `0x91C69d59…A5b2` | violet |
 
-**The starting state.** A delegated `treasury` to B; B narrowed to `grants` and passed
-that on to C.
+Each card reads `holds / delegating / carrying / casts`. At the opening state all three
+hold 100, delegate nothing, carry nothing, and cast 100.
+
+**The log.** A collapsed bar at the foot of the page. Open it once before you start so the
+audience knows it is there, then let it fill. It is where the mechanism becomes visible,
+and it is where errors go — if something fails, it opens itself.
 
 ---
 
@@ -56,263 +66,266 @@ that on to C.
 
 Point at the left rail.
 
-```
-governance
-├── treasury            A → B
-│   ├── grants          B → C
-│   │   ├── builder-grants
-│   │   │   └── micro-grants
-│   │   └── retro-funding
-│   └── payroll
-│       └── contributor-comp
-├── protocol
-│   ├── parameters → fee-switch, rate-model
-│   └── upgrades → emergency-patches
-└── community → events, content
-```
+> "These are governance domains, and they are not a list — they are a tree, and the tree
+> lives on Intuition. Seventeen atoms and sixteen triples, each one saying *this is a
+> sub-domain of that*, each staked by a curator."
 
-> "That tree is a DAO's decision surface, read live from the Intuition MultiVault.
-> Seventeen domains, five levels. Every edge is a triple somebody staked on — I will come
-> back to why the stake matters."
+Expand `treasury`. Point at `grants`, then `micro-grants` three levels down.
 
-Click **treasury**. The branch and everything under it lights up.
+> "Nothing here is in a contract. If I add a domain to this tree later, I am not
+> redeploying anything."
 
-> "A delegation on `treasury` reaches `grants`, `payroll`, and everything below them. The
-> shape on screen *is* the shape of the scope. Nothing on the `protocol` or `community`
-> side."
+**What to expect:** every node drawn, no `unusable` flags.
 
-**Expect:** the treasury subtree in accent, the rest plain. Two badges: `A → B` on
-`treasury`, `B → C` on `grants`.
-
-> "Those badges are the delegations in force. This is what a large DAO actually needs:
-> not one delegate for everything, but a treasury delegate, a protocol delegate, and
-> sub-delegates below them."
-
-**If the rail is empty:** the RPC is slow — reload once. Fall back to `bun run verify`,
-whose first lines are the same data.
+**If a node shows `unusable`:** its edge carries no attestor stake. Say so — it is the
+honest case, and §5 is about exactly that — or run `bun run seed` and reload.
 
 ---
 
 ## 2 · Weight follows the graph (2.5 min)
 
-Stay on **A**. Open **Proposals**, click **treasury** in the rail.
+Acting as **A**, go to **Delegations**. The panel reads *Who holds "treasury"* and says
+nobody does.
 
-> "Every proposal under `treasury` is listed, because that is what a delegation there
-> covers. The right-hand column is what *I* would cast on each one."
+> "A is going to put B in charge of the treasury. Not of everything — of the treasury,
+> and of whatever the graph says sits under it."
 
-**Expect:** the weight column reads `0` throughout.
+Pick **B** and press **hand it to B**.
 
-> "Zero, everywhere under `treasury`. I lent all of it, and lending moves weight rather
-> than copying it. Had I lent a quarter, this would read seventy five."
+**What to expect, in order:**
 
-Click **community** in the rail.
+1. An arc runs from A's card to B's, labelled `A → B on treasury`. It holds a couple of
+   seconds and fades.
+2. A's card now reads `delegating 100 on treasury`; B's reads `carrying A on treasury`
+   and `casts 200`.
+3. The log gains two rows.
 
-**Expect:** `100`.
+Open the log and read the first row aloud:
 
-> "Here I kept my vote. The delegation is scoped to a branch, not to me."
+> "`A signs a delegation of "treasury" to B` — and look at the badge: **no gas**. This is
+> an EIP-712 signature. It is an object sitting in a file. Nothing has been sent
+> anywhere."
 
-Switch to **B**, click **payroll**.
+Then the second:
 
-**Expect:** `200`.
+> "*This* is the transaction, and it is not the delegation. It is one line in a register
+> beside the governor saying whose weight B may exercise on this domain. The signature
+> says B *may* vote; this says what it carries."
 
-> "B votes with two hundred: its own hundred, plus mine, because `payroll` sits under the
-> `treasury` I delegated. B was never granted `payroll` — the graph carried it."
+**Expand the signature row** and point at `delegation hash`. Say you will come back to it.
 
-Click **grants**.
-
-**Expect:** B reads `0`.
-
-> "And zero here, because B passed `grants` on to C."
-
-Switch to **C**, click **micro-grants** — three levels below `grants`.
-
-**Expect:** `300`.
-
-> "Three hundred. C’s own, B’s, and mine, riding down two delegations and three graph hops.
-> The totals never grow: three accounts, three hundred votes, wherever they end up."
+**Recovery:** if the operation reverts, the log says why in words — it opens itself. The
+usual cause is a stale `data/delegations.json`; `bun run delegate` fixes it.
 
 ---
 
-## 3 · Casting a delegated vote (1.5 min)
+## 3 · Casting a delegated vote (2 min) — the machinery
 
-As **C**, on **micro-grants**, expand *Raise the Micro-Grant Ceiling from 2k to 5k*.
+Switch to **B**. Go to **Proposals**. The panel header reads *Proposals on "treasury" and
+below*, and the rows are the domains beneath it.
 
-> "The weight line says three hundred, and whose voices they are. Watch the tally."
+> "B can vote on anything under treasury now. Not because a contract was told so — because
+> the graph says these domains are under it."
 
-Click **for**.
+Vote **for** on the `grants` proposal.
 
-**Expect:** green, a tx link, the For column moves by 300.
+**What to expect:** the row's tally moves to 200, and a pill appears under the title:
+**`B for 200 carrying A`**.
 
-> "One vote, three voices, recorded as C’s. That is a sub-delegation working: the DAO
-> delegated a treasury, the treasury delegated its grants programme, and the decision
-> happened four levels down without anyone above having to show up."
+> "Two voices, one vote, and the row says whose. You do not have to open anything."
+
+Now open the log on the new row and read the label:
+
+> "`B redeems the delegation A signed, and votes with it in A's name`."
+
+Expand it. Three calls, in the order the chain walks them:
+
+- `DelegationManager.redeemDelegations` — redeemed by B, one link, `A → B`
+- `GraphDomainScope.beforeHook` — the delegation A signed, its signed scope `treasury`,
+  and **the witness: `grants → treasury`**
+- `OZGovernor.castVoteFor` — recorded as B, *the delegate, not the signer*, on behalf of A
+
+> "The witness is the path. The redeemer supplies it, and the caveat recomputes every hop
+> against the live vault before the governor is reached. Nothing here is trusted."
+
+**Then the payoff.** Point at `delegation hash` on this row, and at the same field on the
+signature row from §2.
+
+> "Same hash. That object, signed then and sent nowhere, is the one touching the chain
+> now."
 
 ---
 
 ## 4 · What the scope refuses (2 min)
 
-Switch to **B**, click **events** in the rail, expand a proposal there.
+Still as **B**, select `events` in the rail — it is under `community`, not `treasury`.
 
-**Expect:** the weight column reads `100`, not 200.
+> "B holds the treasury. Does it hold this?"
 
-> "A hundred. B can vote on `events` — nothing silences it — but my weight stays behind, because
-> no attested path connects `events` to the `treasury` I delegated. The delegation is
-> scoped, not a mute button."
+B's card reads `carrying —` and `casts 100`.
 
-> "And that check is not the interface being polite. It is the caveat enforcer, on chain,
-> recomputing the triple id for `events — is a sub-domain of — treasury` and finding
-> nothing there."
+> "A hundred. Its own. A's weight is not here, and no code was written to exclude it —
+> there is simply no attested path from `events` up to `treasury`."
 
-**If you want the revert on screen:** run `bun run votes` in the terminal; the failing
-cases print `NotATriple(0x…)` against the live contracts.
+Vote on an `events` proposal. It counts 100.
 
----
-
-## 5 · Depth is a dial (1.5 min)
-
-Go to **Delegations** as **A**, click **community** in the rail — a branch A still holds.
-
-> "When I sign, I choose how far the grant reaches."
-
-Point at **how deep it reaches**. Set it to **that domain only**, then hand `community`
-to B.
-
-Switch to **B**, open **Proposals**, click **community**.
-
-**Expect:** `2` on the `community` proposal.
-
-Click **events**, one level below.
-
-**Expect:** `1`.
-
-> "One level down and my lending is gone. `maxDepth` is signed into the terms, so it is
-> fixed for the life of the delegation — I cannot widen it afterwards, and neither can
-> anyone else. A DAO can hand out a whole branch, or exactly one topic."
+**If you want the refusal on chain rather than inferred:** `bun run acceptance` in the
+second terminal prints `and the chain refuses the dead delegation
+CannotUseADisabledDelegation()` among its eighteen checks.
 
 ---
 
-## 6 · Extend the graph, live (2.5 min) — the centrepiece
+## 5 · Taking it back, and what that does not undo (2 min)
 
-Left rail, bottom: **+ add a domain**. Select **grants** as the parent, name it
-`hackathon-grants`.
+This is the case the Intuition Box review found, and it is worth showing deliberately.
 
-> "Nothing in this system knows what `hackathon-grants` is. And the delegations we have
-> been using were signed this morning."
+Switch to **A**, go to **Delegations**, and **take `treasury` back**.
 
-Click **add**.
+**What to expect:** A's card returns to `delegating —`, B's to `carrying —`.
 
-**Expect:** three transactions — a new atom, a triple linking it under `grants`, and the
-attestor’s stake — in about 18 seconds. It appears in the tree.
+> "A has its domain back. B cannot carry it anywhere any more."
 
-> "Three writes to the Intuition graph. The stake matters: an edge nobody staked
-> authorizes nothing, which is what stops anyone widening a delegation for a fraction of
-> a cent."
+Now go to **Proposals** and find the `grants` proposal B voted on in §3, still acting as A.
 
-Switch to **C**, click **hackathon-grants**, add a proposal on it, expand it.
+**What to expect:** the vote buttons are disabled, and the row reads:
 
-**Expect:** the weight column reads `300`.
+> *You have already voted For here: **B** carried your voice, weighing 100. Taking the
+> domain back stops the next one — it does not undo this.*
 
-> "Same delegations. Same signatures. Untouched. They now reach a domain that did not
-> exist when they were signed — no redeploy, no new signature. For a DAO that means
-> opening a new programme without re-collecting every delegation."
+> "A did not vote here. Its delegate did, in its name — which is the same thing, and the
+> interface says so. Revocation cuts the future, never the past."
 
-**If a transaction fails:** most likely the submitter ran out of tTRUST — check the
-terminal. Recovery: pick a different name; the atom id derives from the label, so a
-retried name that half-succeeded still works.
+Then say why that holds, because it is the part people ask about:
 
----
+> "Two records, and only one of them is state. The attribution is an event — history, and
+> a log does not get rewritten. The refusal is a ledger keyed on the *proposal*, not on
+> the delegation. Had we keyed it on the signature, deleting the signature would have
+> handed A its voice back."
 
-## 7 · One holder at a time (1 min)
-
-**Delegations** as **A**, `treasury` selected.
-
-**Expect:** the other accounts are inert; the only action is **take "treasury" back**.
-
-> "A domain has one holder at a time. I cannot hand `treasury` to C while B holds it —
-> that would pull the weight out from under B with nothing on screen saying so."
-
-Click **payroll**, still as **A**.
-
-**Expect:** the same lock, and the button reads **take "treasury" back**.
-
-> "Same answer one level down. Giving `treasury` gave `payroll` with it, so handing
-> `payroll` to someone else now would promise the same vote twice. The parent has to come
-> back first — and the governor checks that against the graph, not against a list."
-
-**To reset for a second run:** the `reset` button under the tree clears session domains
-and grants.
+**The tally never moved.** Point at it: still 200.
 
 ---
 
-## 7b · Lending part of it (1.5 min)
+## 6 · Depth is a dial (1 min)
 
-Take `treasury` back as **A**, then select it again and look at the slider above the
-button.
+As **A**, hand `treasury` to B again, and open **how deep it reaches** before pressing.
 
-> "Nothing so far said how much I lend. Until now the answer was always everything, which
-> is not how anyone actually delegates: backing someone on the treasury should not mean
-> going silent on the treasury."
-
-Drag it to **25**, then hand `treasury` to **B**.
-
-**Expect:** the slider reads `25 of 100, you keep 75`.
-
-Click **Proposals**, then **payroll**.
-
-**Expect:** A reads `75`, and B reads `125`.
-
-> "Seventy five for me, a hundred and twenty five for B. I backed B on the treasury and I
-> can still vote on it myself. Two questions, answered separately: the caveat decides
-> whether my voice may be used here at all, and the register decides how much of it."
-
-**If the numbers look stale:** the weights are read from the chain, so give it a beat and
-reload. `bun run verify` prints the same figures.
+> "The scope is a domain plus a number of hops, and the number is signed into the terms.
+> It is immutable for the life of the delegation. A grant that reaches one level is a
+> different object from one that reaches five — not a setting somebody can change later."
 
 ---
 
-## 8 · Close on the argument (1.5 min)
+## 7 · Extend the graph, live (2.5 min) — the centrepiece
 
-Say it in this order — it is the submission’s thesis:
+Stay as **B**. Press **+ add a domain** in the rail, parent `grants`, label something the
+room suggests.
 
-> "There is no reverse index in the MultiVault. You can ask *does this triple exist*; you
-> can never ask *what are the children of this node*. So on-chain traversal is not
-> expensive, it is impossible. The redeemer supplies the path as a witness and the
-> enforcer verifies every hop against live state: about 14k gas per hop. That is not
-> ‘on-chain reads *or* an off-chain proof’ — it is both, and the split is forced by
-> your storage layout rather than chosen by us."
+**What to expect, in the log:** three transactions — the atom minted, the triple written,
+the curator's stake. Then the domain appears in the rail.
 
-> "And permissionless minting means existence proves nothing — anyone can mint
-> `events is a sub-domain of treasury` for a fraction of a cent. So authorization follows
-> *stake*, not existence. Whose stake is a field in the signed terms: an org address for
-> institutional curation, or `address(0)`, which resolves to the delegator so every level
-> of the chain is read through its own signer’s view of the graph. That is the part
-> that makes this a trust-layer integration and not a lookup table."
+Switch to **Proposals**, select the new domain, add a proposal on it, and vote as **B**.
 
-> "What that buys a large DAO is sub-delegation with real depth. A treasury delegate who
-> hands the grants programme to someone closer to it, who hands micro-grants further down
-> still — each level scoped by a graph the DAO already curates, each revocable on its own,
-> and the whole thing widening when the DAO opens a new programme."
+**What to expect:** it counts **200**.
 
-Then the ask: **Mission 11** — see the slide outline.
+> "That domain did not exist ninety seconds ago. The delegation A signed has not been
+> touched — same hash, same terms, same signature. No contract was redeployed and nothing
+> was re-signed. The scope widened because the graph widened."
+
+**Recovery:** if the mint fails, the log says why. The commonest cause is gas on the
+submitter. `bun run rehearse` beforehand tells you it works.
+
+---
+
+## 8 · One holder at a time (1 min)
+
+As **A**, with B still holding `treasury`, look at the handover panel.
+
+**What to expect:** it is locked. B reads *holds it now*, C reads *take it back first*,
+and the button offers to take it back rather than to hand it on.
+
+> "A domain has one holder at a time, and the interface will not let me pretend
+> otherwise. The contract refuses it too — `AlreadyDelegated` — but you should not have
+> to hit a revert to learn a rule. Weight cannot be moved out from under a delegate
+> silently; taking it back is the way, and taking it back is visible."
+
+Then select `grants`, which sits *under* the treasury A already gave away.
+
+**What to expect:** B reads *holds it, through "treasury"*, and C reads *not yours to
+give*.
+
+> "Handing over a domain hands over everything beneath it. A does not hold `grants` any
+> more — B does, through the parent — so there is nothing here for A to give."
+
+And the cycle guard: as **B**, the picker will not offer **A**.
+
+> "Per domain, not globally. A giving B the treasury says nothing about `community` — C
+> can still hand that to A."
+
+---
+
+## 9 · Close on the argument (1.5 min)
+
+Open **Overview**.
+
+> "Nobody is competent everywhere. Today a delegation covers everything you vote on or it
+> does not happen. This is the finer thing: by subject, with the subject defined by a
+> graph anybody can read and extend."
+
+Then the shape, in three sentences:
+
+> "The scope is a signed term. The path is a witness the redeemer supplies and the caveat
+> verifies hop by hop against live state — the same split as a Merkle proof: the prover
+> offers a witness, never a fact. And the weight comes from a stock OpenZeppelin Governor,
+> inherited unmodified, through the one override it declares virtual for the purpose."
+
+Open **How it works** if anyone wants the addresses.
 
 ---
 
 ## Questions you should expect, and the short answers
 
-| Question | Answer |
-|---|---|
-| *What stops anyone creating the triple?* | Nothing, and it does not matter. Creation is permissionless; authorization requires the attestor’s stake on that edge. Every edge in the tree carries one. |
-| *Where does the weight actually live?* | In the governor’s register, per domain. The UI reads `weightFor` from it, so what you see is what the vote counts. |
-| *Why can B vote on `events` at all?* | Because B has its own vote. Only the delegated weight is scoped — that is the point of scoping by domain rather than all-or-nothing. |
-| *How deep can this go?* | As deep as the graph, capped per delegation by the `maxDepth` its signer chose. The demo tree runs five levels; nothing in the enforcer stops more. |
-| *What if the graph changes after I sign?* | That is the demo you just watched. It is bounded: scope only widens along edges *your* attestor staked. If you are your own attestor, nobody can widen it. |
-| *What does traversal cost at depth 5?* | ~100k gas live, ~14k per hop, strictly linear, bounded by the signed `maxDepth`. Table in `docs/WRITEUP.md` §3. |
-| *Why is `isTriple` not enough?* | It returns true for counter-triples — the "against" vault. An enforcer built on it would accept a hop meaning the negation of the edge. We use `getVaultType == 1`, and a fork test proves the trap is real on your deployment. |
-| *Is this audited?* | No — it is a POC. 120 tests including fork tests against the live MultiVault, 100 % coverage on the enforcer, a threat-model review with no code findings, Slither clean. Mission 11 should budget a real audit. |
-| *Why user operations instead of direct calls?* | `DeleGatorCore.execute` is `onlyEntryPoint`, and there is no bundler on 13579 — so we submit `handleOps` ourselves. A public bundler would remove that step for every app on the chain. |
+**"What stops me inventing an edge?"** Nothing stops you minting one — triples are
+permissionless and cost a fraction of a cent. The enforcer does not read existence, it
+reads a named attestor's stake. Existence is not attestation (ADR 0004).
+
+**"Who is the attestor?"** A signed term. An organisation's address for institutional
+curation, or `address(0)`, which resolves to the delegator so each level of a chain is
+read through its own signer's view of the graph.
+
+**"Why not traverse the graph on chain?"** The MultiVault is keyed by
+`hash(subject, predicate, object)`. There is no reverse index, so a contract can verify
+that a triple exists but can never enumerate the children of a node. On-chain traversal is
+impossible, not expensive (ADR 0003).
+
+**"Did you fork OpenZeppelin?"** No. `Governor`, `GovernorSettings`,
+`GovernorCountingSimple` and `GovernorVotes` are inherited as published. The integration
+is one override of `_getVotes`, which `Governor` declares virtual for exactly this, plus
+a `castVoteFor` entry point because OZ's public ones read the voter from `_msgSender()`
+and a redemption executes from the root delegator's account.
+
+**"What does a vote cost?"** About 14k gas per hop of the witness, on top of OZ's own.
+The benchmarks are in `contracts/test/gas/`.
+
+**"Can anyone try it?"** Yes — the hosted build generates three wallets in your browser
+and your own wallet pays once, 0.03 tTRUST, for the whole session (ADR 0027).
+
+---
 
 ## If the whole browser demo fails
 
-Switch to the terminal and run `bun run votes`. It executes the same flows against the
-same live contracts and prints them as pass/fail lines with the same revert reasons. It
-takes about 40 seconds and shares `src/lib` with the panels — the same code path.
+Switch to the terminal and run `bun run acceptance`. It drives the same `src/lib` the
+frontend does and prints eighteen checks against the live chain in about a minute:
+
+```
+ok    B votes on `grants`, carrying A
+ok    both voices counted, and only once each        for=200
+ok    A cannot cast a voice B already spent          GovernorAlreadyCastVote(0x446FF…)
+ok    and the tally never moved                      for=200
+ok    and the chain refuses the dead delegation      CannotUseADisabledDelegation()
+ok    A's voice appears in the governor's log        carriedBy=B  weight=100
+ok    the voice of A reached the end of the chain    for=300
+ok    the log names the redemption, not just the vote
+```
+
+Say what it is: the same code the browser runs, without the browser. Then talk over it.

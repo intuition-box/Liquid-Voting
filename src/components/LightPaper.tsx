@@ -1,3 +1,27 @@
+import type { DomainGraph } from "../lib/graph/domain-graph";
+
+/**
+ * The domain tree, drawn from the graph rather than typed out beside it.
+ *
+ * It used to be a hard-coded string, and it had drifted: thirteen leaves drawn against
+ * seventeen real ones, with `fee-switch`, `rate-model` and `emergency-patches` collapsed
+ * into the lines "parameters, upgrades" and "events, content". A picture of the data that
+ * is not the data will always drift eventually — and on the one tab whose job is to
+ * explain the thing, a tree that disagrees with the rail two clicks away is worse than no
+ * tree. Drawn from the graph, it also picks up a domain added during the session.
+ */
+function drawTree(graph: DomainGraph): string {
+  const lines: string[] = [];
+  const walk = (label: string, prefix: string, last: boolean, root: boolean): void => {
+    lines.push(root ? label : `${prefix}${last ? "└── " : "├── "}${label}`);
+    const children = graph.childrenOf(label);
+    const next = root ? "" : prefix + (last ? "    " : "│   ");
+    children.forEach((child, index) => walk(child, next, index === children.length - 1, false));
+  };
+  for (const root of graph.roots()) walk(root, "", true, true);
+  return lines.join("\n");
+}
+
 /**
  * The argument, for someone who governs but does not build.
  *
@@ -5,7 +29,7 @@
  * "graph". Someone who runs a DAO recognises delegation and mandates already, and the
  * technical shape is what the other tab is for.
  */
-export function LightPaper() {
+export function LightPaper({ graph }: { graph: DomainGraph }) {
   return (
     <article className="paper">
       <header className="paper-head">
@@ -60,20 +84,7 @@ export function LightPaper() {
           reaches.
         </p>
 
-        <pre className="paper-tree">
-{`governance
-├── treasury
-│   ├── grants
-│   │   ├── builder grants
-│   │   │   └── micro-grants
-│   │   └── retro funding
-│   └── payroll
-│       └── contributor comp
-├── protocol
-│   └── parameters, upgrades
-└── community
-    └── events, content`}
-        </pre>
+        <pre className="paper-tree">{drawTree(graph)}</pre>
 
         <p>
           Take the deepest branch, since it shows the most. Give someone{" "}

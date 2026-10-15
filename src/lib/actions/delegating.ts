@@ -14,6 +14,7 @@ import type { AppConfig } from "../config/app-config";
 import { buildDisableCalldata, encodeTerms, type Delegation } from "../delegation/encoding";
 import type { Role } from "../roles";
 
+import { recordStep } from "../chain/tx-log";
 import { DEFAULT_MAX_DEPTH, requireOwnerKey, submitterClient } from "./common";
 
 /** What an account currently counts for, which is the most it can possibly lend. */
@@ -90,6 +91,35 @@ export async function signDelegation(
       functionName: "getDelegationHash",
       args: [{ ...delegation, salt: BigInt(delegation.salt) }],
     });
+    recordStep(
+      {
+        kind: "signature",
+        actor: from,
+        label:
+          index === 0
+            ? `${from} signs a delegation of “${domainLabel}” to ${to}`
+            : `${from} signs a relay of the “${domainLabel}” voice it was lent`,
+        detail:
+          "An EIP-712 signature. Free, and nothing is sent: a delegation is an object that sits in a file until somebody redeems it.",
+        calls: [
+          {
+            contract: "GraphDomainScope",
+            address: config.enforcer,
+            fn: "caveat terms — signed into the delegation, immutable from here",
+            args: {
+              // Named exactly as the redemption row names it, so the two can be matched
+              // by eye when the delegate finally spends this signature.
+              "delegation hash": hash,
+              "signed scope": `“${domainLabel}”`,
+              "hops allowed": String(maxDepth),
+              attestor: config.attestor,
+              authority: index === 0 ? "ROOT_AUTHORITY — stands on its own" : `${authority} — derives from it`,
+            },
+          },
+        ],
+      },
+      { status: "done" },
+    );
     // index 0 is the signer's own voice; the rest relay `relayable` in the same order.
     signed.push({ delegation: { ...delegation, hash }, relays: index === 0 ? null : (relayable[index - 1] ?? null) });
   }
@@ -98,17 +128,37 @@ export async function signDelegation(
   // how much weight it carries. Recording the transfer is what makes the delegator stop
   // counting on this domain and the delegate count for both. One transfer, however many
   // voices moved: the register tracks the holder, the signatures track the authority.
-  const op = await sendUserOp(client, submitterClient(config), delegator, [
+  const lending = amount ?? (await ownWeight(client, config, from));
+  const op = await sendUserOp(
+    client,
+    submitterClient(config),
+    delegator,
+    [
+      {
+        to: config.governor,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: ozGovernorAbi,
+          functionName: "delegateWeight",
+          args: [config.accounts[to].smartAccount, domainId, lending],
+        }),
+      },
+    ],
     {
-      to: config.governor,
-      value: 0n,
-      data: encodeFunctionData({
-        abi: ozGovernorAbi,
-        functionName: "delegateWeight",
-        args: [config.accounts[to].smartAccount, domainId, amount ?? (await ownWeight(client, config, from))],
-      }),
+      actor: from,
+      label: `${from} hands its weight on “${domainLabel}” to ${to}`,
+      detail:
+        "The signatures say the delegate MAY vote; this says whose weight it carries. One transfer however many voices moved.",
+      calls: [
+        {
+          contract: "OZGovernor",
+          address: config.governor,
+          fn: "delegateWeight(address,bytes32,uint256)",
+          args: { delegate: `${to} · ${config.accounts[to].smartAccount}`, domain: domainLabel, amount: lending.toString() },
+        },
+      ],
     },
-  ]);
+  );
   if (!op.success) {
     throw new Error(op.revert ? `weight transfer reverted: ${op.revert.formatted}` : "weight transfer reverted");
   }
@@ -137,22 +187,47 @@ export async function revokeWeight(
   // One user operation for both halves. Clearing the register alone would leave the
   // signature usable, and disabling the signature alone would leave the weight parked
   // with the delegate — taking a domain back means both, so they travel together.
-  return sendUserOp(client, submitterClient(config), account, [
-    ...signatures.map((delegation) => ({
-      to: FRAMEWORK.delegationManager,
-      value: 0n,
-      data: buildDisableCalldata(delegation),
-    })),
+  return sendUserOp(
+    client,
+    submitterClient(config),
+    account,
+    [
+      ...signatures.map((delegation) => ({
+        to: FRAMEWORK.delegationManager,
+        value: 0n,
+        data: buildDisableCalldata(delegation),
+      })),
+      {
+        to: config.governor,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: ozGovernorAbi,
+          functionName: "delegateWeight",
+          args: ["0x0000000000000000000000000000000000000000", domainId, 0n],
+        }),
+      },
+    ],
     {
-      to: config.governor,
-      value: 0n,
-      data: encodeFunctionData({
-        abi: ozGovernorAbi,
-        functionName: "delegateWeight",
-        args: ["0x0000000000000000000000000000000000000000", domainId, 0n],
-      }),
+      actor: from,
+      label: `${from} takes “${domainLabel}” back`,
+      detail:
+        "Both halves in one operation. Clearing the register alone would leave the signature usable; disabling the signature alone would leave the weight parked with the delegate. It does not un-cast a vote the delegate already made.",
+      calls: [
+        ...signatures.map((delegation) => ({
+          contract: "DelegationManager",
+          address: FRAMEWORK.delegationManager,
+          fn: "disableDelegation(Delegation)",
+          args: { hash: delegation.hash },
+        })),
+        {
+          contract: "OZGovernor",
+          address: config.governor,
+          fn: "delegateWeight(address,bytes32,uint256)",
+          args: { delegate: "0x0 — taken back", domain: domainLabel, amount: "0" },
+        },
+      ],
     },
-  ]);
+  );
 }
 
 

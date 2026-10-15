@@ -15,9 +15,9 @@ Everything below is deployed and verified on **Intuition testnet (chain 13579)**
 
 | | |
 |---|---|
-| `OZGovernor` | [`0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828`](https://testnet.explorer.intuition.systems/address/0xCfAFf046A7ECABBDB9AfA884C66FE53cacC6F828) — what the app runs on (§5) |
-| `GraphDomainScope` on it | [`0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2`](https://testnet.explorer.intuition.systems/address/0x8D1D57228F5F8bf82eb80C76bd736242Ebcf65C2) — bound to `castVoteFor` |
-| `ProposalDomains` · `DemoVotes` | `0xa0806eF5…F00B` · `0x0f44F7d9…A14e` — the domain resolver and the `ERC20Votes` weight comes from |
+| `OZGovernor` | [`0xd3eAA81C5D283E4270EFB568045A7b406197917F`](https://testnet.explorer.intuition.systems/address/0xd3eAA81C5D283E4270EFB568045A7b406197917F) — what the app runs on (§5) |
+| `GraphDomainScope` on it | [`0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59`](https://testnet.explorer.intuition.systems/address/0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59) — bound to `castVoteFor` |
+| `ProposalDomains` · `DemoVotes` | `0x11CC4155…f31D` · `0x0f44F7d9…A14e` — the domain resolver and the `ERC20Votes` weight comes from |
 | `GraphDomainScope` on `DemoGovernor` | [`0x948CFe8438161390DbeF07c291Cb8ffDd7955302`](https://testnet.explorer.intuition.systems/address/0x948CFe8438161390DbeF07c291Cb8ffDd7955302) · [`0x2bEE53dd…6cEE`](https://testnet.explorer.intuition.systems/address/0x2bEE53dd6BE3eEea1769A74AAb64773b1C176cEE) — both source-verified, kept as the first implementation |
 | A / B / C | `0x446FF798…417B` · `0xd99c420d…6fa4` · `0x91C69d59…A5b2` (HybridDeleGator v1.3.0) |
 | Delegation Framework | v1.3.0 at canonical CREATE2 addresses — all 31 standard enforcers present |

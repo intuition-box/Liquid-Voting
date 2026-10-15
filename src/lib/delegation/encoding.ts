@@ -7,7 +7,7 @@ import {
   type PublicClient,
 } from "viem";
 
-import { delegationManagerAbi, governorAbi, revertAbi } from "../chain/abis";
+import { delegationManagerAbi, ozGovernorAbi, revertAbi } from "../chain/abis";
 import { FRAMEWORK } from "../chain/network";
 
 /** Execution mode: single call, default (non-try) — ERC-7579 encoding. */
@@ -98,28 +98,7 @@ function encodeDelegations(chain: Delegation[]): Hex {
   );
 }
 
-export interface RedeemParams {
-  /** Delegation chain, leaf → root. */
-  chain: Delegation[];
-  /** Path witness per chain entry, same order. */
-  witnesses: Hex[][];
-  governor: `0x${string}`;
-  domainId: Hex;
-  description: string;
-}
 
-/**
- * Builds the `redeemDelegations` calldata, attaching each level's path witness to its
- * caveat `args`. `args` sits outside the signed delegation hash by design — the enforcer
- * verifies it hop by hop against live chain state rather than trusting it (ADR 0003).
- */
-export function buildRedeemCalldata({ chain, witnesses, governor, domainId, description }: RedeemParams): Hex {
-  return buildRedeem(
-    [{ chain, witnesses }],
-    governor,
-    encodeFunctionData({ abi: governorAbi, functionName: "propose", args: [domainId, description] }),
-  );
-}
 
 /** Vote options, matching the governor's `VoteType` and OpenZeppelin's counting module. */
 export const VOTE_AGAINST = 0;
@@ -163,7 +142,7 @@ export function buildVoteCalldata({
     chains,
     governor,
     encodeFunctionData({
-      abi: governorAbi,
+      abi: ozGovernorAbi,
       functionName: "castVoteFor",
       args: [proposalId, support, voter, principals, domainPath],
     }),

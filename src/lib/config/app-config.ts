@@ -1,5 +1,10 @@
 import type { Hex } from "viem";
 
+import { privateKeyToAddress } from "viem/accounts";
+
+import type { Funder } from "../chain/bootstrap";
+import type { Session } from "../chain/session";
+import { hasWallet } from "../chain/wallet";
 import type { DomainEdge, DomainNode } from "../graph/edges";
 import { parseEdgeKey } from "../graph/domain-graph";
 import { ROLES, type Role } from "../roles";
@@ -12,6 +17,14 @@ import type { Delegation } from "../delegation/encoding";
  */
 const DEMO_SUBMITTER_KEY: string = import.meta.env.DEMO_SUBMITTER_KEY ?? "";
 const DEMO_RPC: string = import.meta.env.DEMO_RPC ?? "";
+/**
+ * Where a hosted build gets the gas for a visitor's session.
+ *
+ * Not a secret, which is the whole point of it: the key stays behind the endpoint, so a
+ * build anyone can open carries no funded account. Unset in development, where
+ * `DEMO_SUBMITTER_KEY` is present and no faucet is needed.
+ */
+const FAUCET_URL: string = import.meta.env.VITE_FAUCET_URL ?? "";
 const DEMO_OWNER_KEYS: Record<string, string> = (() => {
   try {
     return JSON.parse(import.meta.env.DEMO_OWNER_KEYS ?? "{}") as Record<string, string>;
@@ -25,7 +38,7 @@ interface ManifestShape {
   contracts: {
     GraphDomainScope: { address: `0x${string}` };
     DemoGovernor: { address: `0x${string}` };
-    OZGovernor: { address: `0x${string}` };
+    OZGovernor: { address: `0x${string}`; deployedBlock?: number };
     OZGraphDomainScope: { address: `0x${string}` };
     ProposalDomains: { address: `0x${string}` };
     DemoVotes: { address: `0x${string}` };
@@ -67,6 +80,17 @@ export interface AppConfig {
   accounts: Record<Role, { owner: `0x${string}`; smartAccount: `0x${string}` }>;
   /** Empty in a production build — writes are disabled there (ADR 0011). */
   ownerKeys: Partial<Record<Role, `0x${string}`>>;
+  /** Set in a hosted build: where a visitor's session asks for its gas. */
+  faucetUrl: string | undefined;
+  /**
+   * The block the governor was deployed in, which is where its history starts.
+   *
+   * Every log read here used to begin at `earliest`. The governor has nothing to say
+   * about the nine million blocks that preceded it, and asking anyway is what exhausted
+   * the public RPC's bandwidth allowance mid-session. Zero if the manifest does not say,
+   * which falls back to the old behaviour rather than silently reading nothing.
+   */
+  governorFromBlock: bigint;
   delegations: {
     root: Delegation & { hash: Hex };
     /** The voice the delegate relays for the voter — chained to `root`. */
@@ -90,7 +114,9 @@ export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missin
 const delegationFiles = import.meta.glob<{ default: unknown }>("/data/delegations.json", { eager: true });
 const manifestFiles = import.meta.glob<{ default: unknown }>("/manifest/*.json", { eager: true });
 
-function isHexKey(value: unknown): value is `0x${string}` {
+/** A 32-byte hex private key. Exported because the hook has to know whether this
+ *  build was handed one before it decides to ask a visitor for a wallet. */
+export function isHexKey(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 }
 
@@ -163,9 +189,58 @@ export function loadAppConfig(): ConfigResult {
       },
       // Empty string in a production build — validated by canWrite() before any use.
       submitterKey: DEMO_SUBMITTER_KEY as `0x${string}`,
+      faucetUrl: FAUCET_URL || undefined,
+      governorFromBlock: BigInt(manifest.contracts.OZGovernor.deployedBlock ?? 0),
       rpcUrl: DEMO_RPC || undefined,
     },
   };
+}
+
+/**
+ * The same config, acting as a session's own three wallets instead of the manifest's.
+ *
+ * The manifest's accounts are the ones whose owner keys live in a gitignored file: they
+ * work on the machine that made them and nowhere else. A session generated in the browser
+ * replaces all three, plus the submitter, so a hosted build can be driven by whoever
+ * opened it — and two visitors do not quietly share one set of identities.
+ *
+ * Everything else is untouched. The graph, the governor, the vocabulary and the staked
+ * edges are shared on purpose: they are the thing being demonstrated, and they cost real
+ * deposits to create.
+ */
+export function withSession(config: AppConfig, session: Session): AppConfig {
+  const ownerKeys: AppConfig["ownerKeys"] = {};
+  const accounts = {} as AppConfig["accounts"];
+  for (const role of ROLES) {
+    ownerKeys[role] = session.owners[role];
+    accounts[role] = { owner: privateKeyToAddress(session.owners[role]), smartAccount: session.accounts[role] };
+  }
+  return { ...config, accounts, ownerKeys, submitterKey: session.submitterKey };
+}
+
+/**
+ * How a session gets its first tTRUST when no wallet is connected.
+ *
+ * The wallet case is deliberately absent: a connected wallet is a live object owned by
+ * the header, not something derivable from config, and `useApp` supplies it directly
+ * when there is one. What is left here are the two paths that need nothing at runtime.
+ *
+ * A development build was handed a key in `contracts/.env` and uses it, so nothing extra
+ * has to be running locally. The faucet is last and optional, for a deployment that
+ * would rather nobody needed a wallet at all — it costs an endpoint, a funded key living
+ * somewhere, and somebody to keep it fed, which is why it is not the default.
+ */
+export function resolveFunder(config: AppConfig): Funder | null {
+  if (isHexKey(config.submitterKey)) return { kind: "key", key: config.submitterKey };
+  if (config.faucetUrl) return { kind: "faucet", url: config.faucetUrl };
+  return null;
+}
+
+export function funderKind(config: AppConfig): "key" | "wallet" | "faucet" | null {
+  if (isHexKey(config.submitterKey)) return "key";
+  if (hasWallet()) return "wallet";
+  if (config.faucetUrl) return "faucet";
+  return null;
 }
 
 /** Write actions need a funded submitter and all three owner keys (dev only, ADR 0011). */

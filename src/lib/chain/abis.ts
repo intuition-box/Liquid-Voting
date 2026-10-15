@@ -98,160 +98,6 @@ export const delegationManagerAbi = [
   { type: "function", name: "disabledDelegations", stateMutability: "view", inputs: [{ name: "", type: "bytes32" }], outputs: [{ type: "bool" }] },
 ] as const;
 
-export const governorAbi = [
-  { type: "function", name: "proposalCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  {
-    type: "function",
-    name: "propose",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "domainId", type: "bytes32" }, { name: "description", type: "string" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "getProposal",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [
-      {
-        type: "tuple",
-        components: [
-          { name: "domainId", type: "bytes32" },
-          { name: "proposer", type: "address" },
-          { name: "description", type: "string" },
-          { name: "voteStart", type: "uint256" },
-          { name: "voteEnd", type: "uint256" },
-          { name: "againstVotes", type: "uint256" },
-          { name: "forVotes", type: "uint256" },
-          { name: "abstainVotes", type: "uint256" },
-          { name: "executed", type: "bool" },
-        ],
-      },
-    ],
-  },
-  {
-    type: "function",
-    name: "castVoteFor",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "proposalId", type: "uint256" },
-      { name: "support", type: "uint8" },
-      { name: "voter", type: "address" },
-      { name: "principals", type: "address[]" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "castVote",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "proposalId", type: "uint256" }, { name: "support", type: "uint8" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "setVotingPower",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "account", type: "address" }, { name: "power", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "votingPower",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "delegateWeight",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "delegate", type: "address" },
-      { name: "domainId", type: "bytes32" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "event",
-    name: "VoteCast",
-    inputs: [
-      { name: "proposalId", type: "uint256", indexed: true },
-      { name: "voter", type: "address", indexed: true },
-      { name: "support", type: "uint8", indexed: false },
-      { name: "weight", type: "uint256", indexed: false },
-      { name: "principals", type: "address[]", indexed: false },
-    ],
-  },
-  {
-    type: "event",
-    name: "VoteCastOnBehalf",
-    inputs: [
-      { name: "proposalId", type: "uint256", indexed: true },
-      { name: "principal", type: "address", indexed: true },
-      { name: "representative", type: "address", indexed: true },
-      { name: "weight", type: "uint256", indexed: false },
-    ],
-  },
-  {
-    type: "function",
-    name: "MAX_DOMAIN_PATH",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "delegatedTo",
-    stateMutability: "view",
-    inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }],
-    outputs: [{ type: "address" }],
-  },
-  {
-    type: "function",
-    name: "weightFor",
-    stateMutability: "view",
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "domainId", type: "bytes32" },
-      { name: "principals", type: "address[]" },
-      { name: "domainPath", type: "bytes32[]" },
-    ],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "proposalDomain",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "bytes32" }],
-  },
-  {
-    type: "function",
-    name: "state",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "uint8" }],
-  },
-  {
-    type: "function",
-    name: "proposalVotes",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }],
-    outputs: [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "hasVoted",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "uint256" }, { name: "account", type: "address" }],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
-
-/** Every custom error the enforcer and the framework can surface, for decoding reverts. */
 export const revertAbi = [
   { type: "error", name: "NotATriple", inputs: [{ name: "tripleId", type: "bytes32" }] },
   { type: "error", name: "NotAttested", inputs: [{ name: "tripleId", type: "bytes32" }, { name: "attestor", type: "address" }] },
@@ -278,6 +124,32 @@ export const revertAbi = [
   { type: "error", name: "InvalidEOASignature", inputs: [] },
   { type: "error", name: "InvalidDelegate", inputs: [] },
   { type: "error", name: "InvalidAuthority", inputs: [] },
+
+  // OpenZeppelin's own reverts. Without them a refused vote came back as "no revert
+  // reason", which is the least helpful thing a demo aimed at developers can say.
+  { type: "error", name: "GovernorAlreadyCastVote", inputs: [{ name: "voter", type: "address" }] },
+  { type: "error", name: "GovernorNonexistentProposal", inputs: [{ name: "proposalId", type: "uint256" }] },
+  {
+    type: "error",
+    name: "GovernorUnexpectedProposalState",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "current", type: "uint8" },
+      { name: "expectedStates", type: "bytes32" },
+    ],
+  },
+  { type: "error", name: "GovernorInvalidVoteType", inputs: [] },
+  { type: "error", name: "GovernorInvalidSignature", inputs: [{ name: "voter", type: "address" }] },
+
+  // And this governor's own, which the register raises.
+  { type: "error", name: "DomainNotNamed", inputs: [{ name: "account", type: "address" }] },
+  { type: "error", name: "DomainPathMismatch", inputs: [{ name: "pathStart", type: "bytes32" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "DomainPathBroken", inputs: [{ name: "child", type: "bytes32" }, { name: "parent", type: "bytes32" }] },
+  { type: "error", name: "DomainPathTooLong", inputs: [{ name: "hops", type: "uint256" }] },
+  { type: "error", name: "AmountExceedsBalance", inputs: [{ name: "delegator", type: "address" }, { name: "amount", type: "uint256" }, { name: "balance", type: "uint256" }] },
+  { type: "error", name: "ZeroAmount", inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "ZeroAddress", inputs: [] },
+  { type: "error", name: "DomainAlreadySet", inputs: [{ name: "proposalId", type: "uint256" }, { name: "domainId", type: "bytes32" }] },
 ] as const;
 
 export const entryPointAbi = [
@@ -401,6 +273,59 @@ export const ozGovernorAbi = [
     ],
     outputs: [{ type: "uint256" }],
   },
+  // The entry point a redeemed delegation votes through. OZ's public castVote family
+  // reads the voter from `_msgSender()`, which under a redemption is the root delegator
+  // rather than the delegate, so the voter is named explicitly here.
+  {
+    type: "function",
+    name: "castVoteFor",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "support", type: "uint8" },
+      { name: "voter", type: "address" },
+      { name: "principals", type: "address[]" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // What an account may still cast on one open proposal: `weightFor` less every voice
+  // already on that ballot. This is what a vote button should read.
+  {
+    type: "function",
+    name: "weightOn",
+    stateMutability: "view",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "account", type: "address" },
+      { name: "principals", type: "address[]" },
+      { name: "domainPath", type: "bytes32[]" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // How much of an account's weight is already on a proposal, whoever put it there.
+  {
+    type: "function",
+    name: "voiceCast",
+    stateMutability: "view",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+  // One per voice a vote carried, indexed by principal — which is what turns "what was
+  // cast in my name?" into a single filtered query instead of a scan of every vote.
+  {
+    type: "event",
+    name: "VoteCastOnBehalf",
+    inputs: [
+      { name: "proposalId", type: "uint256", indexed: true },
+      { name: "principal", type: "address", indexed: true },
+      { name: "voter", type: "address", indexed: true },
+      { name: "weight", type: "uint256", indexed: false },
+    ],
+  },
   { type: "function", name: "state", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }], outputs: [{ type: "uint8" }] },
   { type: "function", name: "hasVoted", stateMutability: "view", inputs: [{ name: "proposalId", type: "uint256" }, { name: "account", type: "address" }], outputs: [{ type: "bool" }] },
   {
@@ -438,4 +363,18 @@ export const votesTokenAbi = [
   { type: "function", name: "getVotes", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "delegate", stateMutability: "nonpayable", inputs: [{ name: "delegatee", type: "address" }], outputs: [] },
   { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+  // What the governor actually reads. `getVotes` is the current value and ERC-5805 refuses
+  // to answer for the current block, so a checkpoint written in the newest block is
+  // invisible here until the next one exists — which is the difference between the token
+  // saying an account has weight and the governor agreeing.
+  // The token's own clock, which is the only timepoint `getPastVotes` will accept. On this
+  // chain it is NOT `eth_blockNumber`: see ADR 0026.
+  { type: "function", name: "clock", stateMutability: "view", inputs: [], outputs: [{ type: "uint48" }] },
+  {
+    type: "function",
+    name: "getPastVotes",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }, { name: "timepoint", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
 ] as const;

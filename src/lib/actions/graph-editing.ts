@@ -7,6 +7,7 @@ import { stringToHex, type Hex, type PublicClient } from "viem";
 import { multiVaultAbi } from "../chain/abis";
 import type { AppConfig } from "../config/app-config";
 
+import { trackTransaction } from "../chain/tx-log";
 import { submitterClient } from "./common";
 
 export interface ExtendResult {
@@ -42,8 +43,25 @@ export async function extendGraph(
   let atomTx: Hex | null = null;
   if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] }))) {
     const atomCost = await client.readContract({ ...vault, functionName: "getAtomCost" });
-    atomTx = await wallet.writeContract({ ...vault, functionName: "createAtoms", args: [[data], [atomCost]], value: atomCost });
-    await client.waitForTransactionReceipt({ hash: atomTx });
+    atomTx = await trackTransaction(
+      client,
+      {
+        actor: wallet.account.address,
+        label: `the domain “${label}” is minted on Intuition`,
+        detail:
+          "An atom in the MultiVault. Creating a term forces a deposit, which is what makes a stake position readable proof later on.",
+        calls: [
+          {
+            contract: "MultiVault",
+            address: config.multiVault,
+            fn: "createAtoms(bytes[],uint256[])",
+            args: { label, atomId },
+            value: atomCost,
+          },
+        ],
+      },
+      () => wallet.writeContract({ ...vault, functionName: "createAtoms", args: [[data], [atomCost]], value: atomCost }),
+    );
   }
 
   const tripleId = await client.readContract({
@@ -54,22 +72,58 @@ export async function extendGraph(
   let tripleTx: Hex | null = null;
   if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [tripleId] }))) {
     const tripleCost = await client.readContract({ ...vault, functionName: "getTripleCost" });
-    tripleTx = await wallet.writeContract({
-      ...vault,
-      functionName: "createTriples",
-      args: [[atomId], [config.predicate.termId], [parentId], [tripleCost]],
-      value: tripleCost,
-    });
-    await client.waitForTransactionReceipt({ hash: tripleTx });
+    tripleTx = await trackTransaction(
+      client,
+      {
+        actor: wallet.account.address,
+        label: `“${label} — is a sub-domain of — ${parentLabel}” is written to the graph`,
+        detail:
+          "The edge itself. From this point a delegation on the parent, signed before this domain existed, reaches it — with no contract redeployed and no signature reissued.",
+        calls: [
+          {
+            contract: "MultiVault",
+            address: config.multiVault,
+            fn: "createTriples(bytes32[],bytes32[],bytes32[],uint256[])",
+            args: { subject: label, predicate: config.predicate.label, object: parentLabel, tripleId },
+            value: tripleCost,
+          },
+        ],
+      },
+      () =>
+        wallet.writeContract({
+          ...vault,
+          functionName: "createTriples",
+          args: [[atomId], [config.predicate.termId], [parentId], [tripleCost]],
+          value: tripleCost,
+        }),
+    );
   }
 
-  const stakeTx = await wallet.writeContract({
-    ...vault,
-    functionName: "deposit",
-    args: [config.attestor, tripleId, config.curveId, 0n],
-    value: stakeWei,
-  });
-  await client.waitForTransactionReceipt({ hash: stakeTx });
+  const stakeTx = await trackTransaction(
+    client,
+    {
+      actor: wallet.account.address,
+      label: `the curator stakes on “${label} → ${parentLabel}”`,
+      detail:
+        "Triples are permissionless, so existence is not attestation: anyone can mint an edge for a fraction of a cent. The enforcer reads a named attestor's stake, which is why the edge counts for nothing until this lands.",
+      calls: [
+        {
+          contract: "MultiVault",
+          address: config.multiVault,
+          fn: "deposit(address,bytes32,uint256,uint256)",
+          args: { attestor: config.attestor, triple: tripleId, curve: config.curveId.toString() },
+          value: stakeWei,
+        },
+      ],
+    },
+    () =>
+      wallet.writeContract({
+        ...vault,
+        functionName: "deposit",
+        args: [config.attestor, tripleId, config.curveId, 0n],
+        value: stakeWei,
+      }),
+  );
 
   const shares = await client.readContract({
     ...vault,

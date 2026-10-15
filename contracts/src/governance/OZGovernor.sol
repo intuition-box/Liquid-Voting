@@ -108,4 +108,18 @@ contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
     ) internal view override(Governor, DomainVotes) returns (uint256) {
         return super._getVotes(account, timepoint, params);
     }
+
+    /// @dev OZ tallies the vote, then `DomainVotes` says whose voices it just spent —
+    ///      and refuses the ones already on the ballot, which rolls the tally back.
+    function _countVote(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        uint256 weight,
+        bytes memory params
+    ) internal override(Governor, GovernorCountingSimple) {
+        super._countVote(proposalId, account, support, weight, params);
+        _spendVoices(proposalId, account, weight, params);
+    }
+
 }

@@ -11,14 +11,33 @@
   --dim: #7a8088;
   --ok: #57c98a;
   --bad: #e0736f;
+  /* The brand mark: selected, current, emphasised, and the primary action. That is one
+     job with several faces and it is fine for them to share a colour. Two meanings were
+     hiding inside it and are named apart below. */
   --accent: #d8b26a;
+  /* A condition worth noticing, short of a failure — a balance that was never
+     self-delegated, say. It read as "selected" before, which is nearly the opposite. */
+  --caution: #e8954f;
+  /* Work in flight. Deliberately the same hue as the accent and told apart by movement
+     instead: a temporal state is better shown temporally than by inventing a colour that
+     then has to be learnt. */
+  --pending: var(--accent);
+  /* The focus ring. Same value today; named because it answers to accessibility rather
+     than to brand, and the two should be able to move independently. */
+  --focus: var(--accent);
 
   /* One colour per identity, so a role reads the same everywhere it appears. */
   --role-a: #e08a4b;
   --role-b: #5b9dd9;
-  --role-c: #57c98a;
+  /* Violet, not green. It was the same hex as --ok, so C's name, a passing status and an
+     open proposal were one colour and no amount of context told them apart. The three
+     actors now sit clear of both verdict colours. */
+  --role-c: #a98bd8;
 
   /* 4px base: every gap below is a step on this scale, never an ad-hoc number. */
+  /* 2px: the half-step. Badge rows and two-column fact grids need something between a
+     hairline and a full step, and writing it as a literal was most of the scale's drift. */
+  --s0: 2px;
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -26,6 +45,21 @@
   --s5: 24px;
   --s6: 32px;
   --s7: 48px;
+  /* 64px: there was nothing between 32 and 48, so everything large landed on 48 and that
+     one token ended up meaning four unrelated relationships at once. */
+  --s8: 64px;
+
+  /* Seven type steps, down from fifteen. Eleven of the old ones sat within a pixel of a
+     neighbour — an unbroken chain from 10px to 16px in half-pixel increments — and the
+     four half-pixel steps carried 28% of the app's text, rounding differently per engine
+     so that a quarter of it never rendered at the size it was authored at. */
+  --t-xs: 11px;     /* pills, flags, mono metadata */
+  --t-sm: 12px;     /* definition terms, captions */
+  --t-md: 13px;     /* list rows, notes, secondary prose */
+  --t-base: 15px;   /* body, controls, navigation, tree labels */
+  --t-lg: 16px;     /* the reading pages */
+  --t-xl: 19px;     /* panel and section headings */
+  --t-2xl: 30px;    /* page titles */
 
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -40,7 +74,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: var(--t-base);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,58 +82,55 @@ body {
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  padding: var(--s7) var(--s6) 96px;
+  /* The last value clears the dock at the foot of the viewport — the session line and
+     the transaction log. Measured at 36px for the log bar alone and 72px with a session
+     line above it, so this is the dock plus a scale step. It was 140px, which reserved
+     nearly double and left the largest patch of dead space on the page. */
+  padding: var(--s7) var(--s6) calc(72px + var(--s5));
 }
 
 /* ── Masthead ─────────────────────────────────────────────────────────── */
 
+/* The page header, above the navigation. No rule of its own: the nav directly beneath it
+   already draws one, and two hairlines a few pixels apart say nothing the first does not. */
 .masthead {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s7);
-  margin-bottom: var(--s7);
-  padding-bottom: var(--s5);
-  border-bottom: 1px solid var(--border);
-}
-
-.masthead-text {
-  max-width: 62ch;
+  margin-bottom: var(--s5);
 }
 
 .masthead h1 {
   margin: 0 0 var(--s3);
-  font-size: 30px;
+  font-size: var(--t-2xl);
   line-height: 1.15;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .masthead p {
+  /* Capped, because the flex row let this run to about 105 characters a line and a
+     comfortable measure is 45 to 75. The title keeps whatever is left. */
+  max-width: 62ch;
   margin: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: var(--t-lg);
+  line-height: 1.5;
 }
 
 @media (max-width: 1000px) {
   .shell {
-    padding: 40px 20px 64px;
+    padding: 40px 20px var(--s8);
   }
 }
 
 /* ── Side-by-side panel content ──────────────────────────────────────── */
 
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 36px;
-  align-items: start;
-}
-
 @media (max-width: 900px) {
   .split {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
+    gap: var(--s5);
   }
 }
 
@@ -113,7 +144,7 @@ body {
 }
 
 .depth-label {
-  font-size: 12px;
+  font-size: var(--t-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dim);
@@ -146,7 +177,7 @@ body {
   border: 1px solid var(--border);
   color: var(--muted);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--t-base);
   padding: var(--s3) var(--s4);
   cursor: pointer;
 }
@@ -176,13 +207,13 @@ body {
   border-radius: 50%;
   border: 1.5px solid currentColor;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--t-base);
   flex: none;
 }
 
 .holder-note {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--t-md);
 }
 
 .holder-off .holder-note {
@@ -191,47 +222,10 @@ body {
 
 .holder-check {
   margin-left: auto;
-  font-size: 14px;
+  font-size: var(--t-base);
 }
 
 /* ── Identity switcher ───────────────────────────────────────────────── */
-
-.identity {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex: none;
-}
-
-.identity-label {
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-right: var(--s1);
-}
-
-.identity-option {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 14px;
-  padding: var(--s2) var(--s3);
-  cursor: pointer;
-}
-
-.identity-option:hover {
-  color: var(--text);
-}
-
-.identity-on {
-  color: var(--text);
-  border-color: currentColor;
-}
 
 .identity-dot {
   width: 9px;
@@ -255,7 +249,8 @@ body {
 
 .rail {
   position: sticky;
-  top: var(--s6);
+  /* Clear of the pinned nav above it, or the tree slides underneath. */
+  top: calc(var(--s8) + var(--s2));
   display: flex;
   flex-direction: column;
   gap: var(--s5);
@@ -291,34 +286,6 @@ body {
 
 /* ── Tabs ────────────────────────────────────────────────────────────── */
 
-.tabs {
-  display: flex;
-  gap: var(--s1);
-  margin-bottom: var(--s6);
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 15px;
-  padding: 11px 20px;
-  margin-bottom: -1px;
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--text);
-}
-
-.tab-on {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-
 .stack {
   display: flex;
   flex-direction: column;
@@ -335,23 +302,23 @@ body {
 
 .panel-head {
   display: flex;
-  gap: 14px;
+  gap: var(--s4);
   align-items: baseline;
   margin-bottom: 20px;
-  padding-bottom: 16px;
+  padding-bottom: var(--s4);
   border-bottom: 1px solid var(--border);
 }
 
 .panel h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: var(--t-xl);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .panel-head p {
   margin: 3px 0 0;
-  font-size: 13px;
+  font-size: var(--t-md);
 }
 
 .panel-body > * + * {
@@ -364,13 +331,13 @@ body {
 
 h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--t-base);
   font-weight: 600;
 }
 
 h4 {
-  margin: 0 0 10px;
-  font-size: 12px;
+  margin: 0 0 var(--s3);
+  font-size: var(--t-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -387,7 +354,7 @@ h4 {
 
 .mono {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--t-md);
 }
 
 .dim {
@@ -396,20 +363,13 @@ h4 {
 
 .muted {
   color: var(--muted);
-  font-size: 13px;
-}
-
-.note {
-  color: var(--muted);
-  font-size: 13px;
-  border-left: 2px solid var(--border-strong);
-  padding-left: 12px;
+  font-size: var(--t-md);
 }
 
 .empty {
   color: var(--dim);
-  font-size: 13px;
-  padding: 14px 0;
+  font-size: var(--t-md);
+  padding: var(--s4) 0;
 }
 
 .link {
@@ -425,26 +385,8 @@ h4 {
 
 code {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--t-md);
   color: var(--accent);
-}
-
-.tag {
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 2px 7px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-}
-
-.tag-ok {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
-}
-
-.tag-bad {
-  color: var(--bad);
-  border-color: color-mix(in srgb, var(--bad) 40%, var(--border));
 }
 
 /* ── Collapsible proposal rows ───────────────────────────────────────── */
@@ -454,7 +396,9 @@ code {
 .proposal-summary {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) 96px 56px 56px 56px 56px;
-  gap: 12px;
+  /* Column gap as before; the row gap is tight because the second line is a continuation
+     of the first, not a separate thing. */
+  gap: var(--s1) var(--s3);
   align-items: center;
   width: 100%;
   text-align: left;
@@ -463,7 +407,7 @@ code {
 .proposal-legend {
   padding: 0 0 var(--s2);
   border-bottom: 1px solid var(--border);
-  font-size: 10.5px;
+  font-size: var(--t-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dim);
@@ -480,7 +424,7 @@ code {
 .proposal-summary {
   background: transparent;
   border: none;
-  padding: 4px 0;
+  padding: var(--s1) 0;
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -505,7 +449,7 @@ code {
 }
 
 .proposal-caret {
-  font-size: 11px;
+  font-size: var(--t-xs);
   color: var(--dim);
   width: 10px;
 }
@@ -535,8 +479,8 @@ code {
 
 .weight-badge {
   font-family: var(--mono);
-  font-size: 11px;
-  padding: 1px 8px;
+  font-size: var(--t-xs);
+  padding: 1px var(--s2);
   border: 1px solid var(--border-strong);
   border-radius: 3px;
   color: var(--muted);
@@ -563,7 +507,7 @@ code {
 .tree-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
   width: 100%;
   min-width: 0;
   background: transparent;
@@ -571,7 +515,7 @@ code {
   border-left: 2px solid transparent;
   color: var(--text);
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: var(--t-base);
   text-align: left;
   padding-top: var(--s1);
   padding-bottom: var(--s1);
@@ -608,34 +552,11 @@ code {
 
 /* The pair that moved this domain, written from the viewer's side: what they gave reads
    loudest, what they were given next, a transfer between others stays quiet. */
-.tree-holder {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: var(--s1);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px var(--s2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  opacity: 0.45;
-}
 
-.tree-holder-gave,
-.tree-holder-got {
-  opacity: 1;
-  border-color: var(--border-strong);
-}
-
-.tree-holder-arrow {
-  color: var(--dim);
-  font-weight: 400;
-}
 
 .tree-flag {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t-xs);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--bad);
@@ -646,29 +567,17 @@ code {
 
 /* ── Delegation levels ────────────────────────────────────────────────── */
 
-.levels {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.levels > li + li {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-
 .kv {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
-  gap: 6px 16px;
+  gap: var(--s2) var(--s4);
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--t-md);
 }
 
 .kv dt {
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--t-sm);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -683,7 +592,7 @@ code {
 
 /* Single column, labels above inputs (ui.md). */
 .form-row > * + * {
-  margin-top: 16px;
+  margin-top: var(--s4);
 }
 
 .field {
@@ -692,11 +601,11 @@ code {
 
 .field-label {
   display: block;
-  font-size: 12px;
+  font-size: var(--t-sm);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--dim);
-  margin-bottom: 6px;
+  margin-bottom: var(--s2);
 }
 
 input,
@@ -705,16 +614,16 @@ select {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border-strong);
-  padding: 9px 11px;
+  padding: var(--s2) var(--s3);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--t-base);
 }
 
 input:focus-visible,
 select:focus-visible,
 .button:focus-visible,
 .link:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -729,9 +638,9 @@ select:focus-visible,
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border-strong);
-  padding: 9px 16px;
+  padding: var(--s2) var(--s4);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--t-base);
   cursor: pointer;
 }
 
@@ -759,11 +668,11 @@ select:focus-visible,
 
 .status {
   display: flex;
-  gap: 9px;
+  gap: var(--s2);
   align-items: baseline;
-  font-size: 13.5px;
+  font-size: var(--t-md);
   border-left: 2px solid var(--border-strong);
-  padding-left: 12px;
+  padding-left: var(--s3);
 }
 
 .status .dot {
@@ -810,29 +719,23 @@ select:focus-visible,
   border-bottom: none;
 }
 
-.proposal.selected {
-  border-left: 2px solid var(--accent);
-  padding-left: 12px;
-  margin-left: -14px;
-}
-
 .proposal-domain {
-  font-size: 11px;
+  font-size: var(--t-xs);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .proposal-title {
-  margin: 0 0 9px;
-  font-size: 14px;
+  margin: 0 0 var(--s2);
+  font-size: var(--t-base);
   line-height: 1.4;
   color: var(--text);
 }
 
 .state {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--t-xs);
   letter-spacing: 0.04em;
   padding: 1px 7px;
   border: 1px solid var(--border-strong);
@@ -858,8 +761,8 @@ select:focus-visible,
 }
 
 .note-inline {
-  margin: -4px 0 10px;
-  font-size: 12.5px;
+  margin: -4px 0 var(--s3);
+  font-size: var(--t-md);
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────── */
@@ -867,11 +770,11 @@ select:focus-visible,
 .footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 22px;
-  margin-top: 48px;
+  gap: var(--s5);
+  margin-top: var(--s7);
   padding-top: 20px;
   border-top: 1px solid var(--border);
-  font-size: 12.5px;
+  font-size: var(--t-md);
   color: var(--dim);
 }
 
@@ -893,7 +796,7 @@ select:focus-visible,
 /* Carried voices hang under the account that cast them, on the twisty's column. */
 .ballot-node .ballot .ballot-node {
   border-top: 0;
-  margin-left: 9px;
+  margin-left: var(--s2);
   border-left: 1px solid var(--border);
 }
 
@@ -903,13 +806,13 @@ select:focus-visible,
   align-items: baseline;
   gap: var(--s2);
   padding: var(--s2) 0;
-  font-size: 13.5px;
+  font-size: var(--t-md);
 }
 
 /* A lent voice reads as detail, not as a second vote. */
 .ballot-row-nested {
   padding-left: var(--s2);
-  font-size: 12.5px;
+  font-size: var(--t-md);
 }
 
 .ballot-who {
@@ -917,7 +820,7 @@ select:focus-visible,
 }
 
 .ballot-note {
-  font-size: 12px;
+  font-size: var(--t-sm);
 }
 
 /* Delegations in force. A chain gets a line of its own: badges on the tree could not
@@ -929,20 +832,16 @@ select:focus-visible,
   gap: var(--s3);
   padding: var(--s2) 0;
   border-bottom: 1px solid var(--border);
-  font-size: 13.5px;
+  font-size: var(--t-md);
 }
 
 .grant-note {
-  font-size: 12px;
-}
-
-.grant-group {
-  margin-bottom: var(--s5);
+  font-size: var(--t-sm);
 }
 
 .grant-scope {
   margin: 0 0 var(--s1);
-  font-size: 12px;
+  font-size: var(--t-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -994,7 +893,7 @@ select:focus-visible,
   border: 0;
   background: transparent;
   color: var(--dim);
-  font-size: 10px;
+  font-size: var(--t-xs);
   line-height: 1;
   cursor: pointer;
 }
@@ -1011,7 +910,7 @@ select:focus-visible,
 /* How many domains a folded branch is hiding. */
 .tree-count {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t-xs);
   color: var(--dim);
 }
 
@@ -1022,7 +921,7 @@ select:focus-visible,
   padding: var(--s3);
   border-left: 2px solid var(--ok);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--t-md);
   color: var(--muted);
 }
 
@@ -1033,26 +932,40 @@ select:focus-visible,
 /* ── Top navigation ────────────────────────────────────────────────────────────
    Above the masthead, because two of these tabs are documents rather than views
    of the demo — they are not scoped by the domain rail. */
+/* Pinned, like the rail and the dock are. It was the only thing on the page that told
+   you which of five sections you were in, and the only one of the three that scrolled
+   away — so the two subordinate surfaces persisted while the primary one did not. */
 .topnav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s5);
-  padding-bottom: var(--s4);
+  gap: var(--s3);
+  /* Its own padding, because when it sticks the header above has scrolled away, and its
+     own background, because content then passes underneath it. */
+  padding: var(--s3) 0 var(--s4);
   margin-bottom: var(--s6);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
+/* A tab with a body. It was the glyph run plus four pixels — 27px tall, text-width
+   wide — so the space between two labels hit nothing and the hover state was only
+   discoverable by landing on the letters exactly. */
 .topnav-tab {
   background: transparent;
   border: 0;
-  padding: 0;
+  padding: var(--s1) var(--s2) var(--s2);
   color: var(--muted);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--t-base);
   font-weight: 500;
   cursor: pointer;
-  border-bottom: 1px solid transparent;
-  padding-bottom: var(--s1);
+  /* Two pixels, not one. Every separator in this file is a 1px hairline, including this
+     bar's own rule sixteen pixels below — so "you are here" and "section ends" were
+     drawn with the same stroke. */
+  border-bottom: 2px solid transparent;
 }
 
 .topnav-tab:hover { color: var(--text); }
@@ -1075,7 +988,7 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   gap: var(--s7);
-  font-size: 16px;
+  font-size: var(--t-lg);
   line-height: 1.7;
 }
 
@@ -1088,7 +1001,7 @@ select:focus-visible,
 
 .paper h1,
 .howto h1 {
-  font-size: 34px;
+  font-size: var(--t-2xl);
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin: 0;
@@ -1097,7 +1010,7 @@ select:focus-visible,
 
 .paper-standfirst,
 .howto-standfirst {
-  font-size: 19px;
+  font-size: var(--t-xl);
   line-height: 1.5;
   color: var(--muted);
   margin: 0;
@@ -1112,7 +1025,7 @@ select:focus-visible,
 
 .paper h2,
 .howto h2 {
-  font-size: 21px;
+  font-size: var(--t-xl);
   line-height: 1.25;
   margin: 0;
   text-wrap: balance;
@@ -1124,14 +1037,14 @@ select:focus-visible,
 /* A subheading over prose, as opposed to .howto-label, which is a small caps tag sitting
    on top of a list. */
 .howto-sub {
-  font-size: 15px;
+  font-size: var(--t-base);
   font-weight: 600;
   color: var(--text);
   margin: var(--s5) 0 calc(-1 * var(--s3));
 }
 
 .howto-label {
-  font-size: 11px;
+  font-size: var(--t-xs);
   font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1140,7 +1053,7 @@ select:focus-visible,
 }
 
 .paper-pull {
-  font-size: 21px;
+  font-size: var(--t-xl);
   line-height: 1.4;
   color: var(--text);
   border-left: 2px solid var(--accent);
@@ -1150,7 +1063,7 @@ select:focus-visible,
 
 .paper-tree {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: var(--t-md);
   line-height: 1.9;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1171,7 +1084,7 @@ select:focus-visible,
   align-items: baseline;
   padding: var(--s3) var(--s4);
   border-radius: 3px;
-  font-size: 15px;
+  font-size: var(--t-base);
   background: var(--surface);
 }
 
@@ -1192,7 +1105,7 @@ select:focus-visible,
 }
 
 .paper-scene-label {
-  font-size: 11px;
+  font-size: var(--t-xs);
   font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1204,7 +1117,7 @@ select:focus-visible,
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--s3);
   align-items: baseline;
-  font-size: 15px;
+  font-size: var(--t-base);
 }
 .paper-beat-mark { font-family: var(--mono); }
 .paper-beat-yes .paper-beat-mark { color: var(--ok); }
@@ -1234,7 +1147,7 @@ select:focus-visible,
 
 .flow-tag {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1248,9 +1161,11 @@ select:focus-visible,
 /* Our own step is the only one that carries the accent. */
 .flow-tag-graph { color: var(--accent); }
 
-.flow-body { display: flex; flex-direction: column; gap: 2px; }
-.flow-what { font-weight: 600; font-size: 15px; }
-.flow-how { font-size: 13.5px; color: var(--muted); }
+/* Two lines of one step were 2px apart while separate steps sat 8px apart, so proximity
+   read backwards: the parts looked less related to each other than the wholes did. */
+.flow-body { display: flex; flex-direction: column; gap: var(--s1); }
+.flow-what { font-weight: 600; font-size: var(--t-base); }
+.flow-how { font-size: var(--t-md); color: var(--muted); }
 
 .contracts {
   list-style: none;
@@ -1271,13 +1186,13 @@ select:focus-visible,
 
 .contract-name {
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: var(--t-base);
   font-weight: 600;
 }
 
 .contract-role {
   grid-column: 1 / -1;
-  font-size: 14px;
+  font-size: var(--t-base);
   color: var(--muted);
 }
 
@@ -1288,7 +1203,7 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   gap: var(--s4);
-  font-size: 15px;
+  font-size: var(--t-base);
 }
 
 .storage li {
@@ -1306,34 +1221,869 @@ select:focus-visible,
 
 /* What each identity holds of the governance token.
    On this governor weight is not assigned, it is held, so the balance is worth seeing. */
-.holdings {
+
+/* ── The transaction log ───────────────────────────────────────────────────────────
+   Fixed to the foot of the viewport and collapsed to one line, because the page is
+   about governance rather than plumbing — but the plumbing is the proof, so it is
+   always one click away and never more than that. */
+
+/* Everything about the machinery sits here: whose wallets these are, and what they did.
+   The dock is what is fixed; its children stack inside it. */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+}
+
+.console {
+  /* Where a row's label column starts: the status dot, the twisty, and the two gaps
+     between them. Named, because the figure was written out by hand in three places —
+     the arithmetic from before the dot existed — so every detail block hung twelve
+     pixels to the left of the text it belonged under. */
+  --console-indent: calc(6px + var(--s2) + 16px + var(--s2));
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+  font-size: var(--t-md);
+}
+
+.console-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--s4);
-  margin-top: var(--s3);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--border);
-  font-size: 12px;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) var(--s4);
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-align: left;
+  cursor: pointer;
 }
 
-.holdings-label {
+.console-bar:hover { background: #16181b; }
+
+.console-bar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.console-caret {
   color: var(--dim);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--t-xs);
+  width: 10px;
 }
 
-.holding {
-  display: inline-flex;
+.console-title { font-weight: 500; }
+
+.console-count,
+.console-note { color: var(--dim); }
+
+.console-live,
+.console-failed {
+  padding: 1px var(--s2);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}
+
+.console-live {
+  color: var(--accent);
+  border: 1px solid #3a3122;
+}
+
+.console-failed {
+  color: var(--bad);
+  border: 1px solid #45302f;
+}
+
+/* The latest step, shown while collapsed. It takes whatever room is left and gives up
+   gracefully, so a long label never pushes the counters off the bar. */
+.console-latest {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  text-align: right;
+}
+
+.console-body {
+  max-height: 42vh;
+  overflow-y: auto;
+  padding: 0 var(--s4) var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.console-empty {
+  margin: var(--s4) 0;
+  max-width: 72ch;
+  color: var(--dim);
+  line-height: 1.55;
+}
+
+.console-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-row {
+  padding: var(--s2) 0;
+  border-bottom: 1px solid #1a1c1f;
+}
+
+.console-row:last-child { border-bottom: 0; }
+
+/* A failed step is marked by a rule rather than by dimming the row: the reason it failed
+   is the most interesting thing in the log and must stay legible. */
+.console-row-failed {
+  border-left: 2px solid var(--bad);
+  padding-left: var(--s3);
+  margin-left: calc(var(--s3) * -1);
+}
+
+.console-head {
+  display: flex;
   align-items: baseline;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.console-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  transform: translateY(-1px);
+}
+
+/* Pending is the one state on this page that is about time rather than judgement, so it
+   is the one thing that moves. Stilled for anyone who asks for less motion, where the
+   colour and the "waiting" label still carry it. */
+.console-dot-pending {
+  background: var(--pending);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.console-waiting { animation: pulse 1.4s ease-in-out infinite; }
+
+@keyframes pulse {
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-dot-pending,
+  .console-waiting { animation: none; }
+}
+.console-dot-done { background: var(--ok); }
+.console-dot-failed { background: var(--bad); }
+
+.console-toggle {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.console-toggle:hover { color: var(--text); border-color: var(--muted); }
+.console-toggle-off { border-color: transparent; }
+
+.console-kind {
+  flex: none;
+  padding: 1px var(--s2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
+.console-actor {
+  flex: none;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.console-label { color: var(--text); }
+
+.console-meta {
+  display: flex;
+  gap: var(--s3);
+  margin-left: auto;
+  flex: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}
+
+.console-waiting { color: var(--pending); }
+.console-free { color: var(--ok); }
+
+.console-link {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--border-strong);
+}
+
+.console-link:hover { color: var(--text); }
+
+.console-error {
+  margin: var(--s1) 0 0 var(--console-indent);
+  color: var(--bad);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+.console-detail {
+  margin: var(--s2) 0 var(--s1) var(--console-indent);
+  padding-left: var(--s3);
+  border-left: 1px solid var(--border);
+}
+
+.console-why {
+  margin: 0 0 var(--s2);
+  max-width: 88ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.console-call + .console-call { margin-top: var(--s2); }
+
+.console-callsig {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+.console-contract {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted #3a3122;
+}
+
+.console-contract:hover { border-bottom-style: solid; }
+
+.console-fn { color: var(--text); }
+
+.console-value {
+  margin-left: var(--s2);
+  color: var(--ok);
+}
+
+.console-args {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  /* Was 1px against a 12px column gap — twelve to one, and 1px is six per cent of a line
+     box, which is no gap at all. Argument rows ran together into a slab. */
+  gap: var(--s1) var(--s3);
+  margin: var(--s1) 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}
+
+.console-args > div {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+
+.console-args dt { color: var(--dim); }
+
+.console-args dd {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.console-block {
+  margin: var(--s2) 0 0;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}
+
+.console-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin-top: var(--s3);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border);
+}
+
+.console-clear {
+  padding: var(--s0) var(--s2);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-sm);
+  cursor: pointer;
+}
+
+.console-clear:hover { color: var(--text); border-color: var(--muted); }
+
+.console-note {
+  flex: 1;
+  min-width: 24ch;
+  font-size: var(--t-sm);
+}
+
+@media (max-width: 720px) {
+  /* The meta column stops being a column and goes under the label, which is the only way
+     a hash and a gas figure both fit at phone width. */
+  .console-meta {
+    margin-left: var(--console-indent);
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+
+  .console-latest { display: none; }
+}
+
+/* ── "My voice": what was cast in one account's name ───────────────────────────────
+   The recap a delegator needs, and the reason the governor logs a per-principal event
+   at all. Laid out as a definition list because that is what it is: a few named facts
+   about one account, not a table of comparable rows. */
+
+.voice-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voice-row {
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-row:first-child { padding-top: 0; }
+.voice-row:last-child { border-bottom: 0; }
+
+.voice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.voice-claim { line-height: 1.5; }
+
+.voice-who { font-weight: 600; }
+
+.voice-on {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+  font-size: var(--t-md);
+}
+
+.voice-block {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+/* ── The session gate ──────────────────────────────────────────────────────────────
+   Four states in one strip: an offer, a loader, a live session, or a plain statement
+   that this build cannot write. It sits under the masthead because it governs who the
+   rest of the page is acting as. */
+
+.gate {
+  /* Room below as well as above. With none, the workspace began flush against this and a
+     failed-read line had nothing around it at all — the same defect fixed on
+     `.identities`, left standing here, and invisible once a session exists because the
+     gate then renders nothing. The page was correctly spaced only after you clicked. */
+  margin: var(--s4) 0 var(--s6);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: var(--t-md);
+}
+
+.gate-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s5);
+  flex-wrap: wrap;
+  border-color: var(--border-strong);
+}
+
+.gate-offer-text { flex: 1; min-width: 32ch; }
+
+.gate-offer-text p {
+  margin: var(--s1) 0 0;
+  max-width: 76ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.gate-start {
+  flex: none;
+  padding: var(--s2) var(--s4);
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  color: #17140d;
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gate-start:hover { filter: brightness(1.08); }
+
+.gate-start:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* The loader. A real fraction rather than an indeterminate bar, because the number of
+   steps is known in advance and a visitor deserves to see it shrink. */
+.gate-busy { border-color: var(--border-strong); }
+
+.gate-progress {
+  height: 3px;
+  margin-bottom: var(--s3);
+  border-radius: 2px;
+  background: #1c1f22;
+  overflow: hidden;
+}
+
+.gate-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 240ms ease-out;
+}
+
+.gate-busy-text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.gate-step {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+.gate-hint {
+  margin: var(--s2) 0 0;
+  max-width: 82ch;
+  color: var(--dim);
+  line-height: 1.55;
+}
+
+.gate-shut {
+  max-width: 96ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.gate-shut strong { color: var(--text); }
+
+.gate-error {
+  flex-basis: 100%;
+  margin: var(--s2) 0 0;
+  color: var(--bad);
+  line-height: 1.5;
+}
+
+/* A voice already on a ballot that this account did not submit itself. Marked apart from
+   its own vote because the two are genuinely different facts, and conflating them is what
+   let the interface offer a vote the governor was always going to refuse. */
+.voted-carried {
+  border-left: 2px solid var(--accent);
+  padding-left: var(--s3);
+}
+
+/* ── The three identities ──────────────────────────────────────────────────────────
+   One card each, carrying everything true of that account at once. They replaced three
+   separate things — a toggle saying who you were, a token readout saying what they held,
+   and a strip listing their addresses — which between them described one subject three
+   times, and that subject is the whole demonstration. */
+
+.identities {
+  /* First thing under the nav now: the cards are what you act on, the masthead is read
+     once. The top margin is gone because the nav already spaces itself below. */
+  margin: 0 0 var(--s6);
+}
+
+.identity-cards {
+  /* The handover arc is drawn over this, so it needs a positioning context. */
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.identity-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease-out, background 120ms ease-out;
+}
+
+.identity-card:hover { border-color: var(--border-strong); background: #16181b; }
+
+.identity-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The card you are acting as is lit in its own colour, so the identity in play is
+   legible from across a room — which is the situation this gets used in. */
+.identity-card-on {
+  border-color: currentColor;
+  background: #16181b;
+}
+
+.identity-head {
+  display: flex;
+  align-items: center;
   gap: var(--s2);
 }
 
-.holding-who { font-weight: 600; }
+.identity-name {
+  font-family: var(--mono);
+  font-size: var(--t-base);
+  font-weight: 700;
+}
 
-/* A balance nobody self-delegated counts for nothing, and should say so. */
-.holding-note {
-  color: var(--bad);
-  font-size: 10px;
+.identity-acting {
+  margin-left: auto;
+  padding: 1px var(--s2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.identity-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  /* Was 2px inside a card whose own rhythm is 12px — six to one, so four label/value
+     pairs read as one undifferentiated block in an otherwise airy card. */
+  gap: var(--s1) var(--s3);
+  margin: 0;
+}
+
+.identity-facts > div {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: baseline;
+}
+
+.identity-facts dt {
+  color: var(--dim);
+  font-size: var(--t-sm);
+}
+
+.identity-facts dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  overflow-wrap: anywhere;
+}
+
+.identity-facts dd strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.identity-none { color: var(--dim); }
+.identity-on { color: var(--dim); }
+.identity-warn { color: var(--caution); font-family: var(--sans); font-size: var(--t-xs); }
+
+.identity-address {
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+}
+
+@media (max-width: 760px) {
+  .identity-cards { grid-template-columns: 1fr; }
+}
+
+/* The session line, docked above the transaction log. Thin on purpose: it says whose
+   wallets these are and nothing the identity cards already said. */
+.session-strip {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding: var(--s2) var(--s4);
+  background: #0e0f11;
+  border-top: 1px solid var(--border);
+  font-size: var(--t-sm);
+}
+
+.session-badge {
+  flex: none;
+  padding: 1px var(--s2);
+  border: 1px solid #2e4535;
+  border-radius: 3px;
+  color: var(--ok);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+}
+
+.session-note {
+  flex: 1;
+  min-width: 24ch;
+  color: var(--dim);
+}
+
+.session-note a { color: var(--muted); }
+
+.session-forget {
+  flex: none;
+  padding: var(--s0) var(--s2);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-sm);
+  cursor: pointer;
+}
+
+.session-forget:hover { color: var(--text); border-color: var(--muted); }
+
+/* ── Who voted, on the row ─────────────────────────────────────────────────────────
+   A second grid line spanning from the title to the end, so it borrows no width from
+   the columns above it. At 901px — one pixel above the width where the domain rail
+   collapses, and the narrowest a row ever gets — a fixed column wide enough for three
+   pills would have cut the title to about six characters. This leaves it untouched.
+
+   Nothing renders when nobody has voted, so the state the demo opens in costs nothing. */
+
+.proposal-voters {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: var(--s1);
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.voter-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  padding: 1px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #121416;
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.voter-who {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+/* The verdict carries the verdict colours, the account carries its own. Two facts, two
+   palettes, and they no longer collide now that C is not the success green. */
+.voter-said-for { color: var(--ok); }
+.voter-said-against { color: var(--bad); }
+.voter-said-abstain { color: var(--dim); }
+
+.voter-carried {
+  color: var(--dim);
+  font-family: var(--sans);
+}
+
+/* ── What was done with the acting identity's voice ────────────────────────────────
+   A tab until now, and reaching it was the longest detour in the app: after watching a
+   delegate vote you switched identity and then switched tab, to read something that had
+   been on screen two clicks earlier. It reports under the cards it belongs to, on one
+   line, and does not appear at all until there is something to report. */
+
+.trail {
+  /* It sits in the Delegations stack now, which spaces its own children, so it needs no
+     margin of its own. It had a negative one to tuck under the identity cards. */
+  margin: 0;
+}
+
+.trail-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  width: 100%;
+  padding: var(--s2) 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.trail-bar:hover { color: var(--text); }
+
+.trail-bar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.trail-bar strong { color: var(--text); }
+
+.trail-caret {
+  color: var(--dim);
+  font-size: var(--t-xs);
+  width: 10px;
+}
+
+.trail .voice-list {
+  margin: 0 0 var(--s3);
+  padding-left: var(--s5);
+  border-left: 1px solid var(--border);
+}
+
+/* ── The handover, drawn ───────────────────────────────────────────────────────────
+   For a few seconds after a delegation lands, an arc from giver to receiver across the
+   cards. The one event this demo exists to show was a sentence at the foot of a panel on
+   a tab where the cards are not visible, while the cards whose numbers had just changed
+   sat silently off-screen. It animates the only thing that moves, and it fires on
+   confirmation, never on intent. */
+
+.handover-layer {
+  position: absolute;
+  inset: auto 0 100% 0;
+  /* Exactly the gap the nav leaves above the cards. It was 44px against 32px of space,
+     so the top twelve — the apex, the part worth seeing — were painted over by the nav,
+     which is sticky with an opaque background and sits above everything here. */
+  height: var(--s6);
+  color: currentColor;
+  pointer-events: none;
+  animation: handover-in 320ms ease-out;
+}
+
+.handover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+@keyframes handover-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still drawn, just not animated: the arc is the information, the movement is not. */
+  .handover-layer { animation: none; }
+}
+
+/* ── The connected wallet ──────────────────────────────────────────────────────────
+   At the end of the pinned nav, so the account that is about to be asked to pay stays
+   on screen while you scroll. It was buried inside the session button before, where the
+   connection existed for an instant and was never visible again. */
+
+.wallet {
+  margin-left: auto;
+  align-self: center;
+  padding: var(--s1) var(--s3);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--t-md);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wallet:hover { color: var(--text); border-color: var(--muted); }
+
+.wallet:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.wallet:disabled { cursor: progress; opacity: 0.7; }
+
+.wallet-on {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  border-color: #2e4535;
+  cursor: default;
+}
+
+.wallet-on:hover { color: var(--muted); border-color: #2e4535; }
+
+.wallet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.wallet-address {
+  color: inherit;
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  text-decoration: none;
+}
+
+.wallet-address:hover { color: var(--text); text-decoration: underline; }
+
+.wallet-off {
+  padding: 0 var(--s1);
+  background: none;
+  border: 0;
+  color: var(--dim);
+  font-family: var(--sans);
+  font-size: var(--t-base);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wallet-off:hover { color: var(--bad); }
+
+.wallet-off:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
