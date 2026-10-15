@@ -1219,6 +1219,13 @@ select:focus-visible,
   border-color: var(--ok);
 }
 
+/* A proposal whose voting is over. Dimmer than a cast vote, because one is something you
+   did and the other is something that stopped being possible. */
+.weight-badge-closed {
+  color: var(--dim);
+  border-color: var(--border);
+}
+
 /* What each identity holds of the governance token.
    On this governor weight is not assigned, it is held, so the balance is worth seeing. */
 
