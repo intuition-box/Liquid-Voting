@@ -314,6 +314,37 @@ export const ozGovernorAbi = [
     ],
     outputs: [{ type: "uint256" }],
   },
+  // OpenZeppelin's own reverts, so a direct call decodes them. `revertAbi` carries these
+  // too, but that one is only consulted for a user operation's inner revert — viem
+  // decodes a `writeContract` failure against the ABI it was handed, which is this one.
+  // Without them a collided proposal id came back as a bare `0x31b75e4d`.
+  { type: "error", name: "GovernorAlreadyCastVote", inputs: [{ name: "voter", type: "address" }] },
+  { type: "error", name: "GovernorNonexistentProposal", inputs: [{ name: "proposalId", type: "uint256" }] },
+  {
+    type: "error",
+    name: "GovernorUnexpectedProposalState",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "current", type: "uint8" },
+      { name: "expectedStates", type: "bytes32" },
+    ],
+  },
+  { type: "error", name: "GovernorInvalidVoteType", inputs: [] },
+  { type: "error", name: "GovernorRestrictedProposer", inputs: [{ name: "proposer", type: "address" }] },
+  {
+    type: "error",
+    name: "GovernorInsufficientProposerVotes",
+    inputs: [
+      { name: "proposer", type: "address" },
+      { name: "votes", type: "uint256" },
+      { name: "threshold", type: "uint256" },
+    ],
+  },
+  { type: "error", name: "DomainNotNamed", inputs: [{ name: "account", type: "address" }] },
+  { type: "error", name: "AlreadyDelegated", inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }, { name: "delegate", type: "address" }] },
+  { type: "error", name: "CircularDelegation", inputs: [{ name: "delegator", type: "address" }, { name: "delegate", type: "address" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "AmountExceedsBalance", inputs: [{ name: "delegator", type: "address" }, { name: "amount", type: "uint256" }, { name: "balance", type: "uint256" }] },
+
   // One per voice a vote carried, indexed by principal — which is what turns "what was
   // cast in my name?" into a single filtered query instead of a scan of every vote.
   {

@@ -2,7 +2,7 @@
  * Growing the graph: minting a domain atom, linking it under a parent, and staking it —
  * after which a delegation signed earlier covers a domain that did not exist at signing.
  */
-import { stringToHex, type Hex, type PublicClient } from "viem";
+import { formatEther, stringToHex, type Hex, type PublicClient } from "viem";
 
 import { multiVaultAbi } from "../chain/abis";
 import type { AppConfig } from "../config/app-config";
@@ -39,10 +39,34 @@ export async function extendGraph(
   const vault = { address: config.multiVault, abi: multiVaultAbi } as const;
   const data = stringToHex(label);
 
+  /**
+   * Can the submitter afford all three before any of them is sent?
+   *
+   * Growing the graph is a mint, a link and a stake, each its own transaction. Running
+   * out between the second and the third leaves an edge in the graph that nobody has
+   * staked — which is a legitimate state the enforcer handles, and a thoroughly
+   * confusing one to arrive at by accident in front of an audience: the domain appears
+   * in the rail and authorises nothing, for no reason the screen explains.
+   *
+   * Checked here, in one read, where the answer is still "not yet" rather than "half".
+   */
+  const [atomPrice, triplePrice, balance] = await Promise.all([
+    client.readContract({ ...vault, functionName: "getAtomCost" }),
+    client.readContract({ ...vault, functionName: "getTripleCost" }),
+    client.getBalance({ address: wallet.account.address }),
+  ]);
+  // A fifth of the deposit again for gas: three transactions on this chain cost well
+  // under that, and over-asking here is cheaper than stopping half way.
+  const needed = atomPrice + triplePrice + stakeWei + stakeWei / 5n;
+  if (balance < needed) {
+    throw new Error(
+      `${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} holds ${formatEther(balance)} tTRUST and growing the graph costs about ${formatEther(needed)} — a mint, a link and a stake. Top it up, or lower the stake.`,
+    );
+  }
+
   const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [data] });
   let atomTx: Hex | null = null;
   if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [atomId] }))) {
-    const atomCost = await client.readContract({ ...vault, functionName: "getAtomCost" });
     atomTx = await trackTransaction(
       client,
       {
@@ -56,11 +80,11 @@ export async function extendGraph(
             address: config.multiVault,
             fn: "createAtoms(bytes[],uint256[])",
             args: { label, atomId },
-            value: atomCost,
+            value: atomPrice,
           },
         ],
       },
-      () => wallet.writeContract({ ...vault, functionName: "createAtoms", args: [[data], [atomCost]], value: atomCost }),
+      () => wallet.writeContract({ ...vault, functionName: "createAtoms", args: [[data], [atomPrice]], value: atomPrice }),
     );
   }
 
@@ -71,7 +95,6 @@ export async function extendGraph(
   });
   let tripleTx: Hex | null = null;
   if (!(await client.readContract({ ...vault, functionName: "isTermCreated", args: [tripleId] }))) {
-    const tripleCost = await client.readContract({ ...vault, functionName: "getTripleCost" });
     tripleTx = await trackTransaction(
       client,
       {
@@ -85,7 +108,7 @@ export async function extendGraph(
             address: config.multiVault,
             fn: "createTriples(bytes32[],bytes32[],bytes32[],uint256[])",
             args: { subject: label, predicate: config.predicate.label, object: parentLabel, tripleId },
-            value: tripleCost,
+            value: triplePrice,
           },
         ],
       },
@@ -93,8 +116,8 @@ export async function extendGraph(
         wallet.writeContract({
           ...vault,
           functionName: "createTriples",
-          args: [[atomId], [config.predicate.termId], [parentId], [tripleCost]],
-          value: tripleCost,
+          args: [[atomId], [config.predicate.termId], [parentId], [triplePrice]],
+          value: triplePrice,
         }),
     );
   }

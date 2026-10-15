@@ -495,6 +495,26 @@ export async function recordProposal(
 ): Promise<{ txHash: Hex; proposalId: bigint }> {
   const domainId = config.nodes.find((node) => node.label === domainLabel)?.termId;
   if (!domainId) throw new Error(`unknown domain “${domainLabel}”`);
+
+  /**
+   * The stamp that makes the id unique, added here rather than asked of every caller.
+   *
+   * An OpenZeppelin proposal id is `hash(targets, values, calldatas, hash(description))`
+   * — and the call is the same for every proposal this demo makes, so the description is
+   * the only thing distinguishing one from another. The domain is not part of it: it
+   * lives in the resolver beside the governor, so the same title on two different
+   * domains collides just as surely as on one.
+   *
+   * Reusing a title therefore reverts with `GovernorUnexpectedProposalState`, which is
+   * accurate and tells a visitor nothing. Three callers existed and two of them had got
+   * it wrong — the rehearsal used a fixed string and failed on every run after the
+   * first, and the panel sent whatever was typed, so proposing twice with the default
+   * title failed. Knowledge of how an id is derived belongs with the function that
+   * derives one.
+   *
+   * `readDescription` takes it back off for display.
+   */
+  const stamped = `${description} (${new Date().toISOString().slice(0, 16)})`;
   const wallet = submitterClient(config);
   const gov = { address: config.governor, abi: ozGovernorAbi } as const;
 
@@ -512,14 +532,14 @@ export async function recordProposal(
         contract: "OZGovernor",
         address: config.governor,
         fn: "propose(address[],uint256[],bytes[],string)",
-        args: { description, call: "the governor itself, with empty calldata" },
+        args: { description: stamped, call: "the governor itself, with empty calldata" },
       },
     ],
   });
   const txHash = await wallet.writeContract({
     ...gov,
     functionName: "propose",
-    args: [[config.governor], [0n], ["0x"], description],
+    args: [[config.governor], [0n], ["0x"], stamped],
   });
   const receipt = await client.waitForTransactionReceipt({ hash: txHash });
   settleStep(proposeStep, {
