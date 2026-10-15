@@ -26,18 +26,18 @@
       "verified": false
     },
     "ProposalDomains": {
-      "address": "0xc44681310D87850F73f71287EBFd8afA7a98792b",
+      "address": "0xcf21593468366B15E5aCd159771c86F265c934bD",
       "deployedAt": "2026-10-15",
       "verified": false
     },
     "OZGovernor": {
-      "address": "0x136c8ca33e981E638e254D9F37Bd377EC60b46D0",
+      "address": "0x083C6592a1719e65e546339959ACa359210393d8",
       "deployedAt": "2026-10-15",
       "verified": false,
-      "deployedBlock": 9372568
+      "deployedBlock": 9372913
     },
     "OZGraphDomainScope": {
-      "address": "0x9A1642ce7fc6A646D470FEa527105Dfd178920d3",
+      "address": "0xd6D9E6d306a5ea77A4331612f502002a7CDbcF51",
       "deployedAt": "2026-10-15",
       "verified": false,
       "constructorArgs": {

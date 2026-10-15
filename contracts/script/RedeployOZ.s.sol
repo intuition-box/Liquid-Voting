@@ -47,6 +47,11 @@ contract RedeployOZ is Script {
         GraphDomainScope enforcer = new GraphDomainScope(
             IMultiVault(MULTIVAULT), address(governor), OZGovernor.castVoteFor.selector, address(resolver)
         );
+        // The resolver only takes a domain from the governor, and the governor only takes
+        // one from a proposal's own proposer. It cannot be a constructor argument on both
+        // sides, so the deployer names it here — once, and never again. Leaving this out
+        // deploys a resolver nothing can write to, which `verify` catches.
+        resolver.bindGovernor(address(governor));
         vm.stopBroadcast();
 
         // manifest/13579.json needs OZGovernor.deployedBlock, because every log read in

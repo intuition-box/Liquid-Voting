@@ -11,6 +11,7 @@
 
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
+import { proposalDomainsAbi } from "../src/lib/chain/abis";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
 import { readProposals, readRegister } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
@@ -45,6 +46,23 @@ async function main(): Promise<void> {
     failures += 1;
     console.log(`FAIL  ${line}`);
   };
+
+  // Step 0 — the governor and the resolver must know each other, or nothing below means
+  // anything. The resolver takes a domain from the governor alone and the governor was
+  // constructed with the resolver, so a deploy that skipped `bindGovernor` leaves a pair
+  // that compiles, deploys, and silently scopes nothing.
+  const boundTo = await client.readContract({
+    address: config.resolver,
+    abi: proposalDomainsAbi,
+    functionName: "governor",
+  });
+  if (boundTo.toLowerCase() === config.governor.toLowerCase()) {
+    console.log(`ok    the resolver records domains for this governor only  ${boundTo}`);
+  } else if (boundTo === "0x0000000000000000000000000000000000000000") {
+    fail("the resolver was never bound to a governor — nothing can scope a proposal. Re-run the deploy script.");
+  } else {
+    fail(`the resolver is bound to ${boundTo}, not to this governor ${config.governor}`);
+  }
 
   // Panel 1 — the graph must be attested, or nothing authorizes anything.
   const edges = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);

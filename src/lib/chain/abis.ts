@@ -370,14 +370,33 @@ export const ozGovernorAbi = [
   { type: "function", name: "MAX_DOMAIN_PATH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
-/** Records which domain a proposal belongs to, since an OZ proposal carries none. */
-export const proposalDomainsAbi = [
+/** The governor's own scoping entry point — the only writer the resolver accepts. */
+export const scopeProposalAbi = [
   {
     type: "function",
     name: "scopeProposal",
     stateMutability: "nonpayable",
     inputs: [{ name: "proposalId", type: "uint256" }, { name: "domainId", type: "bytes32" }],
     outputs: [],
+  },
+] as const;
+
+/**
+ * Records which domain a proposal belongs to, since an OZ proposal carries none.
+ *
+ * Read-only from here: `scopeProposal` is on the resolver too, but it accepts the
+ * governor and nobody else, so the frontend calls `scopeProposalAbi` above against the
+ * governor instead. `governor` is exposed so `bun run verify` can prove the two were
+ * bound to each other — a resolver deployed without that step is one no proposal can
+ * ever be scoped in, and every vote on this governor would read a zero domain.
+ */
+export const proposalDomainsAbi = [
+  {
+    type: "function",
+    name: "governor",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
   },
   {
     type: "function",

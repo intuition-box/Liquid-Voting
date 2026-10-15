@@ -17,13 +17,30 @@ import type { Role } from "../roles";
 import { recordStep } from "../chain/tx-log";
 import { DEFAULT_MAX_DEPTH, requireOwnerKey, submitterClient } from "./common";
 
-/** What an account currently counts for, which is the most it can possibly lend. */
+/**
+ * The most an account can lend, read at the timepoint the governor will check it against.
+ *
+ * `delegateWeight` validates the amount against `getPastVotes(sender, clock() - 1)`, so
+ * that is what has to be asked here. It used to read `getVotes` — the live figure — and
+ * the two are not the same number on this chain: `clock()` is the parent chain's height
+ * (ADR 0026), it moves about once a second, and a checkpoint written since the last tick
+ * is invisible to the past read while being plainly visible to the live one. Lending
+ * "everything" right after a mint or a transfer therefore offered an amount the governor
+ * refused, as `AmountExceedsBalance`, for no reason the screen could explain.
+ */
 async function ownWeight(client: PublicClient, config: AppConfig, role: Role): Promise<bigint> {
+  // The token's clock, which is the governor's: `GovernorVotes.clock()` forwards to the
+  // token when it implements ERC-6372, and this one does.
+  const clock = await client.readContract({
+    address: config.votesToken,
+    abi: votesTokenAbi,
+    functionName: "clock",
+  });
   return client.readContract({
     address: config.votesToken,
     abi: votesTokenAbi,
-    functionName: "getVotes",
-    args: [config.accounts[role].smartAccount],
+    functionName: "getPastVotes",
+    args: [config.accounts[role].smartAccount, BigInt(clock) - 1n],
   });
 }
 

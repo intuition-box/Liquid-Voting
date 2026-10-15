@@ -33,6 +33,21 @@ abstract contract DomainVotes is GovernorVotes {
     /// @notice Longest domain path a voter may present.
     uint256 public constant MAX_DOMAIN_PATH = 6;
 
+    /// @notice How many times a voice may be handed on before the register refuses to follow.
+    /// @dev Deliberately not `MAX_DOMAIN_PATH`, which the walk below used to borrow. The
+    ///      two count different things — one is how many domains a witness may name, the
+    ///      other how many accounts a lending may pass through — and nothing ties them
+    ///      together. Borrowing it stopped the walk at the sixth account and returned that
+    ///      account as though it were the last, so a longer chain credited a voice to
+    ///      whoever the count happened to stop on and refused the holder who really had
+    ///      it, both without a word.
+    ///
+    ///      Eight is far past anything a real register reaches — the deepest branch of the
+    ///      demo graph is five, and a chain cannot be longer than the number of accounts
+    ///      lending — and it keeps the walk's storage reads bounded, since `_share` runs
+    ///      it once per principal named.
+    uint256 public constant MAX_LENDING_CHAIN = 8;
+
     /// @notice The graph this governor resolves sub-domain relations against.
     IMultiVault public immutable MULTI_VAULT;
     /// @notice Term id of the "is a sub-domain of" predicate.
@@ -74,6 +89,8 @@ abstract contract DomainVotes is GovernorVotes {
     error NotEntitledToVoteFor(address caller, address voter);
     /// @notice The params name a different proposal from the one being voted on.
     error ProposalMismatch(uint256 named, uint256 actual);
+    /// @notice A voice was handed on more times than the register will follow.
+    error LendingChainTooLong(address from);
 
     /// @notice Emitted when an account hands weight on a domain to someone else.
     /// @param amount How much was lent. Zero on a withdrawal.
@@ -514,18 +531,28 @@ abstract contract DomainVotes is GovernorVotes {
     ///      dropped it from C's ballot without a word, so a three-level chain counted two
     ///      voices where it should have counted three.
     ///
-    ///      Bounded by `MAX_DOMAIN_PATH`, so a cycle in the register costs a fixed number
-    ///      of reads rather than every drop of gas available.
+    ///      Bounded by `MAX_LENDING_CHAIN`, so a cycle in the register costs a fixed
+    ///      number of reads rather than every drop of gas available.
     function _terminalHolder(address from, bytes32[] memory domains) private view returns (address holder_) {
         (address next_,) = _lentAny(from, domains);
         if (next_ == address(0)) return address(0);
         holder_ = next_;
-        for (uint256 hop_ = 1; hop_ < MAX_DOMAIN_PATH; ++hop_) {
+        for (uint256 hop_ = 1; hop_ < MAX_LENDING_CHAIN; ++hop_) {
             (address onward_,) = _lentAny(holder_, domains);
             if (onward_ == address(0)) return holder_;
             if (onward_ == from) return address(0);
             holder_ = onward_;
         }
+        // Still being handed on at the cap, so this walk has no last holder to name.
+        // Either the chain is longer than the register follows, or it closes into a loop
+        // that never passes back through `from` — which `delegateWeight` does not refuse,
+        // since it only rejects lending to oneself.
+        //
+        // Falling out of the loop and returning `holder_` is what this did, and that is a
+        // wrong answer wearing the shape of a right one. Refusing is the only honest end:
+        // a voice with no terminal holder must not be credited to the account the count
+        // happened to stop on.
+        revert LendingChainTooLong(from);
     }
 
     /// @dev The domain itself plus every parent on the verified path — a grant on any of

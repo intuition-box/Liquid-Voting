@@ -11,7 +11,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { ozGovernorAbi, proposalDomainsAbi, votesTokenAbi } from "../chain/abis";
+import { ozGovernorAbi, scopeProposalAbi, votesTokenAbi } from "../chain/abis";
 import { readLogsOnce } from "../chain/logs";
 import { FRAMEWORK } from "../chain/network";
 import { toHybridAccount } from "../chain/smart-accounts";
@@ -27,7 +27,7 @@ import {
 } from "../delegation/encoding";
 import type { DomainGraph, GraphLimits } from "../graph/domain-graph";
 import type { PathResult } from "../graph/edges";
-import { ROLES, type Role } from "../roles";
+import { ROLES, roleOfAddress, type Role } from "../roles";
 
 import { logStep, settleStep, trackTransaction, type LogCall } from "../chain/tx-log";
 import { requireOwnerKey, submitterClient } from "./common";
@@ -591,17 +591,23 @@ export async function recordProposal(
         "Beside the governor rather than on the proposal: OpenZeppelin's `propose` has no field for a domain, and adding one would mean forking the audited contract.",
       calls: [
         {
-          contract: "ProposalDomains",
-          address: config.resolver,
+          contract: "OZGovernor",
+          address: config.governor,
           fn: "scopeProposal(uint256,bytes32)",
           args: { proposal: proposalId.toString(), domain: `${domainLabel} · ${domainId}` },
         },
       ],
     },
+    // Through the governor, not straight at the resolver. The resolver takes a domain
+    // from the governor alone, and the governor takes one only from the proposal's own
+    // proposer — which is this wallet, since it proposed a moment ago. It used to be
+    // written directly and by anyone, and write-once made that permanent: ids are
+    // derived from the proposal's contents, so a watcher could scope first and fix the
+    // proposal to a domain whose delegates it has nothing to do with.
     () =>
       wallet.writeContract({
-        address: config.resolver,
-        abi: proposalDomainsAbi,
+        address: config.governor,
+        abi: scopeProposalAbi,
         functionName: "scopeProposal",
         args: [proposalId, domainId],
       }),
@@ -801,8 +807,7 @@ export async function readAllBallots(
   client: PublicClient,
   config: AppConfig,
 ): Promise<Record<string, Ballot[]>> {
-  const roleOf = (address: `0x${string}`): Role | null =>
-    ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
+  const roleOf = (address: `0x${string}`): Role | null => roleOfAddress(config.accounts, address);
 
   // The vote events carry the support and the total; the on-behalf events carry the
   // split. Both are needed: a tally without a breakdown says nothing about who is
@@ -884,8 +889,7 @@ export async function readVoicesCarriedFor(
     client.getLogs({ address: config.governor, event: VOTE_CAST_ON_BEHALF, args: { principal }, fromBlock }),
   );
 
-  const roleOf = (address: `0x${string}`): Role | null =>
-    ROLES.find((role) => config.accounts[role].smartAccount.toLowerCase() === address.toLowerCase()) ?? null;
+  const roleOf = (address: `0x${string}`): Role | null => roleOfAddress(config.accounts, address);
 
   return logs
     .map((log) => {
@@ -903,22 +907,6 @@ export async function readVoicesCarriedFor(
     })
     .filter((entry): entry is CarriedVoice => entry !== null)
     .reverse();
-}
-
-/**
- * Who voted on one proposal, and for whom.
- *
- * OpenZeppelin indexes the voter rather than the proposal, so its vote logs cannot be
- * filtered by proposal at the node. This reads them all and keeps the one asked for,
- * which is why a page showing many rows should call `readAllBallots` once instead.
- */
-export async function readBallots(
-  client: PublicClient,
-  config: AppConfig,
-  proposalId: bigint,
-): Promise<Ballot[]> {
-  const all = await readAllBallots(client, config);
-  return all[proposalId.toString()] ?? [];
 }
 
 /**
@@ -989,7 +977,7 @@ export async function readRegister(
     else current.set(key, { delegate, amount });
   }
 
-  const roleOf = new Map(ROLES.map((role) => [config.accounts[role].smartAccount.toLowerCase(), role]));
+
   const delegatedTo: Register["delegatedTo"] = {};
   const lent: Register["lent"] = {};
 
@@ -999,7 +987,7 @@ export async function readRegister(
     for (const role of ROLES) {
       const held = current.get(`${config.accounts[role].smartAccount.toLowerCase()}|${domainId.toLowerCase()}`);
       if (!held) continue;
-      const holder = roleOf.get(held.delegate.toLowerCase());
+      const holder = roleOfAddress(config.accounts, held.delegate);
       // Only a lending to one of the demo's own accounts can be drawn as an arrow between
       // two of them; one to an outside address is still a lending and still counted.
       if (holder) (delegatedTo[scope] ??= {})[role] = holder;
