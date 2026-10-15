@@ -355,7 +355,11 @@ export function planVote(
   if (blockedAt && !blockedAt.result.found) {
     return { ...base, calldata: null, blocked: `no witness up to “${blockedAt.rootLabel}”: ${blockedAt.result.reason}` };
   }
-  return { ...base, calldata: encodeVote(config, chains, redeemer, principals, proposalId, support), blocked: null };
+  return {
+    ...base,
+    calldata: encodeVote(config, chains, redeemer, principals, proposalId, support, graph.domainPathOf(domainLabel)),
+    blocked: null,
+  };
 }
 
 /**
@@ -385,12 +389,19 @@ function encodeVote(
   principals: Role[],
   proposalId: bigint,
   support: number,
+  /**
+   * The proposal's domain and every ancestor, up to the root.
+   *
+   * Not the same thing as a caveat's witness, though it was taken from one: a witness
+   * climbs to the scope *that link* was signed for, and stops there. The governor uses
+   * this array as the set of domains to look for a lending in, so stopping at the
+   * signed scope meant a grant made on an ancestor above it was never found — the panel
+   * and the planned vote asked the governor two different questions, and the planned
+   * one undercounted.
+   */
+  domainPath: Hex[],
 ): Hex {
   const deepest = deepestVoice(chains);
-  // The governor needs the same path the caveats verify: a grant on a parent domain
-  // covers this proposal, and the path is what proves the parent relation. Every chain
-  // climbs to the same proposal domain, so the top witness speaks for all of them.
-  const witnesses = deepest?.witnesses ?? [];
   return buildVoteCalldata({
     chains: deepest ? [deepest] : [],
     governor: config.governor,
@@ -398,7 +409,7 @@ function encodeVote(
     support,
     voter: config.accounts[redeemer].smartAccount,
     principals: principals.map((role) => config.accounts[role].smartAccount),
-    domainPath: witnesses[witnesses.length - 1] ?? [],
+    domainPath,
   });
 }
 
@@ -437,7 +448,15 @@ export function planVoteForcingWitness(
   return {
     ...plan,
     chains,
-    calldata: encodeVote(config, chains, plan.redeemer, plan.principals, proposalId, support),
+    calldata: encodeVote(
+      config,
+      chains,
+      plan.redeemer,
+      plan.principals,
+      proposalId,
+      support,
+      graph.domainPathOf(domainLabel),
+    ),
   };
 }
 
