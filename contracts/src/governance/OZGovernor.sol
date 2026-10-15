@@ -64,11 +64,21 @@ contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
     ///      voting. This entry point takes the voter explicitly so the vote is recorded
     ///      under the delegate's own name, carrying the principals it was lent.
     ///
-    ///      Authorization is not this function's job and it deliberately checks none: it is
-    ///      reachable only through a delegation whose caveat has already been enforced by
-    ///      the `DelegationManager`. `GraphDomainScope` is bound to this selector and is
-    ///      what proves the domain sits under the delegated one. Everything after that is
-    ///      OZ's own `_castVote`.
+    ///      Authorization is this function's job, which it did not used to do. The claim
+    ///      here was that it is "reachable only through a delegation whose caveat has
+    ///      already been enforced" — and that was simply untrue. It is an ordinary
+    ///      external function: a direct call never touches the DelegationManager, so
+    ///      `GraphDomainScope`'s `voter == redeemer` check never runs. Any address could
+    ///      name any holder and spend its whole weight, in whichever direction it chose,
+    ///      and the holder could then never vote on that proposal. Proven against the
+    ///      deployed governor from an address holding nothing.
+    ///
+    ///      The caveat still does the work it is for — proving the proposal's domain sits
+    ///      under the delegated one — but it cannot be the only thing standing here, so
+    ///      the governor asks the register the question it can answer on its own: has the
+    ///      caller routed its weight to this voter? That is true of every legitimate
+    ///      redemption, which reaches the governor from the root delegator's account, and
+    ///      false for anybody else.
     /// @param proposalId The proposal being voted on.
     /// @param support Against, For or Abstain, as `GovernorCountingSimple` defines them.
     /// @param voter The account the vote is recorded under.
@@ -83,6 +93,9 @@ contract OZGovernor is GovernorSettings, GovernorCountingSimple, DomainVotes {
         bytes32[] calldata domainPath
     ) external returns (uint256 weight_) {
         if (voter == address(0)) revert ZeroAddress();
+        if (!_mayVoteFor(msg.sender, voter, proposalId, domainPath)) {
+            revert NotEntitledToVoteFor(msg.sender, voter);
+        }
         bytes memory params_ = abi.encode(proposalId, domainPath, principals);
         weight_ = _castVote(proposalId, voter, support, "", params_);
     }

@@ -70,6 +70,10 @@ abstract contract DomainVotes is GovernorVotes {
     error DomainPathTooLong(uint256 hops);
     /// @notice This account has weight on loan, so it must say which domain it is voting on.
     error DomainNotNamed(address account);
+    /// @notice The caller has not routed any weight to the account it is naming as voter.
+    error NotEntitledToVoteFor(address caller, address voter);
+    /// @notice The params name a different proposal from the one being voted on.
+    error ProposalMismatch(uint256 named, uint256 actual);
 
     /// @notice Emitted when an account hands weight on a domain to someone else.
     /// @param amount How much was lent. Zero on a withdrawal.
@@ -300,6 +304,35 @@ abstract contract DomainVotes is GovernorVotes {
         return _share(proposalId_, account, domains_, at_, principals_);
     }
 
+    /// @notice Whether `caller` may have a vote recorded under `voter` on this proposal.
+    /// @dev The question `castVoteFor` has to ask and did not.
+    ///
+    ///      A redemption reaches the governor from the *root delegator's* account, not
+    ///      from the DelegationManager and not from the voter — which is the whole reason
+    ///      `castVoteFor` takes the voter explicitly. So `msg.sender` cannot simply be
+    ///      required to equal `voter`, and the caveat that does enforce `voter == redeemer`
+    ///      only runs when the call arrives through a redemption. A direct call met no
+    ///      check at all: any address could name any holder and spend its weight.
+    ///
+    ///      What is true of every legitimate redemption is that the executing account has
+    ///      routed its weight to the voter — directly, or along a chain of lendings. The
+    ///      register already knows that, so the governor can ask it rather than trust the
+    ///      path it arrived by.
+    function _mayVoteFor(
+        address caller,
+        address voter,
+        uint256 proposalId,
+        bytes32[] calldata domainPath
+    ) internal view returns (bool) {
+        if (caller == voter) return true;
+        bytes32 domainId_ = DOMAIN_RESOLVER.proposalDomain(proposalId);
+        // No domain means no delegation can reach this proposal, so nobody may speak for
+        // anybody on it.
+        if (domainId_ == bytes32(0)) return false;
+        _verifyPath(domainId_, domainPath);
+        return _terminalHolder(caller, _domainsFor(domainId_, domainPath)) == voter;
+    }
+
     /// @dev Refuses a voice already on the ballot, then writes down the ones this vote
     ///      spends. Called from the final contract's `_countVote`, after OZ has tallied:
     ///      a revert here rolls that tally back with everything else, and `Governor`
@@ -312,6 +345,16 @@ abstract contract DomainVotes is GovernorVotes {
     /// @param weight What the tally received, used only on the path where no domain is
     ///        named and the whole vote is the account's own voice.
     function _spendVoices(uint256 proposalId, address account, uint256 weight, bytes memory params) internal {
+        // The params carry a proposal id of their own, and `_getVotes` resolves the
+        // domain from *that* one while this resolves it from the real one. Left to
+        // disagree, a caller could name a proposal with no domain and be handed a raw
+        // token balance — lending and ledger both invisible — while the ledger recorded
+        // nothing, and the same weight could then be spent again by its delegate.
+        if (params.length != 0) {
+            (uint256 named_,,) = abi.decode(params, (uint256, bytes32[], address[]));
+            if (named_ != proposalId) revert ProposalMismatch(named_, proposalId);
+        }
+
         bytes32 domainId_ = DOMAIN_RESOLVER.proposalDomain(proposalId);
         if (params.length == 0 || domainId_ == bytes32(0)) {
             // Nothing names a domain, so the register cannot be read for one. Safe only
@@ -321,7 +364,7 @@ abstract contract DomainVotes is GovernorVotes {
             _spend(proposalId, account, account, weight);
             return;
         }
-        _recordVoices(proposalId, account, domainId_, params);
+        _recordVoices(proposalId, account, domainId_, params, weight);
     }
 
     /// @dev Marks every voice this vote carried, the voter's own included, and logs each.
@@ -330,7 +373,13 @@ abstract contract DomainVotes is GovernorVotes {
     ///      shares logged here add up to the weight the tally received. Deriving them from
     ///      the vote's total instead would be a guess, and a guess is exactly what the
     ///      frontend was reduced to before this event existed.
-    function _recordVoices(uint256 proposalId, address account, bytes32 domainId, bytes memory params) private {
+    function _recordVoices(
+        uint256 proposalId,
+        address account,
+        bytes32 domainId,
+        bytes memory params,
+        uint256 weight
+    ) private {
         (, bytes32[] memory domainPath_, address[] memory principals_) =
             abi.decode(params, (uint256, bytes32[], address[]));
         bytes32[] memory domains_ = _domainsFor(domainId, domainPath_);
@@ -357,6 +406,13 @@ abstract contract DomainVotes is GovernorVotes {
         // one: an account that lent its whole weight away, or holds none, casts zero and
         // stock OpenZeppelin records exactly that.
         if (total_ == 0 && _cast[proposalId][account] != 0) revert GovernorAlreadyCastVote(account);
+
+        // The tally took what `_getVotes` returned; the ledger just wrote what this
+        // recomputed. They are two routes to one number and nothing made them meet.
+        // This does: on every honest path both sides run `_share` over the same domains,
+        // the same timepoint and the same ledger, so the equality holds — and any future
+        // divergence stops the vote instead of silently double-counting it.
+        if (total_ != weight) revert ProposalMismatch(total_, weight);
     }
 
     /// @dev One voice, spent and announced.

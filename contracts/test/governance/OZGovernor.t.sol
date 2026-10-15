@@ -657,4 +657,102 @@ contract DomainScopedGovernorTest is Test {
         vm.prank(voter);
         weight_ = governor.castVoteWithReasonAndParams(proposalId, 1, "", _params(proposalId, path, principals));
     }
+
+    // ── Who may have a vote recorded in whose name ──────────────────────────────────
+    //
+    // `castVoteFor` is an ordinary external function. A direct call never touches the
+    // DelegationManager, so the caveat's `voter == redeemer` check does not run — and for
+    // a while nothing else did either. Any address could name any holder and spend its
+    // whole weight, in whichever direction it chose, leaving the holder unable to vote on
+    // that proposal at all. Proven against the deployed governor before it was fixed.
+
+    function test_RevertWhen_AStrangerVotesInSomebodyElsesName() public {
+        uint256 id = _propose(GRANTS);
+        address stranger = address(0xdEaD);
+
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, stranger, alice));
+        vm.prank(stranger);
+        governor.castVoteFor(id, 0, alice, new address[](0), _path(GRANTS, TREASURY));
+
+        (uint256 against, uint256 forVotes,) = governor.proposalVotes(id);
+        assertEq(against, 0, "nothing was recorded");
+        assertEq(forVotes, 0);
+        assertFalse(governor.hasVoted(id, alice), "and alice can still vote herself");
+    }
+
+    /// Holding weight is not entitlement either — the question is who you lent it to.
+    function test_RevertWhen_AHolderVotesInAnotherHoldersName() public {
+        uint256 id = _propose(GRANTS);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, carol, alice));
+        vm.prank(carol);
+        governor.castVoteFor(id, 1, alice, new address[](0), _path(GRANTS, TREASURY));
+    }
+
+    /// The legitimate shape: a redemption arrives from the root delegator's account, and
+    /// its weight routes to the voter it names.
+    function test_TheRootDelegatorMayNameItsDelegate() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.prank(alice);
+        uint256 weight = governor.castVoteFor(id, 1, bob, _list(bob, alice), _path(GRANTS, TREASURY));
+        assertEq(weight, 200, "bob's own plus alice's");
+    }
+
+    /// And along a chain: A lends to B, B lends to C, so A may name C.
+    function test_TheRootOfAChainMayNameItsEnd() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        vm.prank(bob);
+        governor.delegateWeight(carol, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.prank(alice);
+        assertEq(governor.castVoteFor(id, 1, carol, _list(carol, bob, alice), _path(GRANTS, TREASURY)), 300);
+
+        // But not the middle of it: B passed the voice on and holds nothing to route.
+        uint256 other = _propose(COMMUNITY);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, alice, bob));
+        vm.prank(alice);
+        governor.castVoteFor(other, 1, bob, new address[](0), new bytes32[](0));
+    }
+
+    // ── The ledger and the tally are one number ─────────────────────────────────────
+
+    /// The params carry a proposal id of their own, and `_getVotes` used to resolve the
+    /// domain from that one while the ledger resolved it from the real one. Naming a
+    /// proposal with no domain returned a raw token balance — lending and ledger both
+    /// invisible — while the ledger recorded nothing, so the same weight could be spent
+    /// again by its delegate.
+    function test_RevertWhen_TheParamsNameADifferentProposal() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        bytes memory lying = _params(0, new bytes32[](0), new address[](0));
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.ProposalMismatch.selector, 0, id));
+        vm.prank(alice);
+        governor.castVoteWithReasonAndParams(id, 1, "", lying);
+    }
+
+    /// The whole point of refusing it: alice had lent everything away, so claiming the
+    /// raw balance would have let her weight count twice on one proposal.
+    function test_ALenderCannotRecoverItsWeightByNamingAnotherProposal() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.expectRevert();
+        vm.prank(alice);
+        governor.castVoteWithReasonAndParams(id, 1, "", _params(0, new bytes32[](0), new address[](0)));
+
+        // Honestly, she casts nothing: it is all with bob.
+        assertEq(_voteFor(id, alice, new address[](0)), 0);
+        // And bob still carries it, because the refused attempt spent nothing — which is
+        // the point. Alice'''s hundred counts once, through the delegate she lent it to.
+        assertEq(_voteFor(id, bob, _list(bob, alice)), 200, "bob'''s own hundred plus alice'''s");
+        (, uint256 forVotes,) = governor.proposalVotes(id);
+        assertEq(forVotes, 200, "never more than the two of them hold");
+    }
 }

@@ -26,25 +26,25 @@
       "verified": false
     },
     "ProposalDomains": {
-      "address": "0x11CC4155bf035394b79291529b423406859ff31D",
-      "deployedAt": "2026-10-14",
+      "address": "0xc44681310D87850F73f71287EBFd8afA7a98792b",
+      "deployedAt": "2026-10-15",
       "verified": false
     },
     "OZGovernor": {
-      "address": "0xd3eAA81C5D283E4270EFB568045A7b406197917F",
-      "deployedAt": "2026-10-14",
+      "address": "0x136c8ca33e981E638e254D9F37Bd377EC60b46D0",
+      "deployedAt": "2026-10-15",
       "verified": false,
-      "deployedBlock": 9371656
+      "deployedBlock": 9372568
     },
     "OZGraphDomainScope": {
-      "address": "0x6FC726eCCfbAA30D08FbcC7F4afb3bAa30298C59",
-      "deployedAt": "2026-10-14",
+      "address": "0x9A1642ce7fc6A646D470FEa527105Dfd178920d3",
+      "deployedAt": "2026-10-15",
       "verified": false,
       "constructorArgs": {
         "multiVault": "0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91",
-        "governor": "0xd3eAA81C5D283E4270EFB568045A7b406197917F",
+        "governor": "0x136c8ca33e981E638e254D9F37Bd377EC60b46D0",
         "voteSelector": "castVoteFor(uint256,uint8,address,address[],bytes32[])",
-        "domainResolver": "0x11CC4155bf035394b79291529b423406859ff31D"
+        "domainResolver": "0xc44681310D87850F73f71287EBFd8afA7a98792b"
       }
     }
   },
