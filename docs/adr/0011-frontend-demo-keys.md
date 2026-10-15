@@ -59,6 +59,26 @@ Keys never enter git either: `data/`, `dist/` and `contracts/.env` are gitignore
 - The dev bundle contains a testnet private key. Acceptable only because the key is
   throwaway, funded with a few tTRUST, and never committed — but it means the dev server
   must not be exposed publicly (`vite` binds localhost; do not pass `--host`).
+- Two ways this decision leaked in practice, both found by audit and both now closed:
+
+  The dev server served `data/accounts.json` itself. `server.fs.allow` was the repo root
+  and nothing denied the file, so `GET /data/accounts.json` returned all three owner keys
+  with status 200. Vite's default deny list covers `.env*` — which is why
+  `contracts/.env` was already refused — and knows nothing about this one. It is named in
+  `fs.deny` now. No CORS header was ever sent, so a web page could not read it
+  cross-origin; anything able to reach the port could.
+
+  And "a production build receives no keys" was not true after a dev session. The
+  generated env file was `.env.local`, which Vite loads in *every* mode, and `bun run
+  build` is bun running vite — bun loads `.env*` into `process.env` before vite starts,
+  and `loadEnv` merges prefixed names back out of it. The unlink in `vite.config.ts` ran
+  after the values had already been read, so it deleted the evidence rather than the
+  leak: `dist/` carried all four private keys and the checkout looked clean. The file is
+  now named for the dev mode, the `DEMO_` variables are dropped from `process.env` on a
+  build, and `bun run build` ends by grepping `dist/` for the exact key material on the
+  machine (`scripts/check-bundle.ts`). That last check is what makes this claim
+  falsifiable instead of asserted; the CI step that was supposed to be it could not fire
+  at all, being an always-true `grep` AND-ed with an always-false one.
 
 **Neutral (worth knowing):**
 - Domains minted during a session are kept in `localStorage` (per the storage rule) so

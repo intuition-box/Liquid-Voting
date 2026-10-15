@@ -34,13 +34,16 @@ jobs:
       # Typecheck runs as part of the build script, so a broken build never ships.
       - run: bun run build
 
+      # `bun run build` already ends in this check; run it again so the step that refuses
+      # to publish is visible in the log as its own line.
+      #
+      # What stood here was `grep '0x[0-9a-fA-F]{64}' && grep 'DEMO_OWNER_KEYS'`. The
+      # first matches 127 times in a clean bundle — every term id in the manifest is 32
+      # bytes — and the second never matches, because Vite substitutes the value and the
+      # name does not survive. An always-true AND an always-false is false, so the guard
+      # could not fire in any build, passing or leaking.
       - name: Fail if the bundle carries a private key
-        run: |
-          if grep -rEq '0x[0-9a-fA-F]{64}' dist/assets/*.js && \
-             grep -rq 'DEMO_OWNER_KEYS' dist/assets/*.js; then
-            echo "A secrets placeholder reached the bundle — refusing to publish."
-            exit 1
-          fi
+        run: bun run check:bundle
 
       - uses: actions/upload-pages-artifact@v3
         with:

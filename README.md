@@ -140,7 +140,7 @@ bun run verify     # confirm all of it against live state
 `fund` is not optional and is easy to skip: a balance is not voting power on `ERC20Votes`
 until the holder self-delegates, so without it every account votes with zero.
 
-Secrets reach the browser only in dev, through a generated `.env.local`; a production
+Secrets reach the browser only in dev, through a generated `.env.development.local`; a production
 build carries none and opens read-only. See
 [ADR 0011](docs/adr/0011-frontend-demo-keys.md).
 

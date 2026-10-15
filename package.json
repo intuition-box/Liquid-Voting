@@ -8,14 +8,15 @@
     "fund": "bun --env-file=contracts/.env scripts/fund-votes.ts",
     "delegate": "bun --env-file=contracts/.env scripts/sign-delegations.ts",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && bun scripts/check-bundle.ts",
     "preview": "vite preview",
     "verify": "bun --env-file=contracts/.env scripts/verify.ts",
     "reset": "bun --env-file=contracts/.env scripts/reset-demo.ts",
     "rehearse": "bun --env-file=contracts/.env scripts/rehearse.ts",
     "acceptance": "bun --env-file=contracts/.env scripts/acceptance-oz.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src/"
+    "test": "bun test src/",
+    "check:bundle": "bun scripts/check-bundle.ts"
   },
   "dependencies": {
     "@metamask/smart-accounts-kit": "0.3.0",

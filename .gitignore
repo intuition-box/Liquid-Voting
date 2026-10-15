@@ -1,7 +1,9 @@
 node_modules/
 dist/
 .env
-.env.local
+# Every `.env*.local`: vite.config.ts generates `.env.development.local`, and the name
+# may change again. The glob is what keeps the next one out.
+.env*.local
 .claude/
 .agents/
 CLAUDE.md
