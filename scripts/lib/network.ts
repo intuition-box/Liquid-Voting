@@ -45,6 +45,17 @@ export interface Manifest {
     curator: `0x${string}` | null;
     curveId: string | null;
     stakes: Record<string, { shares: string; txHash: `0x${string}` | null }>;
+    /**
+     * Who may stake on the curator's behalf, beyond the curator itself.
+     *
+     * The enforcer reads one named attestor, so the graph has exactly one voice that
+     * counts (ADR 0004). That is a role, not a person: here it is a key, in production it
+     * is the DAO, and the enforcer cannot tell the difference. This lists the accounts the
+     * holder of that role has approved to pay for and create domains in its name, which
+     * is what lets A, B or C extend the graph without each becoming an attestor of its
+     * own — see ADR 0027.
+     */
+    stakers?: Record<string, { address: `0x${string}`; txHash: `0x${string}` | null }>;
   };
   /** Phase 3: the three HybridDeleGator accounts (owner EOA + smart account address). */
   accounts?: Record<string, { owner: `0x${string}`; smartAccount: `0x${string}` }>;

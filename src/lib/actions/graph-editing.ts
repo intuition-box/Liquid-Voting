@@ -99,7 +99,7 @@ export async function extendGraph(
         .catch((error: unknown) => error);
       if (refused && JSON.stringify(refused instanceof Error ? refused.message : refused).includes("SenderNotApproved")) {
         throw new Error(
-          `this wallet cannot stake on the curator's behalf, so a new domain would authorize nothing. The curator ${config.attestor.slice(0, 6)}…${config.attestor.slice(-4)} has to approve ${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} on the MultiVault first — which the session does automatically when it is funded from the curator's own key.`,
+          `this wallet cannot stake for the curator, so the domain would exist and authorize nothing. One address attests the whole graph, and ${config.attestor.slice(0, 6)}…${config.attestor.slice(-4)} has to approve ${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} before it can stake in that name. \`bun run setup\` does it for the three demo accounts, and a session does it for itself when the curator's own key funded it — a session funded by your wallet or by the faucet cannot be approved by either. See ADR 0029.`,
         );
       }
     }

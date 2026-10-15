@@ -140,6 +140,13 @@ bun run verify     # confirm all of it against live state
 `fund` is not optional and is easy to skip: a balance is not voting power on `ERC20Votes`
 until the holder self-delegates, so without it every account votes with zero.
 
+`setup` also has the curator approve the three accounts to stake in its name. One address
+attests the whole graph — that is what lets a delegation signed earlier cover a domain
+minted later — and `MultiVault.deposit` refuses to stake for someone who has not approved
+you, so without this only the curator itself could add a domain. The attestor is a role:
+a key here, the DAO in production, and the enforcer cannot tell the difference. See
+[ADR 0029](docs/adr/0029-one-attestor-many-stakers.md).
+
 Secrets reach the browser only in dev, through a generated `.env.development.local`; a production
 build carries none and opens read-only. See
 [ADR 0011](docs/adr/0011-frontend-demo-keys.md).
@@ -215,7 +222,7 @@ manifest/13579.json         addresses, vocabulary term_ids, curator stakes
 | [docs/WRITEUP.md](docs/WRITEUP.md) | Design decisions, gas, limitations, what production needs. |
 | [docs/DEMO.md](docs/DEMO.md) | An ordered demo script, expected output and recovery moves. |
 | [docs/slides.md](docs/slides.md) | Slide outline for the presentation. |
-| [docs/adr/](docs/adr/) | ADRs 0001–0028: every architectural decision, with the alternatives rejected. |
+| [docs/adr/](docs/adr/) | ADRs 0001–0029: every architectural decision, with the alternatives rejected. |
 | [contracts/SECURITY_REVIEW.md](contracts/SECURITY_REVIEW.md) | Threat-model walk, reviewed with no code findings. |
 | [docs/phase0/](docs/phase0/) | The opening audit: framework verification and the graph vocabulary. |
 
