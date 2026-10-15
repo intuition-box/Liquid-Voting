@@ -12,6 +12,7 @@
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
 import { proposalDomainsAbi } from "../src/lib/chain/abis";
+import { probeClosedAttacks } from "./lib/attacks";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
 import { readProposals, readRegister } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
@@ -118,6 +119,22 @@ async function main(): Promise<void> {
   if (held.length === 0) console.log("ok    nothing delegated — every account opens holding its own vote");
   else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or run \`bun run reset\``);
 
+
+  // The four attacks that were open, replayed against the contracts actually deployed.
+  //
+  // The Foundry regressions in test/governance/OZGovernor.t.sol prove the source refuses.
+  // They cannot prove that the address in the manifest holds that source — a suite stays
+  // green while a stale build sits on chain, which is the version of this that would hurt
+  // on stage. So each one is sent as an `eth_call` here: no transaction, no cost, and a
+  // revert is the pass.
+  //
+  // Each was reproduced as a success before it was fixed. The first returned 100 — an
+  // address holding nothing casting A's whole weight against its will.
+  const attacks = await probeClosedAttacks(client, config, proposals);
+  for (const attack of attacks) {
+    if (attack.closed) console.log(`ok    ${attack.label}  ${attack.error}`);
+    else fail(`${attack.label} — ${attack.error}. The deployed governor is not the audited one.`);
+  }
 
   console.log(failures === 0 ? "\nDemo is ready — every panel verified against live state." : `\n${failures} check(s) failed — fix before presenting.`);
   if (failures > 0) process.exit(1);
