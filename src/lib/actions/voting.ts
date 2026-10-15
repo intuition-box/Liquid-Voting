@@ -34,7 +34,6 @@ import { requireOwnerKey, submitterClient } from "./common";
 
 export { VOTE_AGAINST, VOTE_FOR, VOTE_ABSTAIN } from "../delegation/encoding";
 
-/** The governor's vote logs, as parsed items — getLogs infers its arg types from these. */
 /**
  * OpenZeppelin's vote events. A vote that carries params emits the second one, which is
  * every delegated vote here, so both have to be read to see the whole tally. Note the
@@ -638,20 +637,6 @@ export async function recordProposal(
   return { txHash, proposalId };
 }
 
-/**
- * Signs a fresh delegation from one demo account to another, scoped to a domain.
- *
- * Nothing is sent to the chain: a delegation is a signed object, and it only reaches the
- * DelegationManager when someone redeems it. The signature is verified against the
- * delegator's account (EIP-1271) before it is returned, so an invalid grant fails here
- * rather than at redemption time.
- *
- * When the signer holds this domain through a delegation of its own, the new grant is
- * chained to it: `authority` carries the upstream hash instead of which
- * is what makes the authority derive rather than stand on its own. The consequence is the
- * framework's, not ours — disabling a link kills everything below it, because every hash
- * beneath points at it.
- */
 /**
  * What each identity holds of the governance token.
  *

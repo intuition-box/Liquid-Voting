@@ -97,12 +97,6 @@ const OPTIONS = [
   { support: VOTE_ABSTAIN, label: "abstain" },
 ];
 
-/**
- * Every proposal, each with its own vote buttons.
- *
- * B votes on all of them, but the weight differs: inside the delegated domain A's weight
- * comes along, outside it B votes alone. That contrast is the demo.
- */
 /** The weight a role casts on one domain, defaulting to nothing while reads are in flight. */
 function votingPowerOf(
   weights: Record<string, Record<Role, bigint>>,
@@ -112,6 +106,12 @@ function votingPowerOf(
   return weights[domainId.toLowerCase()]?.[role] ?? 0n;
 }
 
+/**
+ * Every proposal, each with its own vote buttons.
+ *
+ * B votes on all of them, but the weight differs: inside the delegated domain A's weight
+ * comes along, outside it B votes alone. That contrast is the demo.
+ */
 export function ProposalsPanel({
   config,
   client,

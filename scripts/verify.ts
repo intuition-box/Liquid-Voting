@@ -18,12 +18,6 @@ import { readEdgeStates } from "../src/lib/graph/edges";
 
 
 /**
- * The demo script's claims, as assertions: who votes, on which domain, and what the
- * chain does about it. `heldOn` is the domain the voter's chain was actually granted on —
- * for the failing cases it differs from the domain being voted, which is the point: the
- * chain is real and gets redeemed, and the enforcer is what refuses it.
- */
-/**
  * What the domain register must and must not let through, read without touching state.
  *
  * `weightFor` answers the same question the vote path enforces: how much an account may

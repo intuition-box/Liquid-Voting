@@ -108,8 +108,10 @@ export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missin
 
 /**
  * Only non-secret artefacts may be bundled. `data/accounts.json` holds the owner private
- * keys and is deliberately NOT globbed — it reaches the app through the dev-only
- * `DEMO_OWNER_KEYS` env define in vite.config.ts, so a production build carries no keys.
+ * keys and is deliberately NOT globbed — it reaches the app through a generated,
+ * gitignored `.env.local` that vite.config.ts writes on a dev start and deletes before a
+ * build, so a production build carries no keys. Not through `define`, which Vite 8
+ * leaves unsubstituted in dev; vite.config.ts records why that was abandoned.
  */
 const delegationFiles = import.meta.glob<{ default: unknown }>("/data/delegations.json", { eager: true });
 const manifestFiles = import.meta.glob<{ default: unknown }>("/manifest/*.json", { eager: true });

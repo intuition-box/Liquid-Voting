@@ -35,14 +35,11 @@ export function ChainPanel({
   grants: Grant[];
   /** The domain picked in the rail — what this grant would cover. */
   domain: string;
-  /** What each account holds, which is the ceiling on what it can lend. */
   onSigned: (grant: Grant) => void;
   onRevoked: (from: Role, domain: string) => void;
 }) {
   const [to, setTo] = useState<Role | null>(null);
   const [depth, setDepth] = useState(DEFAULT_MAX_DEPTH);
-  // Null means the whole balance, which stays the default: most handovers are total, and
-  // a slider that starts mid-way would invent an intent nobody expressed.
   const [outcome, setOutcome] = useState<{ verdict: Verdict; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,9 +56,6 @@ export function ChainPanel({
 
   // A domain has one holder at a time, so while yours stands the only move is to revoke.
   const locked = yours !== null || coveredBy !== null;
-
-  // What the signer can lend is what it counts for, not what it holds: an unself-delegated
-  // balance counts for nothing, and lending it would be lending zero.
 
   async function revokeParent(): Promise<void> {
     if (!coveredBy) return;

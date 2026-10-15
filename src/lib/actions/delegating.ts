@@ -231,5 +231,3 @@ export async function revokeWeight(
 }
 
 
-
-/** Lifecycle states, in the governor's enum order. */

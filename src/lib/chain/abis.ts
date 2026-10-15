@@ -205,7 +205,7 @@ export const entryPointAbi = [
 /**
  * The OpenZeppelin governor, and the token it reads weight from.
  *
- * Separate from `governorAbi` because the two governors genuinely differ. OZ has no
+ * The only governor ABI here: the demo's own governor is gone and so is its ABI. OZ has no
  * proposal counter and no stored proposal struct: ids are hashes and the details live in
  * events, so listing proposals means reading `ProposalCreated` rather than counting up
  * from zero. Voting goes through `castVoteWithReasonAndParams`, which is the entry point

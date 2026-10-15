@@ -119,9 +119,14 @@ export class DelegationSet {
   }
 
   /**
-   * The grant on an ancestor that already carries this domain away — the client-side
-   * mirror of the governor's `CoveredByParent`. Granting a domain hands its sub-domains
-   * over with it, so the parent has to come back before this one can move.
+   * The grant on an ancestor that already carries this domain away. Granting a domain
+   * hands its sub-domains over with it, so the parent has to come back before this one
+   * can move.
+   *
+   * This rule is the interface's alone. `DemoGovernor` raised `CoveredByParent` for it;
+   * the governor the app runs on now has no such error — its nearest is
+   * `AlreadyDelegated`, which fires on the parent, not the child. Nothing on chain
+   * refuses a grant covered by a parent, so this is what keeps one from being offered.
    */
   coveredBy(holder: Role, domain: string): Grant | null {
     const ancestors = this.graph.ancestorsOf(domain);
