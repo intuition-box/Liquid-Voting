@@ -19,7 +19,6 @@ export function ChainPanel({
   delegations,
   writable,
   role,
-  grants,
   domain,
   onSigned,
   onRevoked,
@@ -31,8 +30,6 @@ export function ChainPanel({
   writable: boolean;
   /** Who the viewer is acting as — they can only delegate their own vote. */
   role: Role;
-  /** Every delegation signed so far, revoked ones included. */
-  grants: Grant[];
   /** The domain picked in the rail — what this grant would cover. */
   domain: string;
   onSigned: (grant: Grant) => void;
@@ -48,8 +45,13 @@ export function ChainPanel({
   const candidates = delegations.candidatesFor(role, domain);
   const target = to && candidates.includes(to) ? to : (candidates[0] ?? null);
 
-  const held = grants.find((grant) => !grant.revoked && grant.scope === domain)?.to;
   const yours = delegations.grantedAway(role, domain);
+  // Who *this* account handed the domain to. It used to be the first live grant on the
+  // domain from anyone at all, and `grants` holds everybody's: with B lending `grants` to
+  // C, A's own panel ticked C as holding it and told A to take back something A never
+  // gave. The question the panel asks is "who did you give this to", so the answer comes
+  // from this account's grant or not at all.
+  const held = yours?.to;
   // Granting a parent gives its children away with it, so a domain under one you already
   // delegated cannot be granted again — the parent has to come back first.
   const coveredBy = delegations.coveredBy(role, domain);
@@ -57,8 +59,14 @@ export function ChainPanel({
   // A domain has one holder at a time, so while yours stands the only move is to revoke.
   const locked = yours !== null || coveredBy !== null;
 
-  async function revokeParent(): Promise<void> {
-    if (!coveredBy) return;
+  /**
+   * Takes a domain back, whether it is the one selected or the parent that carries it.
+   *
+   * One function for both, because the two differ only in which scope they name: the
+   * button under a covered domain revokes the parent that holds it, since that is what
+   * has to come back first.
+   */
+  async function revoke(scope: string): Promise<void> {
     setBusy(true);
     setOutcome(null);
     try {
@@ -66,31 +74,12 @@ export function ChainPanel({
       // and any it was relaying — so nothing is left signed but unusable.
       const signed = delegations
         .all()
-        .filter((grant) => !grant.revoked && grant.from === role && grant.scope === coveredBy.scope)
+        .filter((grant) => !grant.revoked && grant.from === role && grant.scope === scope)
         .map((grant) => grant.delegation);
-      const result = await revokeWeight(client, config, role, coveredBy.scope, signed);
+      const result = await revokeWeight(client, config, role, scope, signed);
       if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
-      onRevoked(role, coveredBy.scope);
-      setOutcome({ verdict: "pass", text: `you took “${coveredBy.scope}” back` });
-    } catch (error) {
-      setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revoke(): Promise<void> {
-    setBusy(true);
-    setOutcome(null);
-    try {
-      const signed = delegations
-        .all()
-        .filter((grant) => !grant.revoked && grant.from === role && grant.scope === domain)
-        .map((grant) => grant.delegation);
-      const result = await revokeWeight(client, config, role, domain, signed);
-      if (!result.success) throw new Error(result.revert?.formatted ?? "the revocation reverted");
-      onRevoked(role, domain);
-      setOutcome({ verdict: "pass", text: `you took “${domain}” back` });
+      onRevoked(role, scope);
+      setOutcome({ verdict: "pass", text: `you took “${scope}” back` });
     } catch (error) {
       setOutcome({ verdict: "fail", text: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -198,11 +187,11 @@ export function ChainPanel({
 
       <div className="actions">
         {coveredBy ? (
-          <Button onClick={() => void revokeParent()} busy={busy} disabled={!writable} variant="danger">
+          <Button onClick={() => void revoke(coveredBy.scope)} busy={busy} disabled={!writable} variant="danger">
             take “{coveredBy.scope}” back
           </Button>
         ) : locked ? (
-          <Button onClick={() => void revoke()} busy={busy} disabled={!writable} variant="danger">
+          <Button onClick={() => void revoke(domain)} busy={busy} disabled={!writable} variant="danger">
             take “{domain}” back
           </Button>
         ) : (

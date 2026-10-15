@@ -17,3 +17,19 @@ export const ROLES: Role[] = ["A", "B", "C"];
 
 /** One colour per identity, so a role reads the same everywhere it appears. */
 export const ROLE_CLASS: Record<Role, string> = { A: "role-a", B: "role-b", C: "role-c" };
+
+/**
+ * Which identity an address belongs to, or null when it is none of them.
+ *
+ * Takes the accounts map rather than an `AppConfig`, which is what lets it live here:
+ * `app-config` imports this module, and it reaches for `import.meta.glob`, so importing
+ * it back would both close a cycle and drag Vite's bundler into every Node script. Three
+ * copies of this comparison were written inline in `voting.ts`, two of them identical.
+ */
+export function roleOfAddress(
+  accounts: Record<Role, { smartAccount: string }>,
+  address: string,
+): Role | null {
+  const wanted = address.toLowerCase();
+  return ROLES.find((role) => accounts[role].smartAccount.toLowerCase() === wanted) ?? null;
+}
