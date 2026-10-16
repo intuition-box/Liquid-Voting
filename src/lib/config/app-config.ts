@@ -25,6 +25,24 @@ const DEMO_RPC: string = import.meta.env.DEMO_RPC ?? "";
  * `DEMO_SUBMITTER_KEY` is present and no faucet is needed.
  */
 const FAUCET_URL: string = import.meta.env.VITE_FAUCET_URL ?? "";
+
+/**
+ * The curator's own key — the one key a hosted build carries on purpose.
+ *
+ * `VITE_` rather than `DEMO_` because the prefixes mean different things here: `DEMO_*` is
+ * injected in development only, `VITE_*` ships in `dist/`. This one has to ship. The
+ * curator is the single attestor every signed delegation names, so a visitor who mints a
+ * domain must stake its edge for *that* address — stake it for themselves and the domain
+ * authorizes nothing, which is the one thing the demo exists to show.
+ *
+ * It is a testnet burner holding a little tTRUST and no privileges. It is not the
+ * deployer, and `DemoVotes.mint` is already open to everybody, so publishing it grants
+ * nothing that was not already public beyond attesting edges on this graph and spending
+ * its change. The alternative was a server holding it and approving each visitor: more
+ * moving parts, guarding something worth nothing (ADR 0029).
+ */
+const CURATOR_KEY: string = import.meta.env.VITE_CURATOR_KEY ?? "";
+
 const DEMO_OWNER_KEYS: Record<string, string> = (() => {
   try {
     return JSON.parse(import.meta.env.DEMO_OWNER_KEYS ?? "{}") as Record<string, string>;
@@ -102,6 +120,8 @@ export interface AppConfig {
   };
   submitterKey: `0x${string}`;
   rpcUrl: string | undefined;
+  /** The attestor's own key, public by design. Undefined when the build was given none. */
+  curatorKey: `0x${string}` | undefined;
 }
 
 export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; missing: string; hint: string };
@@ -192,6 +212,7 @@ export function loadAppConfig(): ConfigResult {
       // Empty string in a production build — validated by canWrite() before any use.
       submitterKey: DEMO_SUBMITTER_KEY as `0x${string}`,
       faucetUrl: FAUCET_URL || undefined,
+      curatorKey: isHexKey(CURATOR_KEY) ? CURATOR_KEY : undefined,
       governorFromBlock: BigInt(manifest.contracts.OZGovernor.deployedBlock ?? 0),
       rpcUrl: DEMO_RPC || undefined,
     },
@@ -234,12 +255,17 @@ export function withSession(config: AppConfig, session: Session): AppConfig {
  */
 export function resolveFunder(config: AppConfig): Funder | null {
   if (isHexKey(config.submitterKey)) return { kind: "key", key: config.submitterKey };
+  // The curator pays for a hosted visitor's session. It has to be in the bundle anyway in
+  // order to stake, and a second funded key would only be a second thing to keep topped
+  // up — so the faucet below is now the fallback rather than the hosted default.
+  if (config.curatorKey) return { kind: "key", key: config.curatorKey };
   if (config.faucetUrl) return { kind: "faucet", url: config.faucetUrl };
   return null;
 }
 
 export function funderKind(config: AppConfig): "key" | "wallet" | "faucet" | null {
   if (isHexKey(config.submitterKey)) return "key";
+  if (config.curatorKey) return "key";
   if (hasWallet()) return "wallet";
   if (config.faucetUrl) return "faucet";
   return null;

@@ -85,6 +85,10 @@ export function configFromManifest(submitterKey?: string): AppConfig {
       maxDepth: delegations.maxDepth,
     },
     submitterKey: (submitterKey ?? "0x") as `0x${string}`,
+    // The attestor's own key, when this machine has it. `extendGraph` stakes with it,
+    // because an edge only counts for the address the signed delegations name. Absent on
+    // a read-only run, where nothing stakes anything.
+    curatorKey: (process.env["CURATOR_PRIVATE_KEY"] as `0x${string}` | undefined) ?? undefined,
     // No faucet from a CLI script: it already has the funded key in contracts/.env.
     faucetUrl: undefined,
     governorFromBlock: BigInt(manifest.contracts.OZGovernor.deployedBlock ?? 0),

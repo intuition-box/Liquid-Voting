@@ -112,7 +112,18 @@ async function main(): Promise<void> {
     console.log(`  created in ${hash}`);
   }
 
-  // 3. Attestation deposits (ADR 0004): the org attestor stakes on every edge.
+  // 3. Attestation deposits (ADR 0004): the attestor stakes on every edge.
+  //
+  // The curator signs these, not the key that created the atoms and triples. The two were
+  // the same address until the curator became a burner whose key ships in the browser, so
+  // that a hosted visitor can stake a new domain's edge in the name every signed
+  // delegation already carries (ADR 0029). Creating a term is anyone's to pay for;
+  // vouching for one is the attestor's alone, and this is where that line is drawn.
+  const curatorAccount = privateKeyToAccount(requireEnv("CURATOR_PRIVATE_KEY") as `0x${string}`);
+  const curatorWallet = createWalletClient({ chain: intuitionTestnet, transport, account: curatorAccount });
+  const curatorBalance = await publicClient.getBalance({ address: curatorAccount.address });
+  console.log(`curator ${curatorAccount.address} | balance ${formatEther(curatorBalance)} tTRUST`);
+
   // Re-read from the manifest: ids resolved in step 2 are not in the earlier snapshot.
   const stakeEntries = Object.entries(manifest.vocabulary.triples) as Array<[string, `0x${string}`]>;
   const stakes: Record<string, { shares: string; txHash: `0x${string}` | null }> = {};
@@ -120,7 +131,7 @@ async function main(): Promise<void> {
     const held = await publicClient.readContract({
       ...vault,
       functionName: "getShares",
-      args: [account.address, tripleId, curveId],
+      args: [curatorAccount.address, tripleId, curveId],
     });
     if (held > 0n) {
       console.log(`stake on "${key}" already held (${held} shares) — skip`);
@@ -129,17 +140,17 @@ async function main(): Promise<void> {
       continue;
     }
     console.log(`depositing ${formatEther(STAKE_PER_TRIPLE)} tTRUST on "${key}"`);
-    const hash = await walletClient.writeContract({
+    const hash = await curatorWallet.writeContract({
       ...vault,
       functionName: "deposit",
-      args: [account.address, tripleId, curveId, 0n],
+      args: [curatorAccount.address, tripleId, curveId, 0n],
       value: STAKE_PER_TRIPLE,
     });
     await publicClient.waitForTransactionReceipt({ hash });
     const shares = await publicClient.readContract({
       ...vault,
       functionName: "getShares",
-      args: [account.address, tripleId, curveId],
+      args: [curatorAccount.address, tripleId, curveId],
     });
     if (shares === 0n) throw new Error(`post-write verification failed: no shares on "${key}" (tx ${hash})`);
     console.log(`  ${shares} shares (tx ${hash})`);
@@ -149,7 +160,7 @@ async function main(): Promise<void> {
   // 4. Manifest update — the single source of truth for tests and frontend.
   manifest.curation = {
     note: "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
-    curator: account.address,
+    curator: curatorAccount.address,
     curveId: curveId.toString(),
     stakes,
   };

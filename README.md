@@ -140,12 +140,13 @@ bun run verify     # confirm all of it against live state
 `fund` is not optional and is easy to skip: a balance is not voting power on `ERC20Votes`
 until the holder self-delegates, so without it every account votes with zero.
 
-`setup` also has the curator approve the three accounts to stake in its name. One address
-attests the whole graph — that is what lets a delegation signed earlier cover a domain
-minted later — and `MultiVault.deposit` refuses to stake for someone who has not approved
-you, so without this only the curator itself could add a domain. The attestor is a role:
-a key here, the DAO in production, and the enforcer cannot tell the difference. See
-[ADR 0029](docs/adr/0029-one-attestor-many-stakers.md).
+One address attests the whole graph, and that is what lets a delegation signed earlier
+cover a domain minted later: the edge is staked by the voice the signature already named.
+That address is a testnet burner whose key is published in the built bundle on purpose,
+so a hosted visitor can create a domain and have it count. It is not the deployer, and
+`DemoVotes.mint` is open to everyone anyway — [ADR 0029](docs/adr/0029-the-curator-ships-in-the-bundle.md)
+sets out exactly what publishing it does and does not grant, and why the alternative (a
+server holding it) was not worth its moving parts.
 
 Secrets reach the browser only in dev, through a generated `.env.development.local`; a production
 build carries none and opens read-only. See

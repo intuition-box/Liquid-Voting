@@ -28,6 +28,22 @@ export function submitterClient(config: AppConfig) {
   });
 }
 
+/**
+ * The attestor, signing for itself. Null when this build was given no curator key.
+ *
+ * Only `extendGraph` needs it, and only because an edge has to be staked by the address
+ * the signed delegations name. Null on a read-only build, and on the local path where the
+ * submitter is already that address, so callers fall back to `submitterClient`.
+ */
+export function curatorClient(config: AppConfig) {
+  if (!config.curatorKey) return null;
+  return createWalletClient({
+    chain: intuitionTestnet,
+    transport: http(config.rpcUrl),
+    account: privateKeyToAccount(config.curatorKey),
+  });
+}
+
 /** Hops a grant reaches below its domain unless the signer says otherwise. Five clears
  *  the demo tree, whose deepest branch is four hops from the root. */
 export const DEFAULT_MAX_DEPTH = 5;

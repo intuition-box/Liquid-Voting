@@ -47,6 +47,17 @@ function knownSecrets(): { where: string; value: string }[] {
       if (split === -1) continue;
       const name = trimmed.slice(0, split).trim();
       const value = trimmed.slice(split + 1).trim().replace(/^["']|["']$/g, "");
+      // The one key that belongs in the bundle, named rather than inferred.
+      //
+      // The curator is the single attestor every signed delegation names, so a hosted
+      // visitor who mints a domain has to stake its edge for that address or the domain
+      // authorizes nothing. It is a testnet burner with no privileges — see ADR 0029 for
+      // what publishing it does and does not grant.
+      //
+      // Exempted by name, never by relaxing the rule: every other 64-hex value in this
+      // file is still refused, and so are all three owner keys. A guard with a hole in
+      // the shape of "any key we decided was fine" is not a guard.
+      if (name === "CURATOR_PRIVATE_KEY") continue;
       // A private key, and nothing else from that file: the RPC URL belongs in the bundle.
       if (/^0x[0-9a-fA-F]{64}$/.test(value)) secrets.push({ where: `contracts/.env · ${name}`, value });
     }

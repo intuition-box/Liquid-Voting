@@ -13,7 +13,6 @@ import {
   clearSessionDomains,
   loadAppConfig,
   funderKind,
-  isHexKey,
   resolveFunder,
   withSession,
   readSessionDomains,
@@ -412,12 +411,18 @@ export function useApp(): AppState {
    */
   const startSession = useCallback(async (): Promise<void> => {
     if (!baseConfig || !client) return;
-    // The header's wallet is what pays, when there is one. Connecting inside the
-    // bootstrap would prompt for a wallet the header already shows as connected — but
-    // somebody who presses this without having connected should not be refused for it,
-    // so the connection happens here instead of becoming an error.
+    // A wallet the visitor connected deliberately pays; otherwise the curator does.
+    //
+    // This used to prompt for a connection whenever a build had no local key, which was
+    // every hosted build — so anyone with MetaMask installed got a popup and paid for
+    // their own session while a funded curator sat in the bundle doing nothing. The
+    // curator is now the normal payer, and the wallet is what somebody reaches for when
+    // the curator has run dry, which it will: its key is public, so anybody can empty it.
+    //
+    // Hence `funderKind`, not `hasWallet`: the prompt only appears when nothing else can
+    // pay. Having MetaMask installed is not a request to use it.
     let payer = wallet;
-    if (!payer && !isHexKey(baseConfig.submitterKey) && hasWallet()) {
+    if (!payer && funderKind(baseConfig) === null && hasWallet()) {
       setConnectingWallet(true);
       try {
         payer = await connectWallet();
@@ -447,8 +452,6 @@ export function useApp(): AppState {
         funder,
         governor: baseConfig.governor,
         votesToken: baseConfig.votesToken,
-        multiVault: baseConfig.multiVault,
-        attestor: baseConfig.attestor,
         rpcUrl: baseConfig.rpcUrl,
         onProgress: (stage, done, total) => setBootstrapping({ stage, done, total }),
       });
