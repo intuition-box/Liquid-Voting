@@ -8,7 +8,7 @@ import { multiVaultAbi } from "../chain/abis";
 import type { AppConfig } from "../config/app-config";
 
 import { trackTransaction } from "../chain/tx-log";
-import { submitterClient } from "./common";
+import { curatorClient, submitterClient } from "./common";
 
 export interface ExtendResult {
   label: string;
@@ -40,12 +40,26 @@ export async function extendGraph(
   const parentId = config.nodes.find((node) => node.label === parentLabel)?.termId;
   if (!parentId) throw new Error(`unknown parent domain “${parentLabel}”`);
 
-  const wallet = submitterClient(config);
+  // Growing the graph is the curator's own act, so the curator signs all three
+  // transactions rather than the session's submitter.
+  //
+  // Not a preference — a requirement. Every edge is staked for the curator, because that
+  // is the attestor the signed delegations name: stake it for anybody else and the new
+  // domain authorizes nothing, which is the one thing this feature exists to show. And
+  // `deposit` refuses a receiver that is not the sender unless that receiver approved it,
+  // so a session's burner submitter could not stake in the curator's name at all. It used
+  // to try, and failed at the third transaction with
+  // `MultiVault_SenderNotApproved` — the atom minted, the edge written, and a domain left
+  // in the rail that authorized nothing.
+  //
+  // Falls back to the submitter, which is the curator itself on the local path (the key
+  // that seeded the graph is the key that submits), so nothing changes there.
+  const wallet = curatorClient(config) ?? submitterClient(config);
   const vault = { address: config.multiVault, abi: multiVaultAbi } as const;
   const data = stringToHex(label);
 
   /**
-   * Can the submitter afford all three before any of them is sent?
+   * Can the curator afford all three before any of them is sent?
    *
    * Growing the graph is a mint, a link and a stake, each its own transaction. Running
    * out between the second and the third leaves an edge in the graph that nobody has
@@ -67,42 +81,6 @@ export async function extendGraph(
     throw new Error(
       `${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} holds ${formatEther(balance)} tTRUST and growing the graph costs about ${formatEther(needed)} — a mint, a link and a stake. Top it up, or lower the stake.`,
     );
-  }
-
-  // Can this wallet stake for the attestor at all, before anything is minted?
-  //
-  // Every edge is staked for the curator, because that is the attestor the signed
-  // delegations name — stake it for anybody else and the new domain authorizes nothing.
-  // But `deposit` refuses a receiver that is not the sender without the receiver's
-  // approval, so a browser session, whose submitter is a burner, cannot stake at all
-  // until the curator has approved it.
-  //
-  // Asked here rather than discovered at the third transaction. Finding out last is what
-  // the session hit: the atom was minted, the edge was written, and then the stake
-  // reverted — leaving a domain in the rail that authorizes nothing, which is a real
-  // state the enforcer handles and an inexplicable one to reach by accident. The probe is
-  // a simulation against an edge that already exists, so it costs nothing and changes
-  // nothing; only the approval error is conclusive, since any other revert means the
-  // approval was fine.
-  if (wallet.account.address.toLowerCase() !== config.attestor.toLowerCase()) {
-    const existing = config.edges[0]?.tripleId;
-    if (existing) {
-      const refused = await client
-        .simulateContract({
-          ...vault,
-          functionName: "deposit",
-          args: [config.attestor, existing, config.curveId, 0n],
-          value: stakeWei,
-          account: wallet.account.address,
-        })
-        .then(() => null)
-        .catch((error: unknown) => error);
-      if (refused && JSON.stringify(refused instanceof Error ? refused.message : refused).includes("SenderNotApproved")) {
-        throw new Error(
-          `this wallet cannot stake for the curator, so the domain would exist and authorize nothing. One address attests the whole graph, and ${config.attestor.slice(0, 6)}…${config.attestor.slice(-4)} has to approve ${wallet.account.address.slice(0, 6)}…${wallet.account.address.slice(-4)} before it can stake in that name. \`bun run setup\` does it for the three demo accounts, and a session does it for itself when the curator's own key funded it — a session funded by your wallet or by the faucet cannot be approved by either. See ADR 0029.`,
-        );
-      }
-    }
   }
 
   const atomId = await client.readContract({ ...vault, functionName: "calculateAtomId", args: [data] });

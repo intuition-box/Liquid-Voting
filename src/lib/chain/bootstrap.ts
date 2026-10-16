@@ -33,7 +33,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { multiVaultAbi, votesTokenAbi } from "./abis";
+import { votesTokenAbi } from "./abis";
 import { intuitionTestnet } from "./network";
 import type { HybridAccount } from "./smart-accounts";
 import { logStep, recordStep, settleStep, trackTransaction } from "./tx-log";
@@ -100,17 +100,13 @@ export interface BootstrapParams {
   funder: Funder;
   governor: `0x${string}`;
   votesToken: `0x${string}`;
-  /** The graph, so the session can be approved to stake on it. */
-  multiVault: `0x${string}`;
-  /** The single attestor every signed delegation names — the curator. */
-  attestor: `0x${string}`;
   rpcUrl?: string | undefined;
   /** Called as each stage begins, for the loader. */
   onProgress?: (stage: string, done: number, total: number) => void;
 }
 
 /** Stage count, so the loader can show a real fraction rather than an indeterminate bar. */
-export const BOOTSTRAP_STAGES = 4 + ROLES.length * 3 + 1;
+export const BOOTSTRAP_STAGES = 3 + ROLES.length * 3 + 1;
 
 /**
  * One sender, with the fees it read once.
@@ -131,8 +127,6 @@ export async function bootstrapSession({
   funder,
   governor,
   votesToken,
-  multiVault,
-  attestor,
   rpcUrl,
   onProgress,
 }: BootstrapParams): Promise<Session> {
@@ -180,21 +174,6 @@ export async function bootstrapSession({
   // ── 3. The session's budget ──────────────────────────────────────────────────────
   stage("asking for gas");
   await fundSubmitter(client, funder, submitter.address, rpcUrl);
-
-  // ── Letting this session stake on the graph ──────────────────────────────────────
-  //
-  // Every edge is staked for the curator, because that is the attestor the delegations
-  // name; stake one for anybody else and the domain it attaches authorizes nothing. But
-  // `deposit` refuses a receiver that is not the sender unless the receiver approved it,
-  // so without this a session could mint a domain, write its edge, and then fail on the
-  // stake — the panel showed `MultiVault_SenderNotApproved` as a bare selector.
-  //
-  // Only possible when the funder is the curator, which it is on the local path where the
-  // same key seeded the graph. A visitor's own wallet and the faucet are not the curator
-  // and cannot grant this, so the session is left unapproved and `extendGraph` refuses
-  // before spending anything rather than halfway through.
-  stage("letting this session stake on the graph");
-  await approveSessionToStake(client, funder, submitter.address, multiVault, attestor, rpcUrl);
 
   const sender: Sender = {
     wallet: createWalletClient({
@@ -486,57 +465,6 @@ async function settleWeight({
  * reads the bundle, which is what ADR 0011 exists to prevent — so it asks an endpoint that
  * holds the key server side and can rate-limit.
  */
-/**
- * Approves the session's submitter to stake for the attestor, when the funder can.
- *
- * Deliberately quiet when it cannot: the funder being someone other than the curator is
- * the normal hosted case, not a failure, and a session that cannot grow the graph still
- * votes, delegates and reads everything. `extendGraph` is where that limit is reported,
- * at the moment somebody tries to use it.
- */
-async function approveSessionToStake(
-  client: PublicClient,
-  funder: Funder,
-  submitter: `0x${string}`,
-  multiVault: `0x${string}`,
-  attestor: `0x${string}`,
-  rpcUrl?: string | undefined,
-): Promise<void> {
-  if (funder.kind !== "key") return;
-  const curator = privateKeyToAccount(funder.key);
-  if (curator.address.toLowerCase() !== attestor.toLowerCase()) return;
-
-  const wallet = createWalletClient({
-    chain: intuitionTestnet,
-    transport: http(rpcUrl ?? intuitionTestnet.rpcUrls.default.http[0]),
-    account: curator,
-  });
-  await trackTransaction(
-    client,
-    {
-      actor: curator.address,
-      label: "the curator lets this session stake on its behalf",
-      detail:
-        "Every edge is staked for the curator, since that is the attestor the delegations name. The MultiVault refuses a deposit for someone else without their approval, so adding a domain from this session would otherwise mint the atom, write the edge, and fail on the stake.",
-      calls: [
-        {
-          contract: "MultiVault",
-          address: multiVault,
-          fn: "approve(address,uint8)",
-          args: { sender: submitter, approvalType: "1 (deposit)" },
-        },
-      ],
-    },
-    () =>
-      wallet.writeContract({
-        address: multiVault,
-        abi: multiVaultAbi,
-        functionName: "approve",
-        args: [submitter, 1],
-      }),
-  );
-}
-
 async function fundSubmitter(
   client: PublicClient,
   funder: Funder,

@@ -2,6 +2,7 @@
   "name": "liquid-demo",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.14",
   "scripts": {
     "seed": "bun --env-file=contracts/.env scripts/seed-graph.ts",
     "setup": "bun --env-file=contracts/.env scripts/setup-accounts.ts",

@@ -115,86 +115,72 @@
   },
   "curation": {
     "note": "Org-attestor stakes per ADR 0004; delegator-curation stakes are added per-account in Phase 3.",
-    "curator": "0xAA7a2Dfe6524dAE444A64BBd4efb69cadb92615A",
+    "curator": "0x653C22a761177246A112d4151F37ECAd4F81Eaf9",
     "curveId": "1",
     "stakes": {
       "treasury — is a sub-domain of — governance": {
         "shares": "9900000000000000",
-        "txHash": "0x56ae52f0161e769010ceae2dd5066249a0869418617e6542d251015b64041a80"
+        "txHash": "0x5a54441d1e5de3c54900d1266ae5b4ae3b072e3b2a44d5b369188083e5087b7b"
       },
       "grants — is a sub-domain of — treasury": {
         "shares": "9900000000000000",
-        "txHash": "0x01cae0c59b637318b238d9b9e90e7d7545f7a7a9815e2befe6491165a7bcd667"
+        "txHash": "0x7908377797b1d2892aad4512817dd611da4765e98e016ee2c1d5346a76ad48f2"
       },
       "builder-grants — is a sub-domain of — grants": {
         "shares": "9900000000000000",
-        "txHash": "0x951a3b3db174982a8a1d950e4e586cb0f3bc72fb87f2612c948b6fbbe07de6c8"
+        "txHash": "0xb21032b80bea49b006b001718bae26305fdd1ddab1bd117940129559466f624e"
       },
       "micro-grants — is a sub-domain of — builder-grants": {
         "shares": "9900000000000000",
-        "txHash": "0xfd5f4b1c74410fc2cac3dd62dd3569267f481b78f7db3e7fb850280d5bfb6691"
+        "txHash": "0xcb35fbe98bd891d5060bc34cee8be16be711c29d39033c221046cf1e99619bb9"
       },
       "retro-funding — is a sub-domain of — grants": {
         "shares": "9900000000000000",
-        "txHash": "0xf4e65ae661355b40b5eb0c31b1f5d2baf1190d9fcfebe1bcb2829b0125f01637"
+        "txHash": "0xc048f9b6f27adc8c0d6f171cca41394adb01bb7caabd306ee767b63141f1eb51"
       },
       "payroll — is a sub-domain of — treasury": {
         "shares": "9900000000000000",
-        "txHash": "0xe00f70e7dd49976f1e5685fd6033c62a96b41aae2c6d4711014431ba71ec62a0"
+        "txHash": "0x6ca4184681dbc5b346b429446bbf7bedaeb743da2f5a75ddbbeb60550c346100"
       },
       "contributor-comp — is a sub-domain of — payroll": {
         "shares": "9900000000000000",
-        "txHash": "0xcacab23eae3efe06c62996ae5b1f513254dae06793a128e983f759954ebf7feb"
+        "txHash": "0x99539586f06500f5f914a0ab89f5636f1758693ff76808c06f1263c0eab71264"
       },
       "protocol — is a sub-domain of — governance": {
         "shares": "9900000000000000",
-        "txHash": "0x294b38899e23b292206d948e0a462fa8572e95577c3d82e4f2d65da62f2963b1"
+        "txHash": "0xb9385b59770c33e1ee50198622ce7a7910622ea2d8625b2e65f622acde019f68"
       },
       "parameters — is a sub-domain of — protocol": {
         "shares": "9900000000000000",
-        "txHash": "0x5bd44b9e9c977eb629e7dd67952e5c7955f232dd1efff5a2f729c0642a61e7af"
+        "txHash": "0x9252aa64e94dd0874e020c7cb1c761ba839cdbb581171ff6d8dc187e6b7f2963"
       },
       "fee-switch — is a sub-domain of — parameters": {
         "shares": "9900000000000000",
-        "txHash": "0x4069c9355eb73fbda2d4c7d336c1aa57605e128f24ee8a203cd20b052273a5a4"
+        "txHash": "0x3b2280cecf2acf091685f549873abefa06071e765ad5f065d50afa1bd7ab30d5"
       },
       "rate-model — is a sub-domain of — parameters": {
         "shares": "9900000000000000",
-        "txHash": "0xa060753d01be0f1f877f2ffa7c6bf0925f30e6ec3093a69e2fb90be05ad934d9"
+        "txHash": "0x131f3c9d6e4edd49bd09532b4fe42c18276a0f6670a21bea6f87bd417f506fc3"
       },
       "upgrades — is a sub-domain of — protocol": {
         "shares": "9900000000000000",
-        "txHash": "0x3d9b05742e0c47a26919ae1f0827c1d564243c6df304cfd69503066d6accf3e9"
+        "txHash": "0xc0dfd76a0be278bc8765ffaace79f15cd88b54199d7a6f7eeee336decfa04fb6"
       },
       "emergency-patches — is a sub-domain of — upgrades": {
         "shares": "9900000000000000",
-        "txHash": "0x8600065cb304db61acabd65c3e784b4a329886c5f9ac2e03236c4e6fe18427cb"
+        "txHash": "0x3555ffcd8032d01ba9f9c629f308d86aa670dbce329e304521d0f464cb87dda0"
       },
       "community — is a sub-domain of — governance": {
         "shares": "9900000000000000",
-        "txHash": "0xd593a86a7a7fb43a7bd13a754ea33497c2d0a4daa9d29cbf9d203eb0defb5aef"
+        "txHash": "0x9b8375c1dd960ceb39d4befdc31db828c9bd717be00146739b5c3b35e50a9490"
       },
       "events — is a sub-domain of — community": {
         "shares": "9900000000000000",
-        "txHash": "0xe726e452f564f5af32a3cf12d83b6ba645d081e8e0d80f19b05d404ba911acf5"
+        "txHash": "0x731d6de4e315d8343073f24fbdc129becb0a4dd5182d81f1e36bd82ff7e82fa9"
       },
       "content — is a sub-domain of — community": {
         "shares": "9900000000000000",
-        "txHash": "0x1fb64df1519e206ff99ab03c995974c0c4b27954d1a4425d4e3cd434b5d37761"
-      }
-    },
-    "stakers": {
-      "A": {
-        "address": "0x446FF798aC90133543eec03AeF31807C3DD4417B",
-        "txHash": "0x48c6b5075c8cf64dceeee2ea6810cb63c34a5b6c7145b0c09ad50c02eb1b047f"
-      },
-      "B": {
-        "address": "0xd99c420dfB29ba0af8EE9b7c45CE7Aa657226fa4",
-        "txHash": "0x00f311b95349f412879fb97c33f0bc72cf7195b0bfa153caf42d1458cffecccd"
-      },
-      "C": {
-        "address": "0x91C69d593583010C20F83932c779cE966D15A5b2",
-        "txHash": "0x7055a0e648be4bc5b1c56652c4cbf4ab06ba587b6fa5ba4e35d8b5a1690d4c2b"
+        "txHash": "0x5b01a57bb216c4e72ad10b0cc35df0f34c402a5a78351dd866ea99600ef6e569"
       }
     }
   }

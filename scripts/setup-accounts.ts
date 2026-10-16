@@ -16,13 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { intuitionTestnet, readManifest, writeManifest } from "./lib/network";
 import { toHybridAccount } from "../src/lib/chain/smart-accounts";
-import { multiVaultAbi } from "../src/lib/chain/abis";
 import { ROLES, type Role } from "../src/lib/roles";
-
-/** MultiVault approval types: 0 none, 1 deposit, 2 redemption, 3 both. */
-const APPROVAL_DEPOSIT = 1;
-/** Any non-zero value: the probe below is a simulation, so nothing is ever sent. */
-const APPROVAL_PROBE = 1n;
 
 const SA_GAS_TARGET = parseEther("0.02");
 
@@ -110,57 +104,6 @@ async function main(): Promise<void> {
 
   manifest.accounts = accounts;
 
-  // ── The three accounts are allowed to extend the graph in the curator's name ──────
-  //
-  // The enforcer reads one named attestor, so the graph has a single voice that counts.
-  // That voice is a role: a key today, the DAO in production, and the enforcer cannot
-  // tell which (ADR 0027). Keeping it single is what makes a delegation signed months ago
-  // cover a domain minted this minute — stake an edge for anyone else and it authorizes
-  // nothing.
-  //
-  // Which left only the curator able to add a domain at all, because `deposit` names a
-  // receiver and the MultiVault refuses one that is not the sender. So the curator
-  // approves the three accounts to deposit in its name: they pay and they create, the
-  // attestation stays the role's.
-  const stakers = manifest.curation.stakers ?? {};
-  if (!manifest.curation.curator) throw new Error("manifest curation.curator missing — run `bun run seed` first");
-  const curator = manifest.curation.curator;
-  const anyEdge = Object.values(manifest.vocabulary.triples)[0];
-  for (const role of ROLES) {
-    const staker = accounts[role]?.smartAccount;
-    if (!staker || !anyEdge) continue;
-    // Idempotent without an `approvals` view to read: simulate a deposit in the curator's
-    // name and only approve when the answer is that this account may not. Any other
-    // revert — a minimum, a balance — means the approval is already there.
-    const refused = await publicClient
-      .simulateContract({
-        address: manifest.multiVault,
-        abi: multiVaultAbi,
-        functionName: "deposit",
-        args: [curator, anyEdge, BigInt(manifest.curation.curveId ?? "1"), 0n],
-        value: APPROVAL_PROBE,
-        account: staker,
-      })
-      .then(() => null)
-      .catch((error: unknown) => (error instanceof Error ? error.message : String(error)));
-    // Only that one error means "not approved". A simulation that passed, or that failed
-    // for any other reason, says the approval is already in place.
-    if (refused === null || !refused.includes("SenderNotApproved")) {
-      console.log(`${role}: already approved to stake for the curator — skip`);
-      stakers[role] = stakers[role] ?? { address: staker, txHash: null };
-      continue;
-    }
-    const hash = await funderClient.writeContract({
-      address: manifest.multiVault,
-      abi: multiVaultAbi,
-      functionName: "approve",
-      args: [staker, APPROVAL_DEPOSIT],
-    });
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`${role}: approved to stake for the curator in ${hash}`);
-    stakers[role] = { address: staker, txHash: hash };
-  }
-  manifest.curation.stakers = stakers;
 
   writeManifest(manifest);
   const funderBalance = await publicClient.getBalance({ address: funder.address });
