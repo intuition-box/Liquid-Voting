@@ -11,18 +11,14 @@
 
 import { configFromManifest } from "./lib/config";
 import { createChainClient } from "../src/lib/chain/network";
+import { proposalDomainsAbi } from "../src/lib/chain/abis";
+import { probeClosedAttacks } from "./lib/attacks";
 import { isDelegationDisabled } from "../src/lib/delegation/encoding";
 import { readProposals, readRegister } from "../src/lib/actions";
 import { DomainGraph } from "../src/lib/graph/domain-graph";
 import { readEdgeStates } from "../src/lib/graph/edges";
 
 
-/**
- * The demo script's claims, as assertions: who votes, on which domain, and what the
- * chain does about it. `heldOn` is the domain the voter's chain was actually granted on —
- * for the failing cases it differs from the domain being voted, which is the point: the
- * chain is real and gets redeemed, and the enforcer is what refuses it.
- */
 /**
  * What the domain register must and must not let through, read without touching state.
  *
@@ -51,6 +47,23 @@ async function main(): Promise<void> {
     failures += 1;
     console.log(`FAIL  ${line}`);
   };
+
+  // Step 0 — the governor and the resolver must know each other, or nothing below means
+  // anything. The resolver takes a domain from the governor alone and the governor was
+  // constructed with the resolver, so a deploy that skipped `bindGovernor` leaves a pair
+  // that compiles, deploys, and silently scopes nothing.
+  const boundTo = await client.readContract({
+    address: config.resolver,
+    abi: proposalDomainsAbi,
+    functionName: "governor",
+  });
+  if (boundTo.toLowerCase() === config.governor.toLowerCase()) {
+    console.log(`ok    the resolver records domains for this governor only  ${boundTo}`);
+  } else if (boundTo === "0x0000000000000000000000000000000000000000") {
+    fail("the resolver was never bound to a governor — nothing can scope a proposal. Re-run the deploy script.");
+  } else {
+    fail(`the resolver is bound to ${boundTo}, not to this governor ${config.governor}`);
+  }
 
   // Panel 1 — the graph must be attested, or nothing authorizes anything.
   const edges = await readEdgeStates(client, config.multiVault, config.edges, config.attestor, config.curveId);
@@ -104,8 +117,24 @@ async function main(): Promise<void> {
     Object.entries(byRole).map(([from, to]) => `${from} → ${to} on “${scope}”`),
   );
   if (held.length === 0) console.log("ok    nothing delegated — every account opens holding its own vote");
-  else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or re-run \`bun run seed:proposals\``);
+  else fail(`the register is not clean: ${held.join(", ")} — take them back in the app, or run \`bun run reset\``);
 
+
+  // The four attacks that were open, replayed against the contracts actually deployed.
+  //
+  // The Foundry regressions in test/governance/OZGovernor.t.sol prove the source refuses.
+  // They cannot prove that the address in the manifest holds that source — a suite stays
+  // green while a stale build sits on chain, which is the version of this that would hurt
+  // on stage. So each one is sent as an `eth_call` here: no transaction, no cost, and a
+  // revert is the pass.
+  //
+  // Each was reproduced as a success before it was fixed. The first returned 100 — an
+  // address holding nothing casting A's whole weight against its will.
+  const attacks = await probeClosedAttacks(client, config, proposals);
+  for (const attack of attacks) {
+    if (attack.closed) console.log(`ok    ${attack.label}  ${attack.error}`);
+    else fail(`${attack.label} — ${attack.error}. The deployed governor is not the audited one.`);
+  }
 
   console.log(failures === 0 ? "\nDemo is ready — every panel verified against live state." : `\n${failures} check(s) failed — fix before presenting.`);
   if (failures > 0) process.exit(1);

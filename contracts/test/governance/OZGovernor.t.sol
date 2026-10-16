@@ -45,6 +45,8 @@ contract DomainScopedGovernorTest is Test {
     address internal alice = address(0xA);
     address internal bob = address(0xB);
     address internal carol = address(0xC);
+    /// @dev Holds nothing at setup — the recipient in the live-weight trade-off test.
+    address internal dave = address(0xD);
 
     bytes32 internal constant PREDICATE = keccak256("is a sub-domain of");
     bytes32 internal constant TREASURY = keccak256("treasury");
@@ -56,6 +58,9 @@ contract DomainScopedGovernorTest is Test {
         vault = new MockMultiVault();
         resolver = new ProposalDomains();
         governor = new OZGovernor(IVotes(address(token)), vault, PREDICATE, resolver, false);
+        // The resolver exists first because the governor takes it as an argument, so the
+        // governor is named here rather than in its constructor. Once, by the deployer.
+        resolver.bindGovernor(address(governor));
 
         // grants sits under treasury; community does not.
         vault.createTriple(GRANTS, PREDICATE, TREASURY);
@@ -79,10 +84,24 @@ contract DomainScopedGovernorTest is Test {
         targets[0] = address(governor);
         calldatas[0] = "";
 
-        vm.prank(alice);
+        vm.startPrank(alice);
         proposalId = governor.propose(targets, values, calldatas, vm.toString(domainId));
-        resolver.scopeProposal(proposalId, domainId);
+        // Through the governor and as the proposer: the resolver takes nothing from
+        // anybody else, and the governor takes nothing from a non-proposer.
+        governor.scopeProposal(proposalId, domainId);
+        vm.stopPrank();
         vm.roll(block.number + governor.votingDelay() + 1);
+    }
+
+    /// @dev A proposal by alice, proposed and left unscoped.
+    function _proposeWithoutScoping() internal returns (uint256 proposalId) {
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        targets[0] = address(governor);
+        calldatas[0] = "";
+        vm.prank(alice);
+        proposalId = governor.propose(targets, values, calldatas, "unscoped");
     }
 
     /// @dev The params an account passes to claim delegated weight on a domain.
@@ -325,8 +344,144 @@ contract DomainScopedGovernorTest is Test {
 
     function test_ResolverRecordsADomainOnce() public {
         uint256 id = _propose(GRANTS);
+        vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(ProposalDomains.DomainAlreadySet.selector, id, GRANTS));
-        resolver.scopeProposal(id, COMMUNITY);
+        governor.scopeProposal(id, COMMUNITY);
+    }
+
+    // ── Who may say which domain a proposal belongs to ───────────────────────────────
+    //
+    // The resolver used to take a domain from anyone, and wrote it once. An OZ proposal
+    // id is derived from the proposal's own contents, so it is known before `propose` is
+    // called, and scoping is a second transaction — which left a window in which anybody
+    // could fix a proposal to a domain of their choosing, permanently.
+
+    function test_AStrangerCannotScopeAProposal() public {
+        uint256 id = _proposeWithoutScoping();
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(OZGovernor.NotTheProposer.selector, carol, alice));
+        governor.scopeProposal(id, COMMUNITY);
+    }
+
+    function test_TheProposerCanScopeItsOwnProposal() public {
+        uint256 id = _proposeWithoutScoping();
+        vm.prank(alice);
+        governor.scopeProposal(id, GRANTS);
+        assertEq(resolver.proposalDomain(id), GRANTS, "the proposer's domain is the one recorded");
+    }
+
+    /// Nobody can get ahead of a proposal that does not exist yet: `proposalProposer`
+    /// answers the zero address, and no caller is the zero address.
+    function test_NobodyCanScopeAProposalThatDoesNotExist() public {
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(OZGovernor.NotTheProposer.selector, carol, address(0)));
+        governor.scopeProposal(999, GRANTS);
+    }
+
+    function test_TheResolverRefusesEveryoneButTheGovernor() public {
+        uint256 id = _proposeWithoutScoping();
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(ProposalDomains.NotTheGovernor.selector, alice));
+        resolver.scopeProposal(id, GRANTS);
+    }
+
+    function test_TheGovernorIsBoundOnceAndOnlyByTheDeployer() public {
+        ProposalDomains fresh = new ProposalDomains();
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(ProposalDomains.NotTheInitializer.selector, carol));
+        fresh.bindGovernor(address(governor));
+
+        fresh.bindGovernor(address(governor));
+        vm.expectRevert(abi.encodeWithSelector(ProposalDomains.AlreadyBound.selector, address(governor)));
+        fresh.bindGovernor(carol);
+    }
+
+    // ── How far a voice is followed ──────────────────────────────────────────────────
+
+    /// A chain longer than the register follows is refused, not answered wrongly. The
+    /// walk used to borrow `MAX_DOMAIN_PATH`, stop at the sixth account and return it as
+    /// if it were the last, which credited the voice to the wrong holder in silence.
+    function test_ALendingChainPastTheCapIsRefused() public {
+        // Nine accounts, each lending `treasury` to the next: one hop past the cap.
+        address[] memory line = new address[](10);
+        for (uint256 i_; i_ < line.length; ++i_) {
+            line[i_] = address(uint160(0x1000 + i_));
+            token.mint(line[i_], 10);
+            vm.prank(line[i_]);
+            token.delegate(line[i_]);
+        }
+        vm.roll(block.number + 1);
+        for (uint256 i_; i_ + 1 < line.length; ++i_) {
+            vm.prank(line[i_]);
+            governor.delegateWeight(line[i_ + 1], TREASURY, 10);
+        }
+
+        bytes32[] memory path = _path(GRANTS, TREASURY);
+        address[] memory principal = new address[](1);
+        principal[0] = line[0];
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.LendingChainTooLong.selector, line[0]));
+        governor.weightFor(line[9], GRANTS, principal, path);
+    }
+
+    /// And a chain that fits is still followed all the way to its end.
+    function test_ALendingChainWithinTheCapStillResolves() public {
+        address[] memory line = new address[](4);
+        for (uint256 i_; i_ < line.length; ++i_) {
+            line[i_] = address(uint160(0x2000 + i_));
+            token.mint(line[i_], 10);
+            vm.prank(line[i_]);
+            token.delegate(line[i_]);
+        }
+        vm.roll(block.number + 1);
+        for (uint256 i_; i_ + 1 < line.length; ++i_) {
+            vm.prank(line[i_]);
+            governor.delegateWeight(line[i_ + 1], TREASURY, 10);
+        }
+
+        bytes32[] memory path = _path(GRANTS, TREASURY);
+        address[] memory principal = new address[](1);
+        principal[0] = line[0];
+        assertEq(
+            governor.weightFor(line[3], GRANTS, principal, path),
+            20,
+            "the last in the chain carries its own ten and the first account's ten"
+        );
+    }
+
+    // ── What live weight costs, stated as a test ─────────────────────────────────────
+    //
+    // `SNAPSHOT_WEIGHT` is false here and in the deployment, which is the whole reason a
+    // delegation signed now applies to a proposal already open — the claim the project
+    // rests on. The price is below, and it is not the flash-loan point the constructor's
+    // comment makes: the same tokens, moved between accounts, vote twice.
+    //
+    // The ledger stops a *voice* being spent twice, and it keys that by account. Tokens
+    // that change hands arrive as a different account's weight, and no register has
+    // anything to say about them. Snapshot weight is what closes it, at the cost of the
+    // feature; a token that refuses transfers while a vote is open would be the other
+    // way. Both are Mission 11 decisions, not POC ones — recorded here so the trade is
+    // visible rather than implied, and so flipping the flag has a test that changes.
+
+    function test_LiveWeight_LetsTheSameTokensVoteTwiceAcrossAccounts() public {
+        uint256 id = _propose(GRANTS);
+        bytes32[] memory path = _path(GRANTS, TREASURY);
+        address[] memory none = new address[](0);
+
+        vm.prank(alice);
+        governor.castVoteWithReasonAndParams(id, 1, "", _params(id, path, none));
+
+        // The same hundred tokens, now held by someone who has not voted.
+        vm.prank(alice);
+        token.transfer(dave, 100);
+        vm.prank(dave);
+        token.delegate(dave);
+        vm.roll(block.number + 1);
+
+        vm.prank(dave);
+        governor.castVoteWithReasonAndParams(id, 1, "", _params(id, path, none));
+
+        (, uint256 forVotes_,) = governor.proposalVotes(id);
+        assertEq(forVotes_, 200, "a hundred tokens cast two hundred votes: the cost of live weight");
     }
 
     // ── Weight is spent once, whoever spends it ──────────────────────────────────────
@@ -656,5 +811,103 @@ contract DomainScopedGovernorTest is Test {
     {
         vm.prank(voter);
         weight_ = governor.castVoteWithReasonAndParams(proposalId, 1, "", _params(proposalId, path, principals));
+    }
+
+    // ── Who may have a vote recorded in whose name ──────────────────────────────────
+    //
+    // `castVoteFor` is an ordinary external function. A direct call never touches the
+    // DelegationManager, so the caveat's `voter == redeemer` check does not run — and for
+    // a while nothing else did either. Any address could name any holder and spend its
+    // whole weight, in whichever direction it chose, leaving the holder unable to vote on
+    // that proposal at all. Proven against the deployed governor before it was fixed.
+
+    function test_RevertWhen_AStrangerVotesInSomebodyElsesName() public {
+        uint256 id = _propose(GRANTS);
+        address stranger = address(0xdEaD);
+
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, stranger, alice));
+        vm.prank(stranger);
+        governor.castVoteFor(id, 0, alice, new address[](0), _path(GRANTS, TREASURY));
+
+        (uint256 against, uint256 forVotes,) = governor.proposalVotes(id);
+        assertEq(against, 0, "nothing was recorded");
+        assertEq(forVotes, 0);
+        assertFalse(governor.hasVoted(id, alice), "and alice can still vote herself");
+    }
+
+    /// Holding weight is not entitlement either — the question is who you lent it to.
+    function test_RevertWhen_AHolderVotesInAnotherHoldersName() public {
+        uint256 id = _propose(GRANTS);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, carol, alice));
+        vm.prank(carol);
+        governor.castVoteFor(id, 1, alice, new address[](0), _path(GRANTS, TREASURY));
+    }
+
+    /// The legitimate shape: a redemption arrives from the root delegator's account, and
+    /// its weight routes to the voter it names.
+    function test_TheRootDelegatorMayNameItsDelegate() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.prank(alice);
+        uint256 weight = governor.castVoteFor(id, 1, bob, _list(bob, alice), _path(GRANTS, TREASURY));
+        assertEq(weight, 200, "bob's own plus alice's");
+    }
+
+    /// And along a chain: A lends to B, B lends to C, so A may name C.
+    function test_TheRootOfAChainMayNameItsEnd() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        vm.prank(bob);
+        governor.delegateWeight(carol, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.prank(alice);
+        assertEq(governor.castVoteFor(id, 1, carol, _list(carol, bob, alice), _path(GRANTS, TREASURY)), 300);
+
+        // But not the middle of it: B passed the voice on and holds nothing to route.
+        uint256 other = _propose(COMMUNITY);
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.NotEntitledToVoteFor.selector, alice, bob));
+        vm.prank(alice);
+        governor.castVoteFor(other, 1, bob, new address[](0), new bytes32[](0));
+    }
+
+    // ── The ledger and the tally are one number ─────────────────────────────────────
+
+    /// The params carry a proposal id of their own, and `_getVotes` used to resolve the
+    /// domain from that one while the ledger resolved it from the real one. Naming a
+    /// proposal with no domain returned a raw token balance — lending and ledger both
+    /// invisible — while the ledger recorded nothing, so the same weight could be spent
+    /// again by its delegate.
+    function test_RevertWhen_TheParamsNameADifferentProposal() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        bytes memory lying = _params(0, new bytes32[](0), new address[](0));
+        vm.expectRevert(abi.encodeWithSelector(DomainVotes.ProposalMismatch.selector, 0, id));
+        vm.prank(alice);
+        governor.castVoteWithReasonAndParams(id, 1, "", lying);
+    }
+
+    /// The whole point of refusing it: alice had lent everything away, so claiming the
+    /// raw balance would have let her weight count twice on one proposal.
+    function test_ALenderCannotRecoverItsWeightByNamingAnotherProposal() public {
+        vm.prank(alice);
+        governor.delegateWeight(bob, TREASURY, 100);
+        uint256 id = _propose(GRANTS);
+
+        vm.expectRevert();
+        vm.prank(alice);
+        governor.castVoteWithReasonAndParams(id, 1, "", _params(0, new bytes32[](0), new address[](0)));
+
+        // Honestly, she casts nothing: it is all with bob.
+        assertEq(_voteFor(id, alice, new address[](0)), 0);
+        // And bob still carries it, because the refused attempt spent nothing — which is
+        // the point. Alice'''s hundred counts once, through the delegate she lent it to.
+        assertEq(_voteFor(id, bob, _list(bob, alice)), 200, "bob'''s own hundred plus alice'''s");
+        (, uint256 forVotes,) = governor.proposalVotes(id);
+        assertEq(forVotes, 200, "never more than the two of them hold");
     }
 }

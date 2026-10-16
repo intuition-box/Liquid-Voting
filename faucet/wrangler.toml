@@ -4,7 +4,9 @@ compatibility_date = "2026-01-15"
 
 # The origins allowed to ask for a session. Add the Pages URL once it is live.
 [vars]
-ALLOWED_ORIGINS = "https://wieedze.github.io,http://localhost:5173"
+# Set this to wherever the site is actually served from before deploying — the committed
+# value is a guess and a wrong one refuses every call at the CORS preflight, silently.
+ALLOWED_ORIGINS = "http://localhost:5173"
 
 # npx wrangler kv namespace create FAUCET_LIMITS, then paste the id it prints.
 [[kv_namespaces]]

@@ -101,13 +101,32 @@ export default {
       return text("The faucet is out of tTRUST. The demo is still readable; ask for a top-up.", 503, cors);
     }
 
-    const wallet = createWalletClient({ chain: intuitionTestnet, transport, account });
-    const txHash = await wallet.sendTransaction({ to: address as `0x${string}`, value: GRANT });
+    // The caller's turn is claimed BEFORE the send, and released if the send fails.
+    //
+    // It used to be recorded after, reasoning that a failed send should not cost anybody
+    // their turn. That reasoning is sound and the ordering was not: every check above is
+    // a read, so N requests arriving together all read an empty slot, all pass, and all
+    // send before any of them writes. One IP could take the whole float in a burst, and
+    // the per-caller window — the thing standing between the faucet and a loop — did
+    // nothing at all. Claiming first costs a visitor their turn only when the send
+    // throws, and the release below gives it straight back.
+    await env.FAUCET_LIMITS.put(`caller:${caller}`, "pending", { expirationTtl: WINDOW_SECONDS });
 
-    // Recorded after the send, so a failure to send does not consume the caller's turn.
-    // The reverse would be safer against a double spend; this is a testnet faucet handing
-    // out three cents, and a visitor locked out by a transient node error is the worse
-    // outcome.
+    const wallet = createWalletClient({ chain: intuitionTestnet, transport, account });
+    let txHash: `0x${string}`;
+    try {
+      txHash = await wallet.sendTransaction({ to: address as `0x${string}`, value: GRANT });
+    } catch (error) {
+      await env.FAUCET_LIMITS.delete(`caller:${caller}`);
+      throw error;
+    }
+
+    // The daily counter stays best-effort, and KV is why: it offers no compare-and-swap,
+    // so this read-modify-write can only ever lose concurrent increments — ten requests
+    // in the same instant advance it by one. What bounds the damage is the balance check
+    // above, which caps a burst at the faucet's float rather than at this number. A
+    // Durable Object is what would make the ceiling exact, and that is the right shape
+    // for a faucet handing out more than three cents.
     await Promise.all([
       env.FAUCET_LIMITS.put(`caller:${caller}`, txHash, { expirationTtl: WINDOW_SECONDS }),
       env.FAUCET_LIMITS.put(`day:${today}`, String(spentToday + 1), { expirationTtl: 60 * 60 * 48 }),

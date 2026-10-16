@@ -97,12 +97,6 @@ const OPTIONS = [
   { support: VOTE_ABSTAIN, label: "abstain" },
 ];
 
-/**
- * Every proposal, each with its own vote buttons.
- *
- * B votes on all of them, but the weight differs: inside the delegated domain A's weight
- * comes along, outside it B votes alone. That contrast is the demo.
- */
 /** The weight a role casts on one domain, defaulting to nothing while reads are in flight. */
 function votingPowerOf(
   weights: Record<string, Record<Role, bigint>>,
@@ -112,6 +106,12 @@ function votingPowerOf(
   return weights[domainId.toLowerCase()]?.[role] ?? 0n;
 }
 
+/**
+ * Every proposal, each with its own vote buttons.
+ *
+ * B votes on all of them, but the weight differs: inside the delegated domain A's weight
+ * comes along, outside it B votes alone. That contrast is the demo.
+ */
 export function ProposalsPanel({
   config,
   client,
@@ -178,9 +178,22 @@ export function ProposalsPanel({
   //
   // Defeated proposals are left out: their voting window has closed, so they are a record
   // rather than something to act on, and they crowd out the ones that can still be voted.
-  const shown = rows.filter(
-    (row) => graph.isDescendantOf(row.domain, domain) && row.proposal.state !== "defeated",
-  );
+  /**
+   * What is on screen, open ones first.
+   *
+   * The list was newest-first and nothing else, so a closed proposal from an earlier
+   * run sat above the fresh one that replaced it, looking identical — the only tell was
+   * that its buttons were disabled. Open proposals are what a visitor can act on, so
+   * they come first; the rest are history and keep their own newest-first order
+   * underneath.
+   *
+   * Defeated ones stay hidden. A proposal whose voting period ran out without a vote is
+   * `Defeated` to OpenZeppelin, and a board full of those says nothing except that time
+   * passed.
+   */
+  const shown = rows
+    .filter((row) => graph.isDescendantOf(row.domain, domain) && row.proposal.state !== "defeated")
+    .sort((a, b) => Number(b.proposal.state === "active") - Number(a.proposal.state === "active"));
 
   async function vote(proposal: ProposalRecord, domain: string, support: number): Promise<void> {
     const key = proposal.id.toString();
@@ -287,7 +300,14 @@ export function ProposalsPanel({
                   <span className="stat-col">
                     {/* Your weight is per domain; whether it is still spendable is per
                         proposal. Once you have voted here, this row reads as cast. */}
-                    {mine ? (
+                    {/* A closed proposal cannot take your weight, so printing it would
+                        be answering a question nobody can act on. Saying so here is what
+                        tells an old row from a live one without opening it. */}
+                    {proposal.state !== "active" ? (
+                      <span className="weight-badge weight-badge-closed" title={`voting is over — ${proposal.state}`}>
+                        <Mono>closed</Mono>
+                      </span>
+                    ) : mine ? (
                       <span className="weight-badge weight-badge-cast" title={`you voted ${SUPPORT_LABELS[mine.support] ?? ""}`}>
                         <Mono>voted</Mono>
                       </span>

@@ -75,3 +75,14 @@ cast balance <faucet address> --rpc-url https://testnet.rpc.intuition.systems/ht
 
 If it runs dry the demo does not break — it opens read-only, and everything already on
 chain stays readable: the graph, the delegations, every vote and who carried it.
+
+## Before deploying
+
+```bash
+bun install          # inside faucet/
+bun run typecheck    # the worker is not covered by the root tsconfig
+```
+
+Set `ALLOWED_ORIGINS` in `wrangler.toml` to wherever the site is actually served from.
+The committed value is localhost only, and a wrong one refuses every call at the CORS
+preflight with nothing useful in the console.

@@ -163,7 +163,6 @@ export function App() {
                   delegations={demo.delegations}
                   writable={demo.writable}
                   role={role}
-                  grants={demo.grants}
                   domain={domain}
                   onSigned={demo.addGrant}
                   onRevoked={demo.revokeGrant}

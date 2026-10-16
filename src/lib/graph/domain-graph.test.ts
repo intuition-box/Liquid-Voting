@@ -9,7 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { DomainGraph } from "./domain-graph";
+import { checkDomainLabel, DomainGraph, MAX_DOMAIN_LABEL } from "./domain-graph";
 import type { DomainNode, EdgeState } from "./edges";
 
 const id = (label: string): `0x${string}` =>
@@ -93,5 +93,34 @@ describe("the shape of the tree", () => {
     // The rail draws the graph as it is; authority is a separate question it marks.
     expect(graph.childrenOf("governance").sort()).toEqual(["events", "treasury"]);
     expect(graph.childrenOf("micro")).toEqual([]);
+  });
+});
+
+describe("checkDomainLabel", () => {
+  test("refuses an empty label, which is what reached the MultiVault as 0x", () => {
+    expect(checkDomainLabel("", graph)).toEqual({ ok: false, reason: "a domain needs a name" });
+  });
+
+  test("refuses a label that is only whitespace — it used to mint and cost", () => {
+    expect(checkDomainLabel("   ", graph).ok).toBe(false);
+  });
+
+  test("trims, so the label checked is the label minted", () => {
+    expect(checkDomainLabel("  motion design  ", graph)).toEqual({ ok: true, label: "motion design" });
+  });
+
+  test("refuses a label already in the graph: atoms are content-addressed, so it would hang in two places", () => {
+    const check = checkDomainLabel("treasury", graph);
+    expect(check.ok).toBe(false);
+    if (!check.ok) expect(check.reason).toContain("already a domain");
+  });
+
+  test("refuses the edge separator, which the manifest splits keys on", () => {
+    expect(checkDomainLabel("a — b", graph).ok).toBe(false);
+  });
+
+  test("refuses a label past the cap", () => {
+    expect(checkDomainLabel("x".repeat(MAX_DOMAIN_LABEL + 1), graph).ok).toBe(false);
+    expect(checkDomainLabel("x".repeat(MAX_DOMAIN_LABEL), graph).ok).toBe(true);
   });
 });

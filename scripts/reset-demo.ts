@@ -72,16 +72,10 @@ async function main(): Promise<void> {
   const failed: string[] = [];
   for (const label of needed) {
     try {
-      // OZ derives a proposal's id from the call and its description, so reusing a
-      // description that has already been proposed collides with the existing one and
-      // reverts. The round makes each one distinct without saying anything the reader
-      // has to care about.
-      const { proposalId } = await recordProposal(
-        client,
-        config,
-        label,
-        `Decide the next step for ${label} (${new Date().toISOString().slice(0, 16)})`,
-      );
+      // `recordProposal` stamps the description itself, because the uniqueness of an id
+      // is a property of how OZ derives one and not something each caller should have to
+      // remember — two of the three callers had got it wrong.
+      const { proposalId } = await recordProposal(client, config, label, `Decide the next step for ${label}`);
       console.log(`  “${label}” gets a fresh proposal #${proposalId}`);
     } catch (error) {
       failed.push(label);

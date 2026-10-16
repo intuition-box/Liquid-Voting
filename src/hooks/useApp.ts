@@ -5,6 +5,7 @@ import { createChainClient } from "../lib/chain/network";
 import { isDelegationDisabled } from "../lib/delegation/encoding";
 import { BOOTSTRAP_STAGES, bootstrapSession } from "../lib/chain/bootstrap";
 import { clearSession, readSession, type Session } from "../lib/chain/session";
+import { forgetLogs } from "../lib/chain/logs";
 import { logError } from "../lib/chain/tx-log";
 import { connectWallet, disconnectWallet, hasWallet, restoreWallet, watchWallet } from "../lib/chain/wallet";
 import {
@@ -446,6 +447,8 @@ export function useApp(): AppState {
         funder,
         governor: baseConfig.governor,
         votesToken: baseConfig.votesToken,
+        multiVault: baseConfig.multiVault,
+        attestor: baseConfig.attestor,
         rpcUrl: baseConfig.rpcUrl,
         onProgress: (stage, done, total) => setBootstrapping({ stage, done, total }),
       });
@@ -466,6 +469,9 @@ export function useApp(): AppState {
 
   /** Forgets this browser's wallets. What they did stays on chain, as it should. */
   const endSession = useCallback((): void => {
+    // Start the log reads over too. Nothing read so far is wrong, but forgetting the
+    // session is the one moment that means "from the top", and a fresh read is cheap.
+    forgetLogs();
     clearSession();
     setSession(null);
     setRevokedGrants([]);
@@ -489,7 +495,11 @@ export function useApp(): AppState {
     bootstrapError,
     startSession,
     endSession,
-    canStartSession: baseConfig !== null && resolveFunder(baseConfig) !== null,
+    // `funderKind`, not `resolveFunder`. The latter deliberately omits the wallet case,
+    // because a live connection is not derivable from config — so asking it here meant a
+    // hosted build with MetaMask installed reported "no way to pay for a session" and
+    // never offered the button the README is built around.
+    canStartSession: baseConfig !== null && funderKind(baseConfig) !== null,
     funder: baseConfig ? funderKind(baseConfig) : null,
     configResult,
     config,

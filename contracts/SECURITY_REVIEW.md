@@ -1,5 +1,34 @@
 # Security review — GraphDomainScope (+ DemoGovernor, IMultiVault, Deploy.s.sol)
 
+> **Scope warning, added 2026-10-15.** This review covers the contracts as they stood on
+> 2026-08-17. It does **not** cover `OZGovernor`, `DomainVotes` or `ProposalDomains` —
+> the contracts the app actually runs on — because none of them existed when it was
+> written. `DemoGovernor`, which it does review, is still deployed but no longer used by
+> the frontend.
+>
+> Read its verdicts as scoped to the enforcer. In particular, "Access control — clean"
+> was true of the enforcer and is not a statement about the governor: an audit on
+> 2026-10-15 found `OZGovernor.castVoteFor` reading no `msg.sender` at all, which let any
+> address cast any holder's full weight in either direction, and found `_getVotes`
+> resolving a proposal's domain from the caller's own params while the ledger used the
+> real one. Both were reproduced against the deployed governor and both are fixed; see
+> the commits of that date and the regressions in
+> `test/governance/OZGovernor.t.sol`.
+>
+> What that audit also left standing, deliberately:
+>
+> - **Live weight (`SNAPSHOT_WEIGHT = false`) lets the same tokens vote twice** across
+>   two accounts, by voting and then transferring. It is the price of a delegation
+>   applying to proposals already open, which is the project's central claim, so it is
+>   kept and asserted by
+>   `test_LiveWeight_LetsTheSameTokensVoteTwiceAcrossAccounts`. Snapshot weight closes it
+>   at the cost of the feature — a Mission 11 decision.
+> - The POC's governance has **no timelock, no quorum tuning and no proposal threshold**
+>   beyond `GovernorSettings` defaults, and `propose` is permissionless.
+>
+> A review of the governor contracts in the form of this document has not been written.
+> Treat that as a gap, not as a clean bill.
+
 **Reviewed:** 2026-08-17
 **Commit:** 98adc1aa8e886d9db208ca156a9646855cdf804d
 **Reviewer:** contract-reviewer agent

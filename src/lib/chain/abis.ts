@@ -1,6 +1,27 @@
 /** Shared ABI fragments — the single source for both the CLI scripts and the frontend. */
 
 export const multiVaultAbi = [
+  /**
+   * Approval, and the error for its absence.
+   *
+   * `deposit` names a `receiver`, and the MultiVault refuses one that is not the sender
+   * unless the receiver approved it first. The demo stakes every edge for the curator —
+   * the single attestor the signed delegations name — so a browser session, whose
+   * submitter is a burner wallet, cannot stake at all until the curator approves it.
+   *
+   * The error is listed so viem can name it. Without it the panel showed
+   * `Unable to decode signature "0xd76f6ff8"` and a link to a 4-byte directory.
+   *
+   * The enum is the usual one: 0 none, 1 deposit, 2 redemption, 3 both.
+   */
+  { type: "error", name: "MultiVault_SenderNotApproved", inputs: [] },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "sender", type: "address" }, { name: "approvalType", type: "uint8" }],
+    outputs: [],
+  },
   { type: "function", name: "calculateAtomId", stateMutability: "pure", inputs: [{ name: "data", type: "bytes" }], outputs: [{ type: "bytes32" }] },
   {
     type: "function",
@@ -205,7 +226,7 @@ export const entryPointAbi = [
 /**
  * The OpenZeppelin governor, and the token it reads weight from.
  *
- * Separate from `governorAbi` because the two governors genuinely differ. OZ has no
+ * The only governor ABI here: the demo's own governor is gone and so is its ABI. OZ has no
  * proposal counter and no stored proposal struct: ids are hashes and the details live in
  * events, so listing proposals means reading `ProposalCreated` rather than counting up
  * from zero. Voting goes through `castVoteWithReasonAndParams`, which is the entry point
@@ -314,6 +335,37 @@ export const ozGovernorAbi = [
     ],
     outputs: [{ type: "uint256" }],
   },
+  // OpenZeppelin's own reverts, so a direct call decodes them. `revertAbi` carries these
+  // too, but that one is only consulted for a user operation's inner revert — viem
+  // decodes a `writeContract` failure against the ABI it was handed, which is this one.
+  // Without them a collided proposal id came back as a bare `0x31b75e4d`.
+  { type: "error", name: "GovernorAlreadyCastVote", inputs: [{ name: "voter", type: "address" }] },
+  { type: "error", name: "GovernorNonexistentProposal", inputs: [{ name: "proposalId", type: "uint256" }] },
+  {
+    type: "error",
+    name: "GovernorUnexpectedProposalState",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "current", type: "uint8" },
+      { name: "expectedStates", type: "bytes32" },
+    ],
+  },
+  { type: "error", name: "GovernorInvalidVoteType", inputs: [] },
+  { type: "error", name: "GovernorRestrictedProposer", inputs: [{ name: "proposer", type: "address" }] },
+  {
+    type: "error",
+    name: "GovernorInsufficientProposerVotes",
+    inputs: [
+      { name: "proposer", type: "address" },
+      { name: "votes", type: "uint256" },
+      { name: "threshold", type: "uint256" },
+    ],
+  },
+  { type: "error", name: "DomainNotNamed", inputs: [{ name: "account", type: "address" }] },
+  { type: "error", name: "AlreadyDelegated", inputs: [{ name: "delegator", type: "address" }, { name: "domainId", type: "bytes32" }, { name: "delegate", type: "address" }] },
+  { type: "error", name: "CircularDelegation", inputs: [{ name: "delegator", type: "address" }, { name: "delegate", type: "address" }, { name: "domainId", type: "bytes32" }] },
+  { type: "error", name: "AmountExceedsBalance", inputs: [{ name: "delegator", type: "address" }, { name: "amount", type: "uint256" }, { name: "balance", type: "uint256" }] },
+
   // One per voice a vote carried, indexed by principal — which is what turns "what was
   // cast in my name?" into a single filtered query instead of a scan of every vote.
   {
@@ -339,14 +391,33 @@ export const ozGovernorAbi = [
   { type: "function", name: "MAX_DOMAIN_PATH", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
-/** Records which domain a proposal belongs to, since an OZ proposal carries none. */
-export const proposalDomainsAbi = [
+/** The governor's own scoping entry point — the only writer the resolver accepts. */
+export const scopeProposalAbi = [
   {
     type: "function",
     name: "scopeProposal",
     stateMutability: "nonpayable",
     inputs: [{ name: "proposalId", type: "uint256" }, { name: "domainId", type: "bytes32" }],
     outputs: [],
+  },
+] as const;
+
+/**
+ * Records which domain a proposal belongs to, since an OZ proposal carries none.
+ *
+ * Read-only from here: `scopeProposal` is on the resolver too, but it accepts the
+ * governor and nobody else, so the frontend calls `scopeProposalAbi` above against the
+ * governor instead. `governor` is exposed so `bun run verify` can prove the two were
+ * bound to each other — a resolver deployed without that step is one no proposal can
+ * ever be scoped in, and every vote on this governor would read a zero domain.
+ */
+export const proposalDomainsAbi = [
+  {
+    type: "function",
+    name: "governor",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
   },
   {
     type: "function",
